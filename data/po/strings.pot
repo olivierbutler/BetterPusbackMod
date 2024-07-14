@@ -190,7 +190,7 @@ msgid "Never check \"set parking brake\".\n"
 msgstr ""
 
 msgid "Hides the shortcut buttons on the left side of the screen.\n"
-   "The first button starts the planner and the second starts the push-back.";
+   "The first button starts the planner and the second starts the push-back."
 msgstr ""
 
 msgid "Hides default X-Plane 11 pushback tug.\n"
@@ -218,26 +218,26 @@ msgstr ""
 msgid "Automatic"
 msgstr ""
 
-msgid ""Monitor #0"
+msgid "Monitor #0"
 msgstr ""
 
-msgid ""Monitor #1"
+msgid "Monitor #1"
 msgstr ""
 
-msgid ""Monitor #2"
+msgid "Monitor #2"
 msgstr ""
 
-msgid ""Monitor #3"
+msgid "Monitor #3"
 msgstr ""
 
-msgid ""Monitor #4"
+msgid "Monitor #4"
 msgstr ""
 
-msgid ""Monitor #5"
+msgid "Monitor #5"
 msgstr ""
 
 msgid "Magic squares position **"
 msgstr ""
 
 msgid "Slide this bar to move the magic squares up or down"
-msgid ""
+msgstr ""
