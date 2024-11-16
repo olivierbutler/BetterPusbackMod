@@ -54,7 +54,7 @@ typedef struct {
 #define    VCI_ZOOM(cmdname, z)        VCI(cmdname, 0, 0, 0, 0, 0, (z))
 
 
-extern bool_t bp_plan_callback_is_alive;
+extern int bp_plan_callback_is_alive;
 extern bool_t cam_inited;
 
 bool_t bp_cam_start(void);

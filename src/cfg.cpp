@@ -29,10 +29,7 @@
 
 #include <acfutils/assert.h>
 #include <acfutils/dr.h>
-// #include <acfutils/helpers.h>
 #include <acfutils/intl.h>
-// #include <acfutils/wav.h>
-// #include <acfutils/widget.h>
 
 #include "bp.h"
 #include "cfg.h"

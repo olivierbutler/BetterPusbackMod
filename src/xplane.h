@@ -63,6 +63,9 @@ extern bool_t  start_pb_plan_enable, start_pb_enable;
 #define BP_ERROR_LOG "ERROR: "
 #define BP_FATAL_LOG "FATAL ERROR: "
 
+#define CAMERA_TIMEOUT 1
+#define CAMERA_IS_OFF -1
+
 /*
  * X-Plane-specific plugin hooks.
  */

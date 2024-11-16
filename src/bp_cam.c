@@ -60,40 +60,43 @@
 #include "cfg.h"
 #include "msg.h"
 
-#define    MAX_PRED_DISTANCE    10000    /* meters */
-#define    ANGLE_DRAW_STEP        5
-#define    ORIENTATION_LINE_LEN    200
+#define MAX_PRED_DISTANCE 10000 /* meters */
+#define ANGLE_DRAW_STEP 5
+#define ORIENTATION_LINE_LEN 200
 
-#define    INCR_SMALL        5
-#define    INCR_MED        25
-#define    INCR_BIG        125
+#define INCR_SMALL 5
+#define INCR_MED 25
+#define INCR_BIG 125
 
-#define    AMBER_TUPLE        VECT3(0.9, 0.9, 0)    /* RGB color */
-#define    RED_TUPLE        VECT3(1, 0, 0)        /* RGB color */
-#define    GREEN_TUPLE        VECT3(0, 1, 0)        /* RGB color */
+#define AMBER_TUPLE VECT3(0.9, 0.9, 0) /* RGB color */
+#define RED_TUPLE VECT3(1, 0, 0)       /* RGB color */
+#define GREEN_TUPLE VECT3(0, 1, 0)     /* RGB color */
 
-#define    CLICK_DISPL_THRESH    5            /* pixels */
-#define    US_PER_CLICK_ACCEL    60000            /* microseconds */
-#define    US_PER_CLICK_DEACCEL    120000            /* microseconds */
-#define    MAX_ACCEL_MULT        10
-#define    WHEEL_ANGLE_MULT    0.5
+#define CLICK_DISPL_THRESH 5        /* pixels */
+#define US_PER_CLICK_ACCEL 60000    /* microseconds */
+#define US_PER_CLICK_DEACCEL 120000 /* microseconds */
+#define MAX_ACCEL_MULT 10
+#define WHEEL_ANGLE_MULT 0.5
 
-#define    MIN_BUTTON_SCALE    0.5
+#define MIN_BUTTON_SCALE 0.5
 
-#define    BP_PLANNER_VISIBILITY    40000    /* meters */
-#define    BP_PLANNER_VISIBILITY_SM 25      /* statut miles */
+#define BP_PLANNER_VISIBILITY 40000 /* meters */
+#define BP_PLANNER_VISIBILITY_SM 25 /* statut miles */
 
-#define    PREDICTION_DRAWING_PHASE    xplm_Phase_Window
-#define    PREDICTION_DRAWING_PHASE_BEFORE    1
+#define PREDICTION_DRAWING_PHASE xplm_Phase_Window
+#define PREDICTION_DRAWING_PHASE_BEFORE 1
 
-#if	IBM
-#define	BOTTOM_MSG_FONT		"Aileron\\Aileron-Regular.otf"
-#else	/* !IBM */
-#define	BOTTOM_MSG_FONT		"Aileron/Aileron-Regular.otf"
-#endif	/* !IBM */
-#define	BOTTOM_MSG_FONT_SIZE	18
+#if IBM
+#define BOTTOM_MSG_FONT "Aileron\\Aileron-Regular.otf"
+#else /* !IBM */
+#define BOTTOM_MSG_FONT "Aileron/Aileron-Regular.otf"
+#endif /* !IBM */
+#define BOTTOM_MSG_FONT_SIZE 18
 
-enum { MARGIN_SIZE = 10 };
+enum
+{
+    MARGIN_SIZE = 10
+};
 
 static vect3_t cam_pos;
 static double cam_height;
@@ -111,12 +114,13 @@ static bool_t saved_real_wx;
 static XPLMObjectRef cam_lamp_obj = NULL;
 static XPLMInstanceRef cam_lamp_inst = NULL;
 static const char *cam_lamp_drefs[] = {NULL};
-bool_t bp_plan_callback_is_alive = B_FALSE;
+int bp_plan_callback_is_alive = CAMERA_IS_OFF;
 
 static int key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey,
                        void *refcon);
 
-static struct {
+static struct
+{
     dr_t lat, lon;
     dr_t local_x, local_y, local_z;
     dr_t local_vx, local_vy, local_vz;
@@ -134,88 +138,77 @@ static struct {
 } drs;
 
 static view_cmd_info_t view_cmds[] = {
-        VCI_POS("sim/general/left", -INCR_MED, 0, 0),
-        VCI_POS("sim/general/right", INCR_MED, 0, 0),
-        VCI_POS("sim/general/up", 0, 0, INCR_MED),
-        VCI_POS("sim/general/down", 0, 0, -INCR_MED),
-        VCI_POS("sim/general/forward", 0, -INCR_MED, 0),
-        VCI_POS("sim/general/backward", 0, INCR_MED, 0),
-        VCI_POS("sim/general/zoom_in", 0, -INCR_MED, 0),
-        VCI_POS("sim/general/zoom_out", 0, INCR_MED, 0),
-        VCI_POS("sim/general/hat_switch_left", -INCR_MED, 0, 0),
-        VCI_POS("sim/general/hat_switch_right", INCR_MED, 0, 0),
-        VCI_POS("sim/general/hat_switch_up", 0, 0, INCR_MED),
-        VCI_POS("sim/general/hat_switch_down", 0, 0, -INCR_MED),
-        VCI_POS("sim/general/hat_switch_up_left", -INCR_MED, 0, INCR_MED),
-        VCI_POS("sim/general/hat_switch_up_right", INCR_MED, 0, INCR_MED),
-        VCI_POS("sim/general/hat_switch_down_left", -INCR_MED, 0, -INCR_MED),
-        VCI_POS("sim/general/hat_switch_down_right", INCR_MED, 0, -INCR_MED),
-        VCI_POS("sim/general/left_fast", -INCR_BIG, 0, 0),
-        VCI_POS("sim/general/right_fast", INCR_BIG, 0, 0),
-        VCI_POS("sim/general/up_fast", 0, 0, INCR_BIG),
-        VCI_POS("sim/general/down_fast", 0, 0, -INCR_BIG),
-        VCI_POS("sim/general/forward_fast", 0, -INCR_BIG, 0),
-        VCI_POS("sim/general/backward_fast", 0, INCR_BIG, 0),
-        VCI_POS("sim/general/zoom_in_fast", 0, -INCR_BIG, 0),
-        VCI_POS("sim/general/zoom_out_fast", 0, INCR_BIG, 0),
-        VCI_POS("sim/general/left_slow", -INCR_SMALL, 0, 0),
-        VCI_POS("sim/general/right_slow", INCR_SMALL, 0, 0),
-        VCI_POS("sim/general/up_slow", 0, 0, INCR_SMALL),
-        VCI_POS("sim/general/down_slow", 0, 0, -INCR_SMALL),
-        VCI_POS("sim/general/forward_slow", 0, -INCR_SMALL, 0),
-        VCI_POS("sim/general/backward_slow", 0, INCR_SMALL, 0),
-        VCI_POS("sim/general/zoom_in_slow", 0, -INCR_SMALL, 0),
-        VCI_POS("sim/general/zoom_out_slow", 0, INCR_SMALL, 0),
-        {.name = NULL}
-};
+    VCI_POS("sim/general/left", -INCR_MED, 0, 0),
+    VCI_POS("sim/general/right", INCR_MED, 0, 0),
+    VCI_POS("sim/general/up", 0, 0, INCR_MED),
+    VCI_POS("sim/general/down", 0, 0, -INCR_MED),
+    VCI_POS("sim/general/forward", 0, -INCR_MED, 0),
+    VCI_POS("sim/general/backward", 0, INCR_MED, 0),
+    VCI_POS("sim/general/zoom_in", 0, -INCR_MED, 0),
+    VCI_POS("sim/general/zoom_out", 0, INCR_MED, 0),
+    VCI_POS("sim/general/hat_switch_left", -INCR_MED, 0, 0),
+    VCI_POS("sim/general/hat_switch_right", INCR_MED, 0, 0),
+    VCI_POS("sim/general/hat_switch_up", 0, 0, INCR_MED),
+    VCI_POS("sim/general/hat_switch_down", 0, 0, -INCR_MED),
+    VCI_POS("sim/general/hat_switch_up_left", -INCR_MED, 0, INCR_MED),
+    VCI_POS("sim/general/hat_switch_up_right", INCR_MED, 0, INCR_MED),
+    VCI_POS("sim/general/hat_switch_down_left", -INCR_MED, 0, -INCR_MED),
+    VCI_POS("sim/general/hat_switch_down_right", INCR_MED, 0, -INCR_MED),
+    VCI_POS("sim/general/left_fast", -INCR_BIG, 0, 0),
+    VCI_POS("sim/general/right_fast", INCR_BIG, 0, 0),
+    VCI_POS("sim/general/up_fast", 0, 0, INCR_BIG),
+    VCI_POS("sim/general/down_fast", 0, 0, -INCR_BIG),
+    VCI_POS("sim/general/forward_fast", 0, -INCR_BIG, 0),
+    VCI_POS("sim/general/backward_fast", 0, INCR_BIG, 0),
+    VCI_POS("sim/general/zoom_in_fast", 0, -INCR_BIG, 0),
+    VCI_POS("sim/general/zoom_out_fast", 0, INCR_BIG, 0),
+    VCI_POS("sim/general/left_slow", -INCR_SMALL, 0, 0),
+    VCI_POS("sim/general/right_slow", INCR_SMALL, 0, 0),
+    VCI_POS("sim/general/up_slow", 0, 0, INCR_SMALL),
+    VCI_POS("sim/general/down_slow", 0, 0, -INCR_SMALL),
+    VCI_POS("sim/general/forward_slow", 0, -INCR_SMALL, 0),
+    VCI_POS("sim/general/backward_slow", 0, INCR_SMALL, 0),
+    VCI_POS("sim/general/zoom_in_slow", 0, -INCR_SMALL, 0),
+    VCI_POS("sim/general/zoom_out_slow", 0, INCR_SMALL, 0),
+    {.name = NULL}};
 
 static button_t buttons[] = {
-        {.filename = "move_view.png", .vk = -1, .tex = 0, .tex_data = NULL},
-        {.filename = "place_seg.png", .vk = -1, .tex = 0, .tex_data = NULL},
-        {.filename = "rotate_seg.png", .vk = -1, .tex = 0, .tex_data = NULL},
-        {.filename = "", .vk = -1, .tex = 0, .tex_data = NULL, .h = 64},
-        {
-                .filename = "accept_plan.png", .vk = XPLM_VK_RETURN, .tex = 0,
-                .tex_data = NULL
-        },
-        {
-                .filename = "delete_seg.png", .vk = XPLM_VK_DELETE, .tex = 0,
-                .tex_data = NULL
-        },
-        {.filename = "", .vk = -1, .tex = 0, .tex_data = NULL, .h = 64},
-        {
-                .filename = "cancel_plan.png", .vk = XPLM_VK_ESCAPE, .tex = 0,
-                .tex_data = NULL
-        },
-        {
-                .filename = "conn_first.png", .vk = XPLM_VK_SPACE, .tex = 0,
-                .tex_data = NULL
-        },
-        {.filename = NULL}
-};
+    {.filename = "move_view.png", .vk = -1, .tex = 0, .tex_data = NULL},
+    {.filename = "place_seg.png", .vk = -1, .tex = 0, .tex_data = NULL},
+    {.filename = "rotate_seg.png", .vk = -1, .tex = 0, .tex_data = NULL},
+    {.filename = "", .vk = -1, .tex = 0, .tex_data = NULL, .h = 64},
+    {.filename = "accept_plan.png", .vk = XPLM_VK_RETURN, .tex = 0, .tex_data = NULL},
+    {.filename = "delete_seg.png", .vk = XPLM_VK_DELETE, .tex = 0, .tex_data = NULL},
+    {.filename = "", .vk = -1, .tex = 0, .tex_data = NULL, .h = 64},
+    {.filename = "cancel_plan.png", .vk = XPLM_VK_ESCAPE, .tex = 0, .tex_data = NULL},
+    {.filename = "conn_first.png", .vk = XPLM_VK_SPACE, .tex = 0, .tex_data = NULL},
+    {.filename = NULL}};
 static int button_hit = -1, button_lit = -1;
 bool_t cam_inited = B_FALSE;
 
-static struct {
-	char		*msg;
-	int		timeout;
-	uint64_t	end;
-	int		width;
-	int		height;
-	GLuint		texture;
-	uint8_t		*bytes;
-} bottom_msg = { NULL, 0, 0, 0, 0, 0, NULL };
+static struct
+{
+    char *msg;
+    int timeout;
+    uint64_t end;
+    int width;
+    int height;
+    GLuint texture;
+    uint8_t *bytes;
+} bottom_msg = {NULL, 0, 0, 0, 0, 0, NULL};
 
 static FT_Library ft;
 static FT_Face face;
 
-static struct {
+static struct
+{
     int plg_status;
     XPLMPluginID plg_id;
-} eye_tracker_plg = { 0 , -1 };
+} eye_tracker_plg = {0, -1};
 
 bool_t
-load_icon(button_t *btn) {
+load_icon(button_t *btn)
+{
     char *filename;
     FILE *fp;
     size_t rowbytes;
@@ -228,20 +221,23 @@ load_icon(button_t *btn) {
     /* try the localized version first */
     filename = mkpathname(bp_xpdir, bp_plugindir, "data", "icons",
                           bp_get_lang(), btn->filename, NULL);
-    if (!file_exists(filename, NULL)) {
+    if (!file_exists(filename, NULL))
+    {
         /* if the localized version failed, try the English version */
         free(filename);
         filename = mkpathname(bp_xpdir, bp_plugindir, "data", "icons",
                               "en", btn->filename, NULL);
     }
     fp = fopen(filename, "rb");
-    if (fp == NULL) {
+    if (fp == NULL)
+    {
         logMsg(BP_ERROR_LOG "Cannot open file %s: %s", filename, strerror(errno));
         res = B_FALSE;
         goto out;
     }
     if (fread(header, 1, sizeof(header), fp) != 8 ||
-        png_sig_cmp(header, 0, sizeof(header)) != 0) {
+        png_sig_cmp(header, 0, sizeof(header)) != 0)
+    {
         logMsg(BP_ERROR_LOG "Cannot open file %s: invalid PNG header", filename);
         res = B_FALSE;
         goto out;
@@ -250,7 +246,8 @@ load_icon(button_t *btn) {
     VERIFY(pngp != NULL);
     infop = png_create_info_struct(pngp);
     VERIFY(infop != NULL);
-    if (setjmp(png_jmpbuf(pngp))) {
+    if (setjmp(png_jmpbuf(pngp)))
+    {
         logMsg(BP_ERROR_LOG "Cannot open file %s: libpng error in init_io",
                filename);
         res = B_FALSE;
@@ -259,7 +256,8 @@ load_icon(button_t *btn) {
     png_init_io(pngp, fp);
     png_set_sig_bytes(pngp, 8);
 
-    if (setjmp(png_jmpbuf(pngp))) {
+    if (setjmp(png_jmpbuf(pngp)))
+    {
         logMsg(BP_ERROR_LOG "Cannot open file %s: libpng read info failed",
                filename);
         res = B_FALSE;
@@ -269,12 +267,14 @@ load_icon(button_t *btn) {
     btn->w = png_get_image_width(pngp, infop);
     btn->h = png_get_image_height(pngp, infop);
 
-    if (png_get_color_type(pngp, infop) != PNG_COLOR_TYPE_RGBA) {
+    if (png_get_color_type(pngp, infop) != PNG_COLOR_TYPE_RGBA)
+    {
         logMsg(BP_ERROR_LOG "Bad icon file %s: need color type RGBA", filename);
         res = B_FALSE;
         goto out;
     }
-    if (png_get_bit_depth(pngp, infop) != 8) {
+    if (png_get_bit_depth(pngp, infop) != 8)
+    {
         logMsg(BP_ERROR_LOG "Bad icon file %s: need 8-bit depth", filename);
         res = B_FALSE;
         goto out;
@@ -283,12 +283,14 @@ load_icon(button_t *btn) {
 
     rowp = safe_malloc(sizeof(*rowp) * btn->h);
     VERIFY(rowp != NULL);
-    for (int i = 0; i < btn->h; i++) {
+    for (int i = 0; i < btn->h; i++)
+    {
         rowp[i] = safe_malloc(rowbytes);
         VERIFY(rowp[i] != NULL);
     }
 
-    if (setjmp(png_jmpbuf(pngp))) {
+    if (setjmp(png_jmpbuf(pngp)))
+    {
         logMsg(BP_ERROR_LOG "Bad icon file %s: error reading image file", filename);
         res = B_FALSE;
         goto out;
@@ -306,10 +308,11 @@ load_icon(button_t *btn) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, btn->w, btn->h, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, btn->tex_data);
 
-    out:
+out:
     if (pngp != NULL)
         png_destroy_read_struct(&pngp, &infop, NULL);
-    if (rowp != NULL) {
+    if (rowp != NULL)
+    {
         for (int i = 0; i < btn->h; i++)
             free(rowp[i]);
         free(rowp);
@@ -321,25 +324,30 @@ load_icon(button_t *btn) {
     return (res);
 }
 
-void
-unload_icon(button_t *btn) {
-    if (btn->tex != 0) {
+void unload_icon(button_t *btn)
+{
+    if (btn->tex != 0)
+    {
         glDeleteTextures(1, &btn->tex);
         btn->tex = 0;
     }
-    if (btn->tex_data != NULL) {
+    if (btn->tex_data != NULL)
+    {
         free(btn->tex_data);
         btn->tex_data = NULL;
     }
 }
 
 bool_t
-load_buttons(void) {
-    for (int i = 0; buttons[i].filename != NULL; i++) {
+load_buttons(void)
+{
+    for (int i = 0; buttons[i].filename != NULL; i++)
+    {
         /* skip spacers */
         if (strcmp(buttons[i].filename, "") == 0)
             continue;
-        if (!load_icon(&buttons[i])) {
+        if (!load_icon(&buttons[i]))
+        {
             unload_buttons();
             return (B_FALSE);
         }
@@ -348,25 +356,30 @@ load_buttons(void) {
     return (B_TRUE);
 }
 
-void
-unload_buttons(void) {
+void unload_buttons(void)
+{
     for (int i = 0; buttons[i].filename != NULL; i++)
         unload_icon(&buttons[i]);
 }
 
 static int
-move_camera(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+move_camera(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     static uint64_t last_cmd_t = 0;
     UNUSED(cmd);
 
-    if (phase == xplm_CommandBegin) {
+    if (phase == xplm_CommandBegin)
+    {
         last_cmd_t = microclock();
-    } else if (phase == xplm_CommandContinue) {
+    }
+    else if (phase == xplm_CommandContinue)
+    {
         uint64_t now = microclock();
         double d_t = (now - last_cmd_t) / 1000000.0;
-        unsigned i = (uintptr_t) refcon;
+        unsigned i = (uintptr_t)refcon;
         vect2_t v = vect2_rot(VECT2(view_cmds[i].pos.x,
-                                    view_cmds[i].pos.z), cam_hdg);
+                                    view_cmds[i].pos.z),
+                              cam_hdg);
         cam_pos = vect3_add(cam_pos, VECT3(v.x * d_t, 0, v.y * d_t));
         cam_height += view_cmds[i].pos.y * d_t;
         last_cmd_t = now;
@@ -375,16 +388,15 @@ move_camera(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
 }
 
 static void
-get_vp(vec4 vp) {
+get_vp(vec4 vp)
+{
 
     ASSERT(vp != NULL);
 
-
-        vp[0] =  monitor_def.x_origin;
-        vp[1] =  monitor_def.y_origin;
-        vp[2] =  monitor_def.w;
-        vp[3] =  monitor_def.h;
-
+    vp[0] = monitor_def.x_origin;
+    vp[1] = monitor_def.y_origin;
+    vp[2] = monitor_def.w;
+    vp[3] = monitor_def.h;
 }
 
 /*
@@ -395,7 +407,8 @@ get_vp(vec4 vp) {
  * on the aircraft's current local Y coordinate.
  */
 static void
-vp_unproject(double x, double y, double *x_phys, double *y_phys) {
+vp_unproject(double x, double y, double *x_phys, double *y_phys)
+{
     mat4 proj;
     vec4 vp;
     vec3 out_pt;
@@ -403,9 +416,9 @@ vp_unproject(double x, double y, double *x_phys, double *y_phys) {
     ASSERT(x_phys != NULL);
     ASSERT(y_phys != NULL);
 
-    VERIFY3S(dr_getvf32(&drs.proj_matrix_3d, (float *) proj, 0, 16), ==, 16);
+    VERIFY3S(dr_getvf32(&drs.proj_matrix_3d, (float *)proj, 0, 16), ==, 16);
     get_vp(vp);
-    glm_unproject((vec3) {x, y, 0.5}, proj, vp, out_pt);
+    glm_unproject((vec3){x, y, 0.5}, proj, vp, out_pt);
     /*
      * To avoid having to figure out the viewport Z coordinate that
      * matches the reference plane distance, we scale the returned
@@ -423,7 +436,8 @@ vp_unproject(double x, double y, double *x_phys, double *y_phys) {
 }
 
 static int
-cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon) {
+cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
+{
     int x, y;
     double dx, dy, start_hdg;
     vect2_t start_pos, end_pos;
@@ -432,10 +446,10 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon) {
 
     UNUSED(refcon);
 
-    bp_plan_callback_is_alive = B_TRUE;
-
     if (pos == NULL || losing_control || !cam_inited)
         return (0);
+
+    bp_plan_callback_is_alive = CAMERA_TIMEOUT;
 
     pos->x = cam_pos.x;
     pos->y = cam_pos.y + cam_height;
@@ -459,12 +473,15 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon) {
         free(seg);
 
     seg = list_tail(&bp.segs);
-    if (seg != NULL) {
+    if (seg != NULL)
+    {
         start_pos = seg->end_pos;
         start_hdg = seg->end_hdg;
-    } else {
+    }
+    else
+    {
         start_pos = VECT2(dr_getf(&drs.local_x),
-                          -dr_getf(&drs.local_z));    /* inverted X-Plane Z */
+                          -dr_getf(&drs.local_z)); /* inverted X-Plane Z */
         start_hdg = dr_getf(&drs.hdg);
     }
 
@@ -474,7 +491,8 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon) {
 
     n = compute_segs(&bp.veh, start_pos, start_hdg, end_pos,
                      cursor_hdg, &pred_segs);
-    if (n > 0) {
+    if (n > 0)
+    {
         seg = list_tail(&pred_segs);
         seg->user_placed = B_TRUE;
     }
@@ -483,123 +501,132 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon) {
 }
 
 static void
-draw_segment(const seg_t *seg) {
+draw_segment(const seg_t *seg)
+{
     XPLMProbeRef probe = XPLMCreateProbe(xplm_ProbeY);
     XPLMProbeInfo_t info = {.structSize = sizeof(XPLMProbeInfo_t)};
     double wing_long_off = bp.acf.main_z - bp_ls.outline->wingtip.y;
     vect2_t wing_off_l = VECT2(-bp_ls.outline->semispan, wing_long_off);
     vect2_t wing_off_r = VECT2(bp_ls.outline->semispan, wing_long_off);
 
-    switch (seg->type) {
-        case SEG_TYPE_STRAIGHT: {
-            float h1, h2;
-            vect2_t wing_l, wing_r, p;
+    switch (seg->type)
+    {
+    case SEG_TYPE_STRAIGHT:
+    {
+        float h1, h2;
+        vect2_t wing_l, wing_r, p;
 
-            //VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->start_pos.x, 0,
-            //                             -seg->start_pos.y, &info), ==, xplm_ProbeHitTerrain);
-            if (XPLMProbeTerrainXYZ(probe, seg->start_pos.x, 0,
-                                         -seg->start_pos.y, &info) != xplm_ProbeHitTerrain) {
-                    XPLMDestroyProbe(probe);
-                    return ;
-            }        
+        // VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->start_pos.x, 0,
+        //                              -seg->start_pos.y, &info), ==, xplm_ProbeHitTerrain);
+        if (XPLMProbeTerrainXYZ(probe, seg->start_pos.x, 0,
+                                -seg->start_pos.y, &info) != xplm_ProbeHitTerrain)
+        {
+            XPLMDestroyProbe(probe);
+            return;
+        }
 
-            h1 = info.locationY;
-            //VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
-            //                             -seg->end_pos.y, &info), ==, xplm_ProbeHitTerrain);
-            if (XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
-                                         -seg->end_pos.y, &info) != xplm_ProbeHitTerrain) {
-                    XPLMDestroyProbe(probe);
-                    return ;
-            }        
-            h2 = info.locationY;
+        h1 = info.locationY;
+        // VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
+        //                              -seg->end_pos.y, &info), ==, xplm_ProbeHitTerrain);
+        if (XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
+                                -seg->end_pos.y, &info) != xplm_ProbeHitTerrain)
+        {
+            XPLMDestroyProbe(probe);
+            return;
+        }
+        h2 = info.locationY;
 
+        glColor3f(0, 0, 1);
+        glLineWidth(3);
+        glBegin(GL_LINES);
+        glVertex3f(seg->start_pos.x, h1, -seg->start_pos.y);
+        glVertex3f(seg->end_pos.x, h2, -seg->end_pos.y);
+        glEnd();
+
+        wing_l = vect2_rot(wing_off_l, seg->start_hdg);
+        wing_r = vect2_rot(wing_off_r, seg->start_hdg);
+
+        glColor3f(1, 0.25, 1);
+        glLineWidth(2);
+        glBegin(GL_LINES);
+        p = vect2_add(seg->start_pos, wing_r);
+        glVertex3f(p.x, h1, -p.y);
+        p = vect2_add(seg->end_pos, wing_r);
+        glVertex3f(p.x, h1, -p.y);
+        p = vect2_add(seg->end_pos, wing_l);
+        glVertex3f(p.x, h1, -p.y);
+        p = vect2_add(seg->start_pos, wing_l);
+        glVertex3f(p.x, h1, -p.y);
+        glEnd();
+        break;
+    }
+    case SEG_TYPE_TURN:
+    {
+        vect2_t c = vect2_add(seg->start_pos, vect2_scmul(
+                                                  vect2_norm(hdg2dir(seg->start_hdg), seg->turn.right),
+                                                  seg->turn.r));
+        vect2_t c2s = vect2_sub(seg->start_pos, c);
+        double s, e, rhdg;
+
+        rhdg = rel_hdg(seg->start_hdg, seg->end_hdg);
+        s = MIN(0, rhdg);
+        e = MAX(0, rhdg);
+        ASSERT3F(s, <=, e);
+        for (double a = s; a < e; a += ANGLE_DRAW_STEP)
+        {
+            vect2_t p1, p2, p;
+            vect2_t wing1_l, wing1_r, wing2_l, wing2_r;
+            double step = MIN(ANGLE_DRAW_STEP, e - a);
+
+            wing1_l = vect2_rot(wing_off_l, seg->start_hdg + a);
+            wing1_r = vect2_rot(wing_off_r, seg->start_hdg + a);
+            wing2_l = vect2_rot(wing_off_l,
+                                seg->start_hdg + a + step);
+            wing2_r = vect2_rot(wing_off_r,
+                                seg->start_hdg + a + step);
+
+            p1 = vect2_add(c, vect2_rot(c2s, a));
+            p2 = vect2_add(c, vect2_rot(c2s, a + step));
+
+            // VERIFY3U(XPLMProbeTerrainXYZ(probe, p1.x, 0, -p1.y,
+            //                              &info), ==, xplm_ProbeHitTerrain);
+
+            if (XPLMProbeTerrainXYZ(probe, p1.x, 0, -p1.y,
+                                    &info) != xplm_ProbeHitTerrain)
+            {
+                XPLMDestroyProbe(probe);
+                return;
+            }
             glColor3f(0, 0, 1);
             glLineWidth(3);
             glBegin(GL_LINES);
-            glVertex3f(seg->start_pos.x, h1, -seg->start_pos.y);
-            glVertex3f(seg->end_pos.x, h2, -seg->end_pos.y);
+            glVertex3f(p1.x, info.locationY, -p1.y);
+            glVertex3f(p2.x, info.locationY, -p2.y);
             glEnd();
-
-            wing_l = vect2_rot(wing_off_l, seg->start_hdg);
-            wing_r = vect2_rot(wing_off_r, seg->start_hdg);
 
             glColor3f(1, 0.25, 1);
             glLineWidth(2);
             glBegin(GL_LINES);
-            p = vect2_add(seg->start_pos, wing_r);
-            glVertex3f(p.x, h1, -p.y);
-            p = vect2_add(seg->end_pos, wing_r);
-            glVertex3f(p.x, h1, -p.y);
-            p = vect2_add(seg->end_pos, wing_l);
-            glVertex3f(p.x, h1, -p.y);
-            p = vect2_add(seg->start_pos, wing_l);
-            glVertex3f(p.x, h1, -p.y);
+            p = vect2_add(p1, wing1_r);
+            glVertex3f(p.x, info.locationY, -p.y);
+            p = vect2_add(p2, wing2_r);
+            glVertex3f(p.x, info.locationY, -p.y);
+            p = vect2_add(p1, wing1_l);
+            glVertex3f(p.x, info.locationY, -p.y);
+            p = vect2_add(p2, wing2_l);
+            glVertex3f(p.x, info.locationY, -p.y);
             glEnd();
-            break;
         }
-        case SEG_TYPE_TURN: {
-            vect2_t c = vect2_add(seg->start_pos, vect2_scmul(
-                    vect2_norm(hdg2dir(seg->start_hdg), seg->turn.right),
-                    seg->turn.r));
-            vect2_t c2s = vect2_sub(seg->start_pos, c);
-            double s, e, rhdg;
-
-            rhdg = rel_hdg(seg->start_hdg, seg->end_hdg);
-            s = MIN(0, rhdg);
-            e = MAX(0, rhdg);
-            ASSERT3F(s, <=, e);
-            for (double a = s; a < e; a += ANGLE_DRAW_STEP) {
-                vect2_t p1, p2, p;
-                vect2_t wing1_l, wing1_r, wing2_l, wing2_r;
-                double step = MIN(ANGLE_DRAW_STEP, e - a);
-
-                wing1_l = vect2_rot(wing_off_l, seg->start_hdg + a);
-                wing1_r = vect2_rot(wing_off_r, seg->start_hdg + a);
-                wing2_l = vect2_rot(wing_off_l,
-                                    seg->start_hdg + a + step);
-                wing2_r = vect2_rot(wing_off_r,
-                                    seg->start_hdg + a + step);
-
-                p1 = vect2_add(c, vect2_rot(c2s, a));
-                p2 = vect2_add(c, vect2_rot(c2s, a + step));
-
-                //VERIFY3U(XPLMProbeTerrainXYZ(probe, p1.x, 0, -p1.y,
-                //                             &info), ==, xplm_ProbeHitTerrain);
-
-                if (XPLMProbeTerrainXYZ(probe, p1.x, 0, -p1.y,
-                                             &info) != xplm_ProbeHitTerrain) {
-                        XPLMDestroyProbe(probe);
-                        return ;
-                }        
-                glColor3f(0, 0, 1);
-                glLineWidth(3);
-                glBegin(GL_LINES);
-                glVertex3f(p1.x, info.locationY, -p1.y);
-                glVertex3f(p2.x, info.locationY, -p2.y);
-                glEnd();
-
-                glColor3f(1, 0.25, 1);
-                glLineWidth(2);
-                glBegin(GL_LINES);
-                p = vect2_add(p1, wing1_r);
-                glVertex3f(p.x, info.locationY, -p.y);
-                p = vect2_add(p2, wing2_r);
-                glVertex3f(p.x, info.locationY, -p.y);
-                p = vect2_add(p1, wing1_l);
-                glVertex3f(p.x, info.locationY, -p.y);
-                p = vect2_add(p2, wing2_l);
-                glVertex3f(p.x, info.locationY, -p.y);
-                glEnd();
-            }
-            break;
-        }
+        break;
+    }
     }
 
     XPLMDestroyProbe(probe);
 }
 
 static void
-draw_acf_symbol(vect3_t pos, double hdg, vect3_t color) {
+draw_acf_symbol(vect3_t pos, double hdg, vect3_t color)
+{
     vect2_t v;
     vect3_t p;
     double tire_x[10], tire_z[10], tirrad[10];
@@ -608,7 +635,8 @@ draw_acf_symbol(vect3_t pos, double hdg, vect3_t color) {
     glColor3f(color.x, color.y, color.z);
 
     glBegin(GL_LINES);
-    for (size_t i = 0; i + 1 < bp_ls.outline->num_pts; i++) {
+    for (size_t i = 0; i + 1 < bp_ls.outline->num_pts; i++)
+    {
         /* skip gaps in outline */
         if (IS_NULL_VECT(bp_ls.outline->pts[i]) ||
             IS_NULL_VECT(bp_ls.outline->pts[i + 1]))
@@ -641,7 +669,8 @@ draw_acf_symbol(vect3_t pos, double hdg, vect3_t color) {
     dr_getvf(&drs.tirrad, tirrad, 0, 10);
 
     glBegin(GL_QUADS);
-    for (int i = 0; i < bp.acf.n_gear; i++) {
+    for (int i = 0; i < bp.acf.n_gear; i++)
+    {
         double tr = tirrad[bp.acf.gear_is[i]];
         vect2_t c;
 
@@ -665,7 +694,8 @@ draw_acf_symbol(vect3_t pos, double hdg, vect3_t color) {
 }
 
 static int
-draw_prediction(XPLMDrawingPhase phase, int before, void *refcon) {
+draw_prediction(XPLMDrawingPhase phase, int before, void *refcon)
+{
     seg_t *seg;
     XPLMProbeRef probe = XPLMCreateProbe(xplm_ProbeY);
     XPLMProbeInfo_t info = {.structSize = sizeof(XPLMProbeInfo_t)};
@@ -680,16 +710,16 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon) {
     UNUSED(before);
     UNUSED(refcon);
 
-    VERIFY3S(dr_getvf32(&drs.proj_matrix_3d, (float *) proj, 0, 16), ==, 16);
+    VERIFY3S(dr_getvf32(&drs.proj_matrix_3d, (float *)proj, 0, 16), ==, 16);
     glm_look(cam_posx, fwd, up, view);
 
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
-    glLoadMatrixf((float *) proj);
+    glLoadMatrixf((float *)proj);
 
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
-    glLoadMatrixf((float *) view);
+    glLoadMatrixf((float *)view);
 
     if (dr_geti(&drs.view_is_ext) != 1)
         XPLMCommandOnce(circle_view_cmd);
@@ -704,20 +734,23 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon) {
          seg = list_next(&pred_segs, seg))
         draw_segment(seg);
 
-    if ((seg = list_tail(&pred_segs)) != NULL) {
+    if ((seg = list_tail(&pred_segs)) != NULL)
+    {
         vect2_t dir_v = hdg2dir(seg->end_hdg);
         vect2_t x;
 
-        //VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
-        //                             -seg->end_pos.y, &info), ==, xplm_ProbeHitTerrain);
+        // VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
+        //                              -seg->end_pos.y, &info), ==, xplm_ProbeHitTerrain);
 
         if (XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
-                                     -seg->end_pos.y, &info)) {
-        XPLMDestroyProbe(probe);
-        return (1);
-        }        
+                                -seg->end_pos.y, &info))
+        {
+            XPLMDestroyProbe(probe);
+            return (1);
+        }
 
-        if (seg->type == SEG_TYPE_TURN || !seg->backward) {
+        if (seg->type == SEG_TYPE_TURN || !seg->backward)
+        {
             glBegin(GL_LINES);
             glColor3f(0, 1, 0);
             glVertex3f(seg->end_pos.x, info.locationY,
@@ -727,50 +760,60 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon) {
             glVertex3f(x.x, info.locationY, -x.y);
             glEnd();
         }
-        if (seg->type == SEG_TYPE_TURN || seg->backward) {
+        if (seg->type == SEG_TYPE_TURN || seg->backward)
+        {
             glBegin(GL_LINES);
             glColor3f(1, 0, 0);
             glVertex3f(seg->end_pos.x, info.locationY,
                        -seg->end_pos.y);
             x = vect2_add(seg->end_pos, vect2_neg(vect2_scmul(
-                    dir_v, ORIENTATION_LINE_LEN)));
+                                            dir_v, ORIENTATION_LINE_LEN)));
             glVertex3f(x.x, info.locationY, -x.y);
             glEnd();
         }
         draw_acf_symbol(VECT3(seg->end_pos.x, info.locationY,
-                              seg->end_pos.y), seg->end_hdg, AMBER_TUPLE);
-    } else {
-        //VERIFY3U(XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
-        //                             -cursor_world_pos.y, &info), ==, xplm_ProbeHitTerrain);
+                              seg->end_pos.y),
+                        seg->end_hdg, AMBER_TUPLE);
+    }
+    else
+    {
+        // VERIFY3U(XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
+        //                              -cursor_world_pos.y, &info), ==, xplm_ProbeHitTerrain);
         if (XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
-                                     -cursor_world_pos.y, &info)) {
+                                -cursor_world_pos.y, &info))
+        {
             XPLMDestroyProbe(probe);
             return (1);
-        }                                             
+        }
         draw_acf_symbol(VECT3(cursor_world_pos.x, info.locationY,
-                              cursor_world_pos.y), cursor_hdg, RED_TUPLE);
+                              cursor_world_pos.y),
+                        cursor_hdg, RED_TUPLE);
     }
 
-    if ((seg = list_tail(&bp.segs)) != NULL) {
-        //VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
-        //                             -seg->end_pos.y, &info), ==, xplm_ProbeHitTerrain);
+    if ((seg = list_tail(&bp.segs)) != NULL)
+    {
+        // VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
+        //                              -seg->end_pos.y, &info), ==, xplm_ProbeHitTerrain);
         if (XPLMProbeTerrainXYZ(probe, seg->end_pos.x, 0,
-                                     -seg->end_pos.y, &info)) {
+                                -seg->end_pos.y, &info))
+        {
             XPLMDestroyProbe(probe);
             return (1);
-        }   
+        }
         draw_acf_symbol(VECT3(seg->end_pos.x, info.locationY,
-                              seg->end_pos.y), seg->end_hdg, GREEN_TUPLE);
+                              seg->end_pos.y),
+                        seg->end_hdg, GREEN_TUPLE);
     }
 
     /* Draw the night-lighting lamp so the user can see under the cursor */
-    //VERIFY3U(XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
-    //                             -cursor_world_pos.y, &info), ==, xplm_ProbeHitTerrain);
+    // VERIFY3U(XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
+    //                              -cursor_world_pos.y, &info), ==, xplm_ProbeHitTerrain);
     if (XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
-                                 -cursor_world_pos.y, &info)) {
+                            -cursor_world_pos.y, &info))
+    {
         XPLMDestroyProbe(probe);
         return (1);
-    }   
+    }
     di.structSize = sizeof(di);
     di.x = cursor_world_pos.x;
     di.y = info.locationY;
@@ -791,9 +834,9 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon) {
     return (1);
 }
 
-void
-draw_icon(button_t *btn, int x, int y, double scale, bool_t is_clicked,
-          bool_t is_lit) {
+void draw_icon(button_t *btn, int x, int y, double scale, bool_t is_clicked,
+               bool_t is_lit)
+{
     glBindTexture(GL_TEXTURE_2D, btn->tex);
     glBegin(GL_QUADS);
     glTexCoord2f(0, 1);
@@ -806,7 +849,8 @@ draw_icon(button_t *btn, int x, int y, double scale, bool_t is_clicked,
     glVertex2f(x + btn->w * scale, y);
     glEnd();
 
-    if (is_clicked || is_lit) {
+    if (is_clicked || is_lit)
+    {
         /*
          * If this button was hit by a mouse click, highlight
          * it by drawing a translucent white quad over it.
@@ -820,8 +864,9 @@ draw_icon(button_t *btn, int x, int y, double scale, bool_t is_clicked,
         glVertex2f(x + btn->w * scale, y);
         glEnd();
         XPLMSetGraphicsState(0, 1, 0, 0, 1, 0, 0);
-
-    } else if (is_lit) {
+    }
+    else if (is_lit)
+    {
         XPLMSetGraphicsState(0, 0, 0, 0, 1, 0, 0);
         glColor4f(1, 1, 1, 1);
         glLineWidth(1);
@@ -840,7 +885,8 @@ draw_icon(button_t *btn, int x, int y, double scale, bool_t is_clicked,
 }
 
 static void
-fake_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
+fake_win_draw(XPLMWindowID inWindowID, void *inRefcon)
+{
     double scale;
     int w, h, h_buttons, h_off;
     UNUSED(inWindowID);
@@ -849,7 +895,14 @@ fake_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
     h = monitor_def.h;
     w = monitor_def.w;
 
-//    XPLMSetWindowGeometry(fake_win, monitor_def.x_origin, h, w, monitor_def.y_origin);
+if (bp_plan_callback_is_alive == 0) {
+    // if camera is lost we simulate ESC button
+    logMsg("VK_ESCAPE simulated fake_win_draw");
+    bp_plan_callback_is_alive = CAMERA_IS_OFF;
+    key_sniffer(0, xplm_DownFlag, XPLM_VK_ESCAPE, NULL);
+    return;
+}
+
 
     if (!XPLMIsWindowInFront(fake_win))
         XPLMBringWindowToFront(fake_win);
@@ -862,7 +915,7 @@ fake_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
     for (int i = 0; buttons[i].filename != NULL; i++)
         h_buttons += buttons[i].h;
 
-    scale = (double) h / h_buttons;
+    scale = (double)h / h_buttons;
     scale = MIN(scale, 1);
     /* don't draw the buttons if we don't have enough space for them */
     if (scale < MIN_BUTTON_SCALE)
@@ -870,7 +923,8 @@ fake_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
 
     h_off = (h + (h_buttons * scale)) / 2;
     for (int i = 0; buttons[i].filename != NULL;
-         i++, h_off -= buttons[i].h * scale) {
+         i++, h_off -= buttons[i].h * scale)
+    {
         button_t *btn = &buttons[i];
 
         if (btn->tex == 0)
@@ -880,15 +934,17 @@ fake_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
                   scale, i == button_hit, i == button_lit);
     }
 
-    if (bottom_msg.msg != NULL) {
-        draw_bottom_msg(w,h);
+    if (bottom_msg.msg != NULL)
+    {
+        draw_bottom_msg(w, h);
     }
 
     draw_prediction(0, 0, NULL);
 }
 
 static int
-button_hit_check(int x, int y) {
+button_hit_check(int x, int y)
+{
     double scale;
     int w, h, h_buttons, h_off;
 
@@ -899,14 +955,15 @@ button_hit_check(int x, int y) {
     for (int i = 0; buttons[i].filename != NULL; i++)
         h_buttons += buttons[i].h;
 
-    scale = (double) h / h_buttons;
+    scale = (double)h / h_buttons;
     scale = MIN(scale, 1);
     if (scale < MIN_BUTTON_SCALE)
         return (-1);
 
     h_off = (h + (h_buttons * scale)) / 2;
     for (int i = 0; buttons[i].filename != NULL;
-         i++, h_off -= buttons[i].h * scale) {
+         i++, h_off -= buttons[i].h * scale)
+    {
         if (x >= monitor_def.x_origin + w - buttons[i].w * scale && x <= monitor_def.x_origin + w &&
             y >= monitor_def.y_origin + h_off - buttons[i].h * scale && y <= monitor_def.y_origin + h_off &&
             buttons[i].vk != -1)
@@ -916,9 +973,9 @@ button_hit_check(int x, int y) {
     return (-1);
 }
 
-void
-nil_win_key(XPLMWindowID inWindowID, char inKey, XPLMKeyFlags inFlags,
-            char inVirtualKey, void *inRefcon, int losingFocus) {
+void nil_win_key(XPLMWindowID inWindowID, char inKey, XPLMKeyFlags inFlags,
+                 char inVirtualKey, void *inRefcon, int losingFocus)
+{
     UNUSED(inWindowID);
     UNUSED(inKey);
     UNUSED(inFlags);
@@ -928,7 +985,8 @@ nil_win_key(XPLMWindowID inWindowID, char inKey, XPLMKeyFlags inFlags,
 }
 
 static XPLMCursorStatus
-fake_win_cursor(XPLMWindowID inWindowID, int x, int y, void *inRefcon) {
+fake_win_cursor(XPLMWindowID inWindowID, int x, int y, void *inRefcon)
+{
     int lit;
 
     UNUSED(inWindowID);
@@ -946,7 +1004,8 @@ fake_win_cursor(XPLMWindowID inWindowID, int x, int y, void *inRefcon) {
 
 static int
 fake_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
-               void *inRefcon) {
+               void *inRefcon)
+{
     static int last_x = 0, last_y = 0;
     static int down_x = 0, down_y = 0;
     static bool_t dragging = B_FALSE;
@@ -969,19 +1028,24 @@ fake_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
      *	click-and-drag took place, count it as a click on the screen
      *	attempting to place a segment.
      */
-    if (inMouse == xplm_MouseDown) {
+    if (inMouse == xplm_MouseDown)
+    {
         last_x = down_x = x;
         last_y = down_y = y;
         force_root_win_focus = B_FALSE;
         button_hit = button_hit_check(x, y);
         dragging = B_FALSE;
-    } else if (inMouse == xplm_MouseDrag) {
-        if (!dragging) {
+    }
+    else if (inMouse == xplm_MouseDrag)
+    {
+        if (!dragging)
+        {
             dragging = (ABS(x - down_x) >= CLICK_DISPL_THRESH ||
                         ABS(y - down_y) >= CLICK_DISPL_THRESH);
         }
         if (dragging && (x != last_x || y != last_y) &&
-            button_hit == -1) {
+            button_hit == -1)
+        {
             double x_phys, last_x_phys, y_phys, last_y_phys, dx, dy;
             vect2_t v;
 
@@ -997,15 +1061,21 @@ fake_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
             last_x = x;
             last_y = y;
         }
-    } else {
-        if (!dragging) {
+    }
+    else
+    {
+        if (!dragging)
+        {
             if (button_hit != -1 &&
-                button_hit == button_hit_check(x, y)) {
+                button_hit == button_hit_check(x, y))
+            {
                 /* simulate a key press */
                 ASSERT(buttons[button_hit].vk != -1);
                 key_sniffer(0, xplm_DownFlag,
                             buttons[button_hit].vk, NULL);
-            } else {
+            }
+            else
+            {
                 /*
                  * Transfer whatever is in pred_segs to
                  * the normal segments and clear pred_segs.
@@ -1022,7 +1092,8 @@ fake_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
 
 static int
 fake_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
-               void *inRefcon) {
+               void *inRefcon)
+{
     UNUSED(inWindowID);
     UNUSED(x);
     UNUSED(y);
@@ -1030,7 +1101,8 @@ fake_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
     UNUSED(clicks);
     UNUSED(inRefcon);
 
-    if (wheel == 0 && clicks != 0) {
+    if (wheel == 0 && clicks != 0)
+    {
         static int accel = 1;
         static uint64_t last_wheel_t = 0;
         uint64_t now = microclock();
@@ -1050,7 +1122,8 @@ fake_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
 }
 
 static int
-key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon) {
+key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon)
+{
     UNUSED(inChar);
     UNUSED(refcon);
 
@@ -1058,39 +1131,43 @@ key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon) 
     if (inFlags != xplm_DownFlag)
         return (1);
 
-    switch ((unsigned char) inVirtualKey) {
-        case XPLM_VK_RETURN:
-        case XPLM_VK_ENTER:
-        case XPLM_VK_NUMPAD_ENT:
-            XPLMCommandOnce(XPLMFindCommand("BetterPushback/stop_planner"));
-            return (0);
-        case XPLM_VK_ESCAPE:
-            bp_delete_all_segs();
-            XPLMCommandOnce(XPLMFindCommand("BetterPushback/stop_planner"));
-            return (0);
-        case XPLM_VK_CLEAR:
-        case XPLM_VK_BACK:
-        case XPLM_VK_DELETE:
-            /* Delete the segments up to the next user-placed segment */
-            free(list_remove_tail(&bp.segs));
-            for (seg_t *seg = list_tail(&bp.segs); seg != NULL &&
-                                                   !seg->user_placed; seg = list_tail(&bp.segs)) {
-                list_remove_tail(&bp.segs);
-                free(seg);
-            }
-            return (0);
-        case XPLM_VK_SPACE:
-            bp_delete_all_segs();
-            XPLMCommandOnce(XPLMFindCommand(
-                    "BetterPushback/connect_first"));
-            return (0);
+    switch ((unsigned char)inVirtualKey)
+    {
+    case XPLM_VK_RETURN:
+    case XPLM_VK_ENTER:
+    case XPLM_VK_NUMPAD_ENT:
+        XPLMCommandOnce(XPLMFindCommand("BetterPushback/stop_planner"));
+        return (0);
+    case XPLM_VK_ESCAPE:
+        bp_delete_all_segs();
+        XPLMCommandOnce(XPLMFindCommand("BetterPushback/stop_planner"));
+        return (0);
+    case XPLM_VK_CLEAR:
+    case XPLM_VK_BACK:
+    case XPLM_VK_DELETE:
+        /* Delete the segments up to the next user-placed segment */
+        free(list_remove_tail(&bp.segs));
+        for (seg_t *seg = list_tail(&bp.segs); seg != NULL &&
+                                               !seg->user_placed;
+             seg = list_tail(&bp.segs))
+        {
+            list_remove_tail(&bp.segs);
+            free(seg);
+        }
+        return (0);
+    case XPLM_VK_SPACE:
+        bp_delete_all_segs();
+        XPLMCommandOnce(XPLMFindCommand(
+            "BetterPushback/connect_first"));
+        return (0);
     }
 
     return (1);
 }
 
 static void
-find_drs(void) {
+find_drs(void)
+{
     fdr_find(&drs.lat, "sim/flightmodel/position/latitude");
     fdr_find(&drs.lon, "sim/flightmodel/position/longitude");
     fdr_find(&drs.local_vx, "sim/flightmodel/position/local_vx");
@@ -1102,9 +1179,12 @@ find_drs(void) {
     fdr_find(&drs.hdg, "sim/flightmodel/position/psi");
     fdr_find(&drs.tire_z, "sim/flightmodel/parts/tire_z_no_deflection");
     fdr_find(&drs.tire_x, "sim/flightmodel/parts/tire_x_no_deflection");
-    if (bp_xp_ver >= 12100) {
+    if (bp_xp_ver >= 12100)
+    {
         fdr_find(&drs.tirrad, "sim/flightmodel2/gear/tire_radius_mtrs");
-    } else {
+    }
+    else
+    {
         fdr_find(&drs.tirrad, "sim/aircraft/parts/acf_gear_tirrad");
     }
     fdr_find(&drs.mtow, "sim/aircraft/weight/acf_m_max");
@@ -1114,7 +1194,8 @@ find_drs(void) {
      * These datarefs have been removed in XP12 with no replacements in
      * sight. Disabling for now to get rid of errors/crashes with them.
      */
-    if (bp_xp_ver < 12000) {
+    if (bp_xp_ver < 12000)
+    {
         fdr_find(&drs.visibility, "sim/weather/visibility_reported_m");
         fdr_find(&drs.cloud_types[0], "sim/weather/cloud_type[0]");
         fdr_find(&drs.cloud_types[1], "sim/weather/cloud_type[1]");
@@ -1122,12 +1203,12 @@ find_drs(void) {
         fdr_find(&drs.use_real_wx, "sim/weather/use_real_weather_bool");
     }
 
-    if ( (bp_xp_ver >= 12000) && (bp_xp_ver < 13000) ) {
+    if ((bp_xp_ver >= 12000) && (bp_xp_ver < 13000))
+    {
         fdr_find(&drs.visibility, "sim/weather/region/visibility_reported_sm");
         fdr_find(&drs.cloud_types[0], "sim/weather/region/cloud_type");
         fdr_find(&drs.use_real_wx, "sim/weather/region/change_mode");
     }
-
 
     fdr_find(&drs.cam_x, "sim/graphics/view/view_x");
     fdr_find(&drs.cam_y, "sim/graphics/view/view_y");
@@ -1137,17 +1218,21 @@ find_drs(void) {
 }
 
 bool_t
-bp_cam_start(void) {
+bp_cam_start(void)
+{
     XPLMCreateWindow_t fake_win_ops = {
-            .structSize = sizeof(XPLMCreateWindow_t),
-            .left = 0, .top = 0, .right = 0, .bottom = 0, .visible = 1,
-            .drawWindowFunc = fake_win_draw,
-            .handleMouseClickFunc = fake_win_click,
-            .handleKeyFunc = nil_win_key,
-            .handleCursorFunc = fake_win_cursor,
-            .handleMouseWheelFunc = fake_win_wheel,
-            .refcon = NULL
-    };
+        .structSize = sizeof(XPLMCreateWindow_t),
+        .left = 0,
+        .top = 0,
+        .right = 0,
+        .bottom = 0,
+        .visible = 1,
+        .drawWindowFunc = fake_win_draw,
+        .handleMouseClickFunc = fake_win_click,
+        .handleKeyFunc = nil_win_key,
+        .handleCursorFunc = fake_win_cursor,
+        .handleMouseWheelFunc = fake_win_wheel,
+        .refcon = NULL};
     char icao[8] = {0};
     char *cam_obj_path;
     char airline[1024] = {0};
@@ -1162,15 +1247,18 @@ bp_cam_start(void) {
     cam_obj_path = mkpathname(bp_xpdir, bp_plugindir, "objects",
                               "night_lamp.obj", NULL);
     cam_lamp_obj = XPLMLoadObject(cam_obj_path);
-    if (cam_lamp_obj == NULL) {
+    if (cam_lamp_obj == NULL)
+    {
         logMsg(BP_ERROR_LOG "Error loading pushback lamp %s. Please reinstall "
-               "BetterPushback.", cam_obj_path);
+                            "BetterPushback.",
+               cam_obj_path);
         free(cam_obj_path);
         return (B_FALSE);
     }
     free(cam_obj_path);
 
-    if (!acf_is_compatible()) {
+    if (!acf_is_compatible())
+    {
         XPLMSpeakString(_("Pushback failure: aircraft is incompatible "
                           "with BetterPushback."));
         return (B_FALSE);
@@ -1181,29 +1269,32 @@ bp_cam_start(void) {
     logMsg(BP_INFO_LOG "RE-Initialising messages languages");
     audio_sys_init();
 
-    (void) find_nearest_airport(icao);
+    (void)find_nearest_airport(icao);
     if (acf_is_airliner())
         read_acf_airline(airline);
     if (!tug_available(dr_getf(&drs.mtow), bp.acf.nw_len, bp.acf.tirrad,
-                       bp.acf.nw_type, strcmp(icao, "") != 0 ? icao : NULL, airline)) {
+                       bp.acf.nw_type, strcmp(icao, "") != 0 ? icao : NULL, airline))
+    {
         XPLMSpeakString(_("Pushback failure: no suitable tug for your "
                           "aircraft."));
         return (B_FALSE);
     }
 
-#ifndef    PB_DEBUG_INTF
+#ifndef PB_DEBUG_INTF
     if (vect3_abs(VECT3(dr_getf(&drs.local_vx), dr_getf(&drs.local_vy),
-                        dr_getf(&drs.local_vz))) > 0.1) {
+                        dr_getf(&drs.local_vz))) > 0.1)
+    {
         XPLMSpeakString(_("Can't start planner: aircraft not "
                           "stationary."));
         return (B_FALSE);
     }
-    if (bp_started && !late_plan_requested) {
+    if (bp_started && !late_plan_requested)
+    {
         XPLMSpeakString(_("Can't start planner: pushback already in "
                           "progress. Please stop the pushback operation first."));
         return (B_FALSE);
     }
-#endif    /* !PB_DEBUG_INTF */
+#endif /* !PB_DEBUG_INTF */
 
     push_reset_fov_values();
     eye_track_debut();
@@ -1214,11 +1305,11 @@ bp_cam_start(void) {
     fake_win_ops.bottom = monitor_def.y_origin;
     fake_win_ops.top = monitor_def.y_origin + monitor_def.h;
 
-
     circle_view_cmd = XPLMFindCommand("sim/view/circle");
     ASSERT(circle_view_cmd != NULL);
     XPLMCommandOnce(circle_view_cmd);
 
+    //bp_plan_callback_is_alive = CAMERA_TIMEOUT;
     fake_win = XPLMCreateWindowEx(&fake_win_ops);
     ASSERT(fake_win != NULL);
     XPLMBringWindowToFront(fake_win);
@@ -1236,30 +1327,33 @@ bp_cam_start(void) {
 
     cam_lamp_inst = XPLMCreateInstance(cam_lamp_obj, cam_lamp_drefs);
 
-    for (int i = 0; view_cmds[i].name != NULL; i++) {
+    for (int i = 0; view_cmds[i].name != NULL; i++)
+    {
         view_cmds[i].cmd = XPLMFindCommand(view_cmds[i].name);
         VERIFY(view_cmds[i].cmd != NULL);
         XPLMRegisterCommandHandler(view_cmds[i].cmd, move_camera,
-                                   1, (void *) (uintptr_t) i);
+                                   1, (void *)(uintptr_t)i);
     }
     XPLMRegisterKeySniffer(key_sniffer, 1, NULL);
 
     /* If the list of segs is empty, try to reload the saved state */
-    if (list_head(&bp.segs) == NULL) {
+    if (list_head(&bp.segs) == NULL)
+    {
         route_load(GEO_POS2(dr_getf(&drs.lat), dr_getf(&drs.lon)),
                    dr_getf(&drs.hdg), &bp.segs);
     }
 
     /*
-        * While the planner is active, we override the current
-        * visibility and real weather usage, so that the user can
-        * clearly see the path while planning. After we're done,
-        * we'll restore the settings.
-        */
+     * While the planner is active, we override the current
+     * visibility and real weather usage, so that the user can
+     * clearly see the path while planning. After we're done,
+     * we'll restore the settings.
+     */
     saved_visibility = dr_getf(&drs.visibility);
     saved_real_wx = dr_geti(&drs.use_real_wx);
 
-    if (bp_xp_ver < 12000) {
+    if (bp_xp_ver < 12000)
+    {
         saved_cloud_types[0] = dr_geti(&drs.cloud_types[0]);
         saved_cloud_types[1] = dr_geti(&drs.cloud_types[1]);
         saved_cloud_types[2] = dr_geti(&drs.cloud_types[2]);
@@ -1269,7 +1363,8 @@ bp_cam_start(void) {
         dr_seti(&drs.cloud_types[2], 0);
         dr_seti(&drs.use_real_wx, 0);
     }
-    if ( (bp_xp_ver >= 12000) && (bp_xp_ver < 13000) ) {
+    if ((bp_xp_ver >= 12000) && (bp_xp_ver < 13000))
+    {
         float zero_cloud[3] = {0.0};
         dr_getvf32(&drs.cloud_types[0], fsaved_cloud_types, 0, 3);
         dr_setvf32(&drs.cloud_types[0], zero_cloud, 0, 3);
@@ -1280,16 +1375,18 @@ bp_cam_start(void) {
     cam_inited = B_TRUE;
 
     updateAvailable = getPluginUpdateStatus();
-    if (updateAvailable != NULL) {
+    if (updateAvailable != NULL)
+    {
         snprintf(bottom_msg, sizeof(bottom_msg), "New version of BetterPushBack available: %s (Use SkunkCrafts Updater to update)", updateAvailable);
         init_bottom_msg(bottom_msg);
     }
-    
+
     return (B_TRUE);
 }
 
 bool_t
-bp_cam_stop(void) {
+bp_cam_stop(void)
+{
     seg_t *seg;
     XPLMCommandRef cockpit_view_cmd;
 
@@ -1309,24 +1406,27 @@ bp_cam_stop(void) {
 
     XPLMDestroyWindow(fake_win);
 
-    for (int i = 0; view_cmds[i].name != NULL; i++) {
+    for (int i = 0; view_cmds[i].name != NULL; i++)
+    {
         XPLMUnregisterCommandHandler(view_cmds[i].cmd, move_camera,
-                                     1, (void *) (uintptr_t) i);
+                                     1, (void *)(uintptr_t)i);
     }
     XPLMUnregisterKeySniffer(key_sniffer, 1, NULL);
 
     cockpit_view_cmd = XPLMFindCommand("sim/view/3d_cockpit_cmnd_look");
     ASSERT(cockpit_view_cmd != NULL);
     XPLMCommandOnce(cockpit_view_cmd);
-    
+
     dr_setf(&drs.visibility, saved_visibility);
     dr_seti(&drs.use_real_wx, saved_real_wx);
-    if (bp_xp_ver < 12000) {
+    if (bp_xp_ver < 12000)
+    {
         dr_seti(&drs.cloud_types[0], saved_cloud_types[0]);
         dr_seti(&drs.cloud_types[1], saved_cloud_types[1]);
         dr_seti(&drs.cloud_types[2], saved_cloud_types[2]);
     }
-    if ( (bp_xp_ver >= 12000) && (bp_xp_ver < 13000) ) {
+    if ((bp_xp_ver >= 12000) && (bp_xp_ver < 13000))
+    {
         dr_setvf32(&drs.cloud_types[0], fsaved_cloud_types, 0, 3);
     }
 
@@ -1340,42 +1440,46 @@ bp_cam_stop(void) {
 }
 
 bool_t
-bp_cam_is_running(void) {
+bp_cam_is_running(void)
+{
     return (cam_inited);
 }
 
-void
-init_bottom_msg(char *msg)
+void init_bottom_msg(char *msg)
 {
-	FT_Error err;
-	char *filename;
+    FT_Error err;
+    char *filename;
     int tex_w, tex_h;
     uint8_t *tex_bytes;
-    
-    if ((err = FT_Init_FreeType(&ft)) != 0) {
-		logMsg("Error initializing FreeType library: %s",
-		    ft_err2str(err));
-		return ;
-	}
 
-	filename = mkpathname(bp_plugindir, "data", "fonts", BOTTOM_MSG_FONT,
-	    NULL);
-	if ((err = FT_New_Face(ft, filename, 0, &face)) != 0) {
-		logMsg("Error loading init_msg font %s: %s", filename,
-		    ft_err2str(err));
-		VERIFY(FT_Done_FreeType(ft) == 0);
-		free(filename);
-		return ;
-	}
-	free(filename);
+    if ((err = FT_Init_FreeType(&ft)) != 0)
+    {
+        logMsg("Error initializing FreeType library: %s",
+               ft_err2str(err));
+        return;
+    }
+
+    filename = mkpathname(bp_plugindir, "data", "fonts", BOTTOM_MSG_FONT,
+                          NULL);
+    if ((err = FT_New_Face(ft, filename, 0, &face)) != 0)
+    {
+        logMsg("Error loading init_msg font %s: %s", filename,
+               ft_err2str(err));
+        VERIFY(FT_Done_FreeType(ft) == 0);
+        free(filename);
+        return;
+    }
+    free(filename);
 
     clear_bottom_msg();
 
-    if (strlen(msg) == 0 ) {
+    if (strlen(msg) == 0)
+    {
         return;
     }
     if (!get_text_block_size(msg, face, BOTTOM_MSG_FONT_SIZE,
-        &bottom_msg.width, &bottom_msg.height)) {
+                             &bottom_msg.width, &bottom_msg.height))
+    {
         return;
     }
 
@@ -1388,8 +1492,9 @@ init_bottom_msg(char *msg)
         tex_bytes[i * 4 + 3] = (uint8_t)(255 * 0.67);
 
     if (!render_text_block(msg, face, BOTTOM_MSG_FONT_SIZE,
-        MARGIN_SIZE, MARGIN_SIZE + BOTTOM_MSG_FONT_SIZE,
-        255, 255, 255, tex_bytes, tex_w, tex_h)) {
+                           MARGIN_SIZE, MARGIN_SIZE + BOTTOM_MSG_FONT_SIZE,
+                           255, 255, 255, tex_bytes, tex_w, tex_h))
+    {
         free(tex_bytes);
         return;
     }
@@ -1397,82 +1502,93 @@ init_bottom_msg(char *msg)
     bottom_msg.msg = msg;
     bottom_msg.bytes = tex_bytes;
 
-
-
     glGenTextures(1, &bottom_msg.texture);
     glBindTexture(GL_TEXTURE_2D, bottom_msg.texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-        GL_NEAREST);
+                    GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-        GL_NEAREST);
+                    GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, tex_w, tex_h, 0,
-        GL_RGBA, GL_UNSIGNED_BYTE, bottom_msg.bytes);
-
+                 GL_RGBA, GL_UNSIGNED_BYTE, bottom_msg.bytes);
 }
 
-
-void
-clear_bottom_msg(void)
+void clear_bottom_msg(void)
 {
-	if (bottom_msg.msg != NULL) {
-		glDeleteTextures(1, &bottom_msg.texture);
-		free(bottom_msg.bytes);
-		memset(&bottom_msg, 0, sizeof (bottom_msg));
-	}
+    if (bottom_msg.msg != NULL)
+    {
+        glDeleteTextures(1, &bottom_msg.texture);
+        free(bottom_msg.bytes);
+        memset(&bottom_msg, 0, sizeof(bottom_msg));
+    }
 }
 
-void
-draw_bottom_msg(int screen_x, int screen_y) {
+void draw_bottom_msg(int screen_x, int screen_y)
+{
 
     UNUSED(screen_y);
 
     glBindTexture(GL_TEXTURE_2D, bottom_msg.texture);
     glBegin(GL_QUADS);
-    glTexCoord2f(monitor_def.x_origin  , monitor_def.y_origin + 1.0);
-    glVertex2f(monitor_def.x_origin + (screen_x - bottom_msg.width) / 2 - MARGIN_SIZE, monitor_def.y_origin );
+    glTexCoord2f(monitor_def.x_origin, monitor_def.y_origin + 1.0);
+    glVertex2f(monitor_def.x_origin + (screen_x - bottom_msg.width) / 2 - MARGIN_SIZE, monitor_def.y_origin);
     glTexCoord2f(monitor_def.x_origin, monitor_def.y_origin);
     glVertex2f(monitor_def.x_origin + (screen_x - bottom_msg.width) / 2 - MARGIN_SIZE,
-        monitor_def.y_origin + bottom_msg.height + 2 * MARGIN_SIZE);
-    glTexCoord2f( monitor_def.x_origin + 1, monitor_def.y_origin);
+               monitor_def.y_origin + bottom_msg.height + 2 * MARGIN_SIZE);
+    glTexCoord2f(monitor_def.x_origin + 1, monitor_def.y_origin);
     glVertex2f(monitor_def.x_origin + (screen_x + bottom_msg.width) / 2 + MARGIN_SIZE,
-        monitor_def.y_origin + bottom_msg.height + 2 * MARGIN_SIZE);
-    glTexCoord2f( monitor_def.x_origin + 1, monitor_def.y_origin + 1);
+               monitor_def.y_origin + bottom_msg.height + 2 * MARGIN_SIZE);
+    glTexCoord2f(monitor_def.x_origin + 1, monitor_def.y_origin + 1);
     glVertex2f(monitor_def.x_origin + (screen_x + bottom_msg.width) / 2 + MARGIN_SIZE, monitor_def.y_origin);
     glEnd();
 }
 
-void eye_track_debut(void) {
- 
+void eye_track_debut(void)
+{
+
     const char *plg_to_exclude = NULL;
 
     eye_tracker_plg.plg_id = -1;
-    if ( conf_get_str(bp_conf, "plg_to_exclude", &plg_to_exclude) ) {
-        eye_tracker_plg.plg_id =  XPLMFindPluginBySignature(plg_to_exclude);
-    } else {
-            logMsg("XPLMDisablePlugin not done, no plugin to exclude selected");
-            return;
-        }
+    if (conf_get_str(bp_conf, "plg_to_exclude", &plg_to_exclude))
+    {
+        eye_tracker_plg.plg_id = XPLMFindPluginBySignature(plg_to_exclude);
+    }
+    else
+    {
+        logMsg("XPLMDisablePlugin not done, no plugin to exclude selected");
+        return;
+    }
 
-    if (eye_tracker_plg.plg_id != -1) {
-       eye_tracker_plg.plg_status = XPLMIsPluginEnabled(eye_tracker_plg.plg_id);
-        if (eye_tracker_plg.plg_status) {
+    if (eye_tracker_plg.plg_id != -1)
+    {
+        eye_tracker_plg.plg_status = XPLMIsPluginEnabled(eye_tracker_plg.plg_id);
+        if (eye_tracker_plg.plg_status)
+        {
             XPLMDisablePlugin(eye_tracker_plg.plg_id);
             logMsg("XPLMDisablePlugin on %s", plg_to_exclude);
-        } else {
+        }
+        else
+        {
             logMsg("XPLMDisablePlugin not done, was already disabled");
         }
-    } else {
-            logMsg("XPLMDisablePlugin not done, plugin %s not found", plg_to_exclude);
-        }
+    }
+    else
+    {
+        logMsg("XPLMDisablePlugin not done, plugin %s not found", plg_to_exclude);
+    }
 }
 
-void eye_track_fini(void) {
-    if (eye_tracker_plg.plg_id != -1) {
+void eye_track_fini(void)
+{
+    if (eye_tracker_plg.plg_id != -1)
+    {
         eye_tracker_plg.plg_status = XPLMIsPluginEnabled(eye_tracker_plg.plg_id);
-        if (!eye_tracker_plg.plg_status) {
+        if (!eye_tracker_plg.plg_status)
+        {
             int r = XPLMEnablePlugin(eye_tracker_plg.plg_id);
             logMsg("XPLMEnablePlugin %d", r);
-        } else {
+        }
+        else
+        {
             logMsg("XPLMEnablePlugin not done, was already enabled");
         }
     }

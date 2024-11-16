@@ -52,28 +52,29 @@
 /* Enables leaving bp_tug_name set to facilitate local master/slave debug */
 /*#define	SLAVE_DEBUG*/
 
-#define    STATUS_CHECK_INTVAL    1    /* second */
-enum {
-    COUPLED_STATE_OFF = 0,  /* disconnected */
-    COUPLED_STATE_SLAVE = 1,    /* connected and we're slave */
-    COUPLED_STATE_MASTER = 2,   /* connected and we're master */
+#define STATUS_CHECK_INTVAL 1 /* second */
+enum
+{
+    COUPLED_STATE_OFF = 0,       /* disconnected */
+    COUPLED_STATE_SLAVE = 1,     /* connected and we're slave */
+    COUPLED_STATE_MASTER = 2,    /* connected and we're master */
     COUPLED_STATE_PASSENGER = -1 /* connected and we're passenger */
 };
 
 static bool_t inited = B_FALSE;
 
-XPLMCommandRef start_pb,  start_cam, conn_first, stop_pb;
-static XPLMCommandRef  stop_cam;
+XPLMCommandRef start_pb, start_cam, conn_first, stop_pb;
+static XPLMCommandRef stop_cam;
 static XPLMCommandRef cab_cam, recreate_routes;
-static XPLMCommandRef   abort_push, pref_cmd;
+static XPLMCommandRef abort_push, pref_cmd;
 static XPLMMenuID root_menu;
 static int plugins_menu_item;
 static int start_pb_plan_menu_item, stop_pb_plan_menu_item;
 static int start_pb_menu_item, stop_pb_menu_item, conn_first_menu_item;
 static int cab_cam_menu_item, prefs_menu_item;
 static bool_t prefs_enable, stop_pb_plan_enable,
-     stop_pb_enable, conn_first_enable, cab_cam_enable;
-bool_t  start_pb_plan_enable, start_pb_enable;
+    stop_pb_enable, conn_first_enable, cab_cam_enable;
+bool_t start_pb_plan_enable, start_pb_enable;
 
 static bool_t pref_widget_active_status = B_FALSE;
 bool_t hide_main_intf = B_FALSE;
@@ -107,7 +108,7 @@ const char *const bp_plugindir = plugindir;
 static bool_t smartcopilot_present;
 static dr_t smartcopilot_state;
 static bool_t sharedflight_present;
-static dr_t sharedflight_state; 
+static dr_t sharedflight_state;
 
 int bp_xp_ver, bp_xplm_ver;
 XPLMHostApplicationID bp_host_id;
@@ -121,16 +122,15 @@ static float bp_do_reload(float, float, int, void *);
 
 static bool_t reload_rqst = B_FALSE;
 static XPLMCreateFlightLoop_t reload_floop = {
-        .structSize = sizeof(reload_floop),
-        .phase = xplm_FlightLoop_Phase_AfterFlightModel,
-        .callbackFunc = bp_do_reload,
-        .refcon = NULL
-};
+    .structSize = sizeof(reload_floop),
+    .phase = xplm_FlightLoop_Phase_AfterFlightModel,
+    .callbackFunc = bp_do_reload,
+    .refcon = NULL};
 static XPLMFlightLoopID reload_floop_ID = NULL;
 
 /*
  * These datarefs are for syncing two instances of BetterPushback over the
- * net via syncing addons such as smartcopilot and Shared Flight. 
+ * net via syncing addons such as smartcopilot and Shared Flight.
  * This works as follows:
  * 1) Master/slave must not be switched during pushback (undefined behavior
  *	may result). It's possible to observe if BetterPushback is running by
@@ -161,7 +161,7 @@ static XPLMFlightLoopID reload_floop_ID = NULL;
  *	There's no need to sync any other commands. The planning GUI is
  *	disabled on the slave machine and stopping of the pushback can only be
  *	performed by the master machine.
-  * 7) The dataref bp/parking_brake_override can be set to 1 on slaves and
+ * 7) The dataref bp/parking_brake_override can be set to 1 on slaves and
  *  then bp/parking_brake_set will be used instead of the local parking brake.
  */
 static dr_t bp_started_dr, bp_connected_dr, slave_mode_dr, op_complete_dr;
@@ -184,13 +184,17 @@ char bp_tug_name[64] = {0};
  * load the tug OBJ and later undo this when shutting down.
  */
 static void
-set_xp11_tug_hidden(bool_t flag) {
+set_xp11_tug_hidden(bool_t flag)
+{
     static bool_t hidden = B_FALSE;
     char *filename, *filename_backup;
 
-    if (flag == hidden) {
+    if (flag == hidden)
+    {
         return;
-    } else if (bp_xp_ver < 11000 || bp_xp_ver >= 12000) {
+    }
+    else if (bp_xp_ver < 11000 || bp_xp_ver >= 12000)
+    {
         logMsg(BP_WARN_LOG "Hidden xp11 default tug not supported. XP Version %d", bp_xp_ver);
         return;
     }
@@ -203,27 +207,32 @@ set_xp11_tug_hidden(bool_t flag) {
                                  "sim objects", "apt_vehicles", "pushback",
                                  "Tug_GT110-BetterPushback-backup.obj", NULL);
 
-    if (flag) {
+    if (flag)
+    {
         FILE *fp;
 
-        if (!file_exists(filename, NULL)) {
+        if (!file_exists(filename, NULL))
+        {
             logMsg(BP_WARN_LOG "Failed to hide default X-Plane 11 tug: "
                                "original tug file doesn't exist.");
             goto out;
         }
-        if (file_exists(filename_backup, NULL)) {
+        if (file_exists(filename_backup, NULL))
+        {
             logMsg(BP_WARN_LOG "Failed to hide default X-Plane 11 tug: "
                                "backup tug file already exists.");
             goto out;
         }
-        if (rename(filename, filename_backup) != 0) {
+        if (rename(filename, filename_backup) != 0)
+        {
             logMsg(BP_WARN_LOG "Failed to hide default X-Plane 11 tug: "
                                "cannot rename original tug file: %s.",
                    strerror(errno));
             goto out;
         }
         fp = fopen(filename, "wb");
-        if (fp == NULL) {
+        if (fp == NULL)
+        {
             logMsg(BP_WARN_LOG "Failed to hide default X-Plane 11 tug: "
                                "cannot write substitute tug object file.");
             rename(filename_backup, filename);
@@ -231,19 +240,24 @@ set_xp11_tug_hidden(bool_t flag) {
         }
         fprintf(fp, "A\n800\nOBJ\n");
         fclose(fp);
-    } else {
+    }
+    else
+    {
         if (!file_exists(filename, NULL) ||
-            !file_exists(filename_backup, NULL)) {
+            !file_exists(filename_backup, NULL))
+        {
             logMsg(BP_WARN_LOG "Failed to unhide default X-Plane 11 "
                                "tug: subtitute file or backup file don't exist");
             goto out;
         }
-        if (!remove_file(filename, B_FALSE)) {
+        if (!remove_file(filename, B_FALSE))
+        {
             logMsg(BP_WARN_LOG "Failed to unhide default X-Plane 11 "
                                "tug: cannot remove subtitute file");
             goto out;
         }
-        if (rename(filename_backup, filename) != 0) {
+        if (rename(filename_backup, filename) != 0)
+        {
             logMsg(BP_WARN_LOG "Failed to unhide default X-Plane 11 "
                                "tug: couldn't rename original file: %s",
                    strerror(errno));
@@ -251,14 +265,15 @@ set_xp11_tug_hidden(bool_t flag) {
         }
     }
 
-    out:
+out:
     hidden = flag;
     free(filename);
     free(filename_backup);
 }
 
 static void
-init_core_state(void) {
+init_core_state(void)
+{
     bp_started = B_FALSE;
     bp_connected = B_FALSE;
     slave_mode = B_FALSE;
@@ -268,7 +283,8 @@ init_core_state(void) {
 }
 
 static void
-enable_menu_items() {
+enable_menu_items()
+{
     XPLMEnableMenuItem(root_menu, prefs_menu_item, prefs_enable);
     XPLMEnableMenuItem(root_menu, start_pb_menu_item, start_pb_enable);
     XPLMEnableMenuItem(root_menu, stop_pb_menu_item, stop_pb_enable);
@@ -279,7 +295,8 @@ enable_menu_items() {
 }
 
 static int
-start_pb_handler_(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+start_pb_handler_(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     UNUSED(cmd);
     UNUSED(refcon);
 
@@ -289,15 +306,17 @@ start_pb_handler_(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     if (get_pref_widget_status()) // do nothing if preference widget is active
         return (1);
 
-    if (!start_pb_enable) {
+    if (!start_pb_enable)
+    {
         logMsg(BP_WARN_LOG "Command \"BetterPushback/start\" is currently disabled");
         return (1);
     }
 
-    stop_cam_handler(NULL, xplm_CommandEnd, NULL);     // synchronously stop a possible open cam
+    stop_cam_handler(NULL, xplm_CommandEnd, NULL); // synchronously stop a possible open cam
 
     // if late_plan_requested always present plan for final review
-    if ((late_plan_requested || bp_num_segs() == 0) && !slave_mode) {
+    if ((late_plan_requested || bp_num_segs() == 0) && !slave_mode)
+    {
         if (!bp_cam_start())
             return (1);
         prefs_enable = B_FALSE;
@@ -327,32 +346,39 @@ start_pb_handler_(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
 }
 
 static int
-start_pb_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+start_pb_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     bool_t always_connect_tug_first = B_FALSE;
-    (void) conf_get_b(bp_conf, "always_connect_tug_first", &always_connect_tug_first);
+    (void)conf_get_b(bp_conf, "always_connect_tug_first", &always_connect_tug_first);
 
-    if (always_connect_tug_first && !bp_started ) {
+    if (always_connect_tug_first && !bp_started)
+    {
         return conn_first_handler(cmd, phase, refcon);
-    } else {
+    }
+    else
+    {
         return start_pb_handler_(cmd, phase, refcon);
     }
-}    
+}
 static int
-stop_pb_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+stop_pb_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     UNUSED(cmd);
     UNUSED(refcon);
 
-    if (slave_mode ||phase != xplm_CommandEnd || !bp_init())
+    if (slave_mode || phase != xplm_CommandEnd || !bp_init())
         return (1);
 
-    if (!stop_pb_enable) {
+    if (!stop_pb_enable)
+    {
         logMsg(BP_WARN_LOG "Command \"BetterPushback/stop\" is currently disabled");
         return (1);
     }
 
-    (void) bp_stop();
+    (void)bp_stop();
     op_complete = B_TRUE;
-    if (!slave_mode) {
+    if (!slave_mode)
+    {
         /* Reset the menu back */
         late_plan_requested = B_FALSE;
         start_pb_enable = B_TRUE;
@@ -364,7 +390,8 @@ stop_pb_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
 }
 
 static int
-start_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+start_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     UNUSED(cmd);
     UNUSED(refcon);
 
@@ -377,17 +404,19 @@ start_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     if (phase != xplm_CommandEnd || !bp_init())
         return (1);
 
-    if (!start_pb_plan_enable) {
+    if (!start_pb_plan_enable)
+    {
         logMsg(BP_WARN_LOG "Command \"BetterPushback/start_planner\" is currently disabled");
         return (1);
     }
 
-    if (!bp_cam_start()) {
+    if (!bp_cam_start())
+    {
         start_after_cam = B_FALSE;
         return (1);
     }
 
-    bp_plan_callback_is_alive = B_TRUE;
+    //bp_plan_callback_is_alive = CAMERA_TIMEOUT;
     prefs_enable = B_FALSE;
     start_pb_plan_enable = B_FALSE;
     stop_pb_plan_enable = B_TRUE;
@@ -399,14 +428,16 @@ start_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
 }
 
 static int
-stop_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+stop_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     UNUSED(cmd);
     UNUSED(refcon);
 
     if (slave_mode || phase != xplm_CommandEnd || !bp_init())
         return (1);
 
-    if (!stop_pb_plan_enable) {
+    if (!stop_pb_plan_enable)
+    {
         logMsg(BP_WARN_LOG "Command \"BetterPushback/stop_planner\" is currently disabled");
         return (1);
     }
@@ -422,7 +453,8 @@ stop_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     stop_pb_enable = B_FALSE;
     enable_menu_items();
 
-    if (late_plan_requested) {
+    if (late_plan_requested)
+    {
         prefs_enable = B_FALSE;
         start_pb_plan_enable = B_FALSE;
         stop_pb_plan_enable = B_FALSE;
@@ -430,10 +462,14 @@ stop_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
         conn_first_enable = B_FALSE;
         stop_pb_enable = B_TRUE;
         enable_menu_items();
-    } else if (start_after_cam) {
+    }
+    else if (start_after_cam)
+    {
         if (bp_num_segs() != 0)
             XPLMCommandOnce(start_pb);
-    } else if (bp_can_start(NULL)) {
+    }
+    else if (bp_can_start(NULL))
+    {
         msg_play(MSG_PLAN_END);
     }
 
@@ -443,44 +479,50 @@ stop_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
 }
 
 static int
-conn_first_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+conn_first_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     UNUSED(cmd);
     UNUSED(refcon);
     if (phase != xplm_CommandEnd || !bp_init() || bp_started || slave_mode)
         return (0);
 
-    if (!conn_first_enable) {
+    if (!conn_first_enable)
+    {
         logMsg(BP_WARN_LOG "Command \"BetterPushback/connect_first\" is currently disabled");
         return (0);
     }
 
-    if (get_pref_widget_status()) { // do nothing if preference widget is active
+    if (get_pref_widget_status())
+    { // do nothing if preference widget is active
         return (1);
     }
 
     late_plan_requested = B_TRUE;
-    (void) bp_cam_stop();
+    (void)bp_cam_stop();
 
     /*
      * The conn_first procedure results in 2 calls to bp_start(). First here to get the tug connected,
      * then the second is issued by the user to get things moving.
-     * An *active* preplanned route interferes with the holding point after lift in 
+     * An *active* preplanned route interferes with the holding point after lift in
      * pb_step_lift() / late_plan_end_cond() .
      * So we save an active preplanned route here and clear it.
      * It will be loaded again when the planner is started for the final review in the
      * user invocation of bp_start() so the planning is not lost but it may be modified.
      */
-    if (bp_num_segs()) {
+    if (bp_num_segs())
+    {
         route_save(&bp.segs);
         bp_delete_all_segs();
     }
 
-    if (!bp_start()) {
+    if (!bp_start())
+    {
         late_plan_requested = B_FALSE;
         return (1);
     }
 
-    if (!slave_mode) {
+    if (!slave_mode)
+    {
         start_pb_plan_enable = B_FALSE;
         stop_pb_plan_enable = B_FALSE;
         start_pb_enable = (bp_num_segs() == 0);
@@ -493,18 +535,21 @@ conn_first_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
 }
 
 static int
-cab_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+cab_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     UNUSED(cmd);
     UNUSED(refcon);
     if (phase != xplm_CommandEnd)
         return (0);
 
-    if (!cab_cam_enable) {
+    if (!cab_cam_enable)
+    {
         logMsg(BP_WARN_LOG "Command \"BetterPushback/cab_cam\" is currently disabled");
         return (0);
     }
 
-    if (!cab_view_start()) {
+    if (!cab_view_start())
+    {
         XPLMSpeakString(_("ERROR: Unable to select pushback tug view at this time."));
         return (0);
     }
@@ -514,7 +559,8 @@ cab_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
 }
 
 static int
-recreate_routes_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+recreate_routes_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     UNUSED(cmd);
     UNUSED(refcon);
     if (phase != xplm_CommandEnd)
@@ -524,34 +570,37 @@ recreate_routes_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon
 }
 
 static int
-preference_window_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
+preference_window_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
     UNUSED(cmd);
     UNUSED(refcon);
     if (phase != xplm_CommandEnd)
         return (0);
 
-    if (!prefs_enable) {
+    if (!prefs_enable)
+    {
         logMsg(BP_WARN_LOG "Command \"BetterPushback/preference\" is currently disabled");
         return (0);
     }
-    
+
     bp_conf_open();
     return (1);
 }
 
-
 static void
-menu_cb(void *inMenuRef, void *inItemRef) {
+menu_cb(void *inMenuRef, void *inItemRef)
+{
     UNUSED(inMenuRef);
     if (inItemRef == NULL)
         return;
     else
-        XPLMCommandOnce((XPLMCommandRef) inItemRef);
+        XPLMCommandOnce((XPLMCommandRef)inItemRef);
 }
 
-void
-bp_done_notify(void) {
-    if (!slave_mode) {
+void bp_done_notify(void)
+{
+    if (!slave_mode)
+    {
         prefs_enable = B_TRUE;
         start_pb_enable = B_TRUE;
         conn_first_enable = B_TRUE;
@@ -561,7 +610,7 @@ bp_done_notify(void) {
         enable_menu_items();
     }
 
-#ifndef    SLAVE_DEBUG
+#ifndef SLAVE_DEBUG
     bp_tug_name[0] = '\0';
 #endif
 }
@@ -571,8 +620,8 @@ bp_done_notify(void) {
  * appropriate time. Behave as if the user had hit "connect first" and on
  * the master's machine invoke the planner.
  */
-void
-bp_reconnect_notify(void) {
+void bp_reconnect_notify(void)
+{
     if (slave_mode)
         return;
 
@@ -588,7 +637,8 @@ bp_reconnect_notify(void) {
 }
 
 const char *
-bp_get_lang(void) {
+bp_get_lang(void)
+{
     const char *c;
     if (conf_get_str(bp_conf, "lang", &c))
         return (c);
@@ -608,27 +658,25 @@ coupled_state_change()
     enable_menu_items();
 }
 
-void
-slave_mode_cb(dr_t *dr, void *unused) {
+void slave_mode_cb(dr_t *dr, void *unused)
+{
     UNUSED(unused);
     UNUSED(dr);
     VERIFY(!bp_started);
 
-    if (slave_mode) bp_fini();
+    if (slave_mode)
+        bp_fini();
 
     coupled_state_change();
 }
 
-void
-pb_set_remote_cb(dr_t *dr, void *unused)
+void pb_set_remote_cb(dr_t *dr, void *unused)
 {
     UNUSED(unused);
     UNUSED(dr);
-
 }
 
-void
-pb_set_override_cb(dr_t *dr, void *unused)
+void pb_set_override_cb(dr_t *dr, void *unused)
 {
     UNUSED(unused);
     UNUSED(dr);
@@ -645,40 +693,42 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     cab_cam_enable = cab_view_can_start();
     enable_menu_items();
 
-    if( !tug_view_callback_is_alive && tug_cam_started ) {
+    if (!tug_view_callback_is_alive && tug_cam_started)
+    {
         cab_view_stop();
     }
     tug_view_callback_is_alive = B_FALSE;
 
-
-    if ((!setup_view_callback_is_alive) && (get_pref_widget_status())) {
+    if ((!setup_view_callback_is_alive) && (get_pref_widget_status()))
+    {
         set_pref_widget_status(B_FALSE);
     }
     setup_view_callback_is_alive = B_FALSE;
 
-    if( !bp_plan_callback_is_alive && cam_inited ) {
-        XPLMCommandOnce(XPLMFindCommand("BetterPushback/stop_planner"));
+    if (bp_plan_callback_is_alive > 0)
+    {
+        bp_plan_callback_is_alive--;
     }
-    bp_plan_callback_is_alive = B_FALSE;
 
-
-
-    if (!conf_get_b_per_acf("hide_magic_squares", &hide_main_intf) ) {
+    if (!conf_get_b_per_acf("hide_magic_squares", &hide_main_intf))
+    {
         hide_main_intf = B_FALSE;
     }
 
     main_intf(hide_main_intf);
-        
+
     // Status check only needed if we have a known system of coupling installed...
     if (!smartcopilot_present && !sharedflight_present)
         return (1);
 
     if (smartcopilot_present && dr_geti(&smartcopilot_state) == COUPLED_STATE_SLAVE &&
-        !slave_mode) {
-        if (bp_started) {
+        !slave_mode)
+    {
+        if (bp_started)
+        {
             XPLMSpeakString(_("Pushback failure: smartcopilot "
-                "attempted to switch master/slave or network "
-                "connection lost. Stopping operation."));
+                              "attempted to switch master/slave or network "
+                              "connection lost. Stopping operation."));
         }
         /*
          * If we were in master mode, stop the camera, flush out all
@@ -688,34 +738,43 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
         bp_fini();
         slave_mode = B_TRUE;
         coupled_state_change();
-    } else if (sharedflight_present && dr_geti(&sharedflight_state) == COUPLED_STATE_SLAVE &&
-        !slave_mode) {
-        if (bp_started) {
+    }
+    else if (sharedflight_present && dr_geti(&sharedflight_state) == COUPLED_STATE_SLAVE &&
+             !slave_mode)
+    {
+        if (bp_started)
+        {
             XPLMSpeakString(_("Pushback failure: Shared Flight "
-                "attempted to switch pilot flying or network "
-                "connection lost. Stopping operation."));
+                              "attempted to switch pilot flying or network "
+                              "connection lost. Stopping operation."));
         }
         bp_fini();
         slave_mode = B_TRUE;
         coupled_state_change();
-    } else if ((smartcopilot_present && dr_geti(&smartcopilot_state) != COUPLED_STATE_SLAVE) &&
-        (!sharedflight_present || dr_geti(&sharedflight_state) != COUPLED_STATE_SLAVE) &&
-        slave_mode) {
-        if (bp_started) {
+    }
+    else if ((smartcopilot_present && dr_geti(&smartcopilot_state) != COUPLED_STATE_SLAVE) &&
+             (!sharedflight_present || dr_geti(&sharedflight_state) != COUPLED_STATE_SLAVE) &&
+             slave_mode)
+    {
+        if (bp_started)
+        {
             XPLMSpeakString(_("Pushback failure: smartcopilot "
-                "attempted to switch master/slave or network "
-                "connection lost. Stopping operation."));
+                              "attempted to switch master/slave or network "
+                              "connection lost. Stopping operation."));
         }
         bp_fini();
         slave_mode = B_FALSE;
         coupled_state_change();
-    } else if ((sharedflight_present && dr_geti(&sharedflight_state) != COUPLED_STATE_SLAVE && dr_geti(&sharedflight_state) != COUPLED_STATE_PASSENGER) &&
-        (!smartcopilot_present || dr_geti(&smartcopilot_state) != COUPLED_STATE_SLAVE) &&
-        slave_mode) {
-        if (bp_started) {
+    }
+    else if ((sharedflight_present && dr_geti(&sharedflight_state) != COUPLED_STATE_SLAVE && dr_geti(&sharedflight_state) != COUPLED_STATE_PASSENGER) &&
+             (!smartcopilot_present || dr_geti(&smartcopilot_state) != COUPLED_STATE_SLAVE) &&
+             slave_mode)
+    {
+        if (bp_started)
+        {
             XPLMSpeakString(_("Pushback failure: Shared Flight "
-                "attempted to switch pilot flying or network "
-                "connection lost. Stopping operation."));
+                              "attempted to switch pilot flying or network "
+                              "connection lost. Stopping operation."));
         }
         bp_fini();
         slave_mode = B_FALSE;
@@ -726,15 +785,17 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
 }
 
 static void
-xlate_init(void) {
+xlate_init(void)
+{
     char *po_file = mkpathname(xpdir, plugindir, "data", "po",
                                bp_get_lang(), "strings.po", NULL);
-    (void) acfutils_xlate_init(po_file);
+    (void)acfutils_xlate_init(po_file);
     free(po_file);
 }
 
 PLUGIN_API int
-XPluginStart(char *name, char *sig, char *desc) {
+XPluginStart(char *name, char *sig, char *desc)
+{
     char *p;
     GLenum err;
 
@@ -746,7 +807,8 @@ XPluginStart(char *name, char *sig, char *desc) {
     crc64_srand(microclock());
 
     err = glewInit();
-    if (err != GLEW_OK) {
+    if (err != GLEW_OK)
+    {
         /* Problem: glewInit failed, something is seriously wrong. */
         logMsg(BP_FATAL_LOG "cannot initialize libGLEW: %s", glewGetErrorString(err));
         return (0);
@@ -758,20 +820,22 @@ XPluginStart(char *name, char *sig, char *desc) {
     XPLMGetSystemPath(xpdir);
     XPLMGetPluginInfo(XPLMGetMyID(), NULL, plugindir, NULL, NULL);
 
-#if    IBM
+#if IBM
     fix_pathsep(xpdir);
     fix_pathsep(plugindir);
-#endif    /* IBM */
+#endif /* IBM */
 
     /* cut off the trailing path component (our filename) */
     if ((p = strrchr(plugindir, DIRSEP)) != NULL)
         *p = '\0';
     /* cut off an optional '32' or '64' trailing component */
-    if ((p = strrchr(plugindir, DIRSEP)) != NULL) {
+    if ((p = strrchr(plugindir, DIRSEP)) != NULL)
+    {
         if (strcmp(p + 1, "64") == 0 || strcmp(p + 1, "32") == 0 ||
             strcmp(p + 1, "win_x64") == 0 ||
             strcmp(p + 1, "mac_x64") == 0 ||
-            strcmp(p + 1, "lin_x64") == 0) {
+            strcmp(p + 1, "lin_x64") == 0)
+        {
             *p = '\0';
         }
     }
@@ -780,7 +844,8 @@ XPluginStart(char *name, char *sig, char *desc) {
      * Now we strip a leading xpdir from plugindir, so that now plugindir
      * will be relative to X-Plane's root directory.
      */
-    if (strstr(plugindir, xpdir) == plugindir) {
+    if (strstr(plugindir, xpdir) == plugindir)
+    {
         int xpdir_len = strlen(xpdir);
         int plugindir_len = strlen(plugindir);
         memmove(plugindir, &plugindir[xpdir_len],
@@ -814,36 +879,36 @@ XPluginStart(char *name, char *sig, char *desc) {
     cab_cam = XPLMCreateCommand("BetterPushback/cab_camera",
                                 _("View from tug's cab."));
     recreate_routes = XPLMCreateCommand(
-            "BetterPushback/recreate_scenery_routes",
-            _("Recreate scenery routes from WED files."));
+        "BetterPushback/recreate_scenery_routes",
+        _("Recreate scenery routes from WED files."));
     pref_cmd = XPLMCreateCommand(
-            "BetterPushback/preference",
-            _("Open preference window."));        
+        "BetterPushback/preference",
+        _("Open preference window."));
 
     abort_push = XPLMCreateCommand("BetterPushback/abort_push",
-        _("Abort pushback during coupled push"));
+                                   _("Abort pushback during coupled push"));
 
     bp_boot_init();
 
-    dr_create_i(&bp_started_dr, (int *) &bp_started, B_FALSE,
+    dr_create_i(&bp_started_dr, (int *)&bp_started, B_FALSE,
                 "bp/started");
-    dr_create_i(&bp_connected_dr, (int *) &bp_connected, B_FALSE,
+    dr_create_i(&bp_connected_dr, (int *)&bp_connected, B_FALSE,
                 "bp/connected");
-    dr_create_i(&slave_mode_dr, (int *) &slave_mode, B_TRUE,
+    dr_create_i(&slave_mode_dr, (int *)&slave_mode, B_TRUE,
                 "bp/slave_mode");
     slave_mode_dr.write_cb = slave_mode_cb;
-    dr_create_i(&op_complete_dr, (int *) &op_complete, B_TRUE,
+    dr_create_i(&op_complete_dr, (int *)&op_complete, B_TRUE,
                 "bp/op_complete");
-    dr_create_i(&plan_complete_dr, (int *) &plan_complete, B_TRUE,
+    dr_create_i(&plan_complete_dr, (int *)&plan_complete, B_TRUE,
                 "bp/plan_complete");
     dr_create_b(&bp_tug_name_dr, bp_tug_name, sizeof(bp_tug_name),
                 B_TRUE, "bp/tug_name");
 
     dr_create_i(&pb_set_remote_dr, (int *)&pb_set_remote, B_FALSE,
-        "bp/parking_brake_set");
+                "bp/parking_brake_set");
     pb_set_remote_dr.write_cb = pb_set_remote_cb;
     dr_create_i(&pb_set_override_dr, (int *)&pb_set_override, B_FALSE,
-        "bp/parking_brake_override");
+                "bp/parking_brake_override");
     pb_set_override_dr.write_cb = pb_set_override_cb;
 
     XPLMGetVersions(&bp_xp_ver, &bp_xplm_ver, &bp_host_id);
@@ -854,7 +919,8 @@ XPluginStart(char *name, char *sig, char *desc) {
 }
 
 PLUGIN_API void
-XPluginStop(void) {
+XPluginStop(void)
+{
     bp_conf_fini();
     acfutils_xlate_fini();
     tug_glob_fini();
@@ -867,7 +933,8 @@ XPluginStop(void) {
     dr_delete(&pb_set_override_dr);
     dcr_fini();
 
-    if (reload_floop_ID != NULL) {
+    if (reload_floop_ID != NULL)
+    {
         XPLMDestroyFlightLoop(reload_floop_ID);
         reload_floop_ID = NULL;
     }
@@ -882,45 +949,50 @@ XPluginStop(void) {
  * functions externally exported.
  */
 PLUGIN_API int
-XPluginEnable(void) {
+XPluginEnable(void)
+{
     return (bp_priv_enable());
 }
 
 PLUGIN_API void
-XPluginDisable(void) {
+XPluginDisable(void)
+{
     bp_priv_disable();
 }
 
 PLUGIN_API void
-XPluginReceiveMessage(XPLMPluginID from, int msg, void *param) {
+XPluginReceiveMessage(XPLMPluginID from, int msg, void *param)
+{
     UNUSED(from);
     UNUSED(param);
 
-    switch (msg) {
-        case XPLM_MSG_AIRPORT_LOADED:
-        case XPLM_MSG_PLANE_LOADED:
-            /* Force a reinit to re-read aircraft size params */
-            smartcopilot_present = dr_find(&smartcopilot_state, "scp/api/ismaster");
-            stop_cam_handler(NULL, xplm_CommandEnd, NULL);
-            sharedflight_present = dr_find(&sharedflight_state,
-            "SharedFlight/is_pilot_flying");
-            bp_fini();
-            cab_view_fini();
-#ifndef    SLAVE_DEBUG
-            bp_tug_name[0] = '\0';
+    switch (msg)
+    {
+    case XPLM_MSG_AIRPORT_LOADED:
+    case XPLM_MSG_PLANE_LOADED:
+        /* Force a reinit to re-read aircraft size params */
+        smartcopilot_present = dr_find(&smartcopilot_state, "scp/api/ismaster");
+        stop_cam_handler(NULL, xplm_CommandEnd, NULL);
+        sharedflight_present = dr_find(&sharedflight_state,
+                                       "SharedFlight/is_pilot_flying");
+        bp_fini();
+        cab_view_fini();
+#ifndef SLAVE_DEBUG
+        bp_tug_name[0] = '\0';
 #endif
-            init_core_state();
-            break;
+        init_core_state();
+        break;
     }
 
     if (msg == XPLM_MSG_PLANE_LOADED)
-        (void) ff_a320_intf_init();
+        (void)ff_a320_intf_init();
     else if (msg == XPLM_MSG_PLANE_UNLOADED)
         ff_a320_intf_fini();
 }
 
 static bool_t
-bp_priv_enable(void) {
+bp_priv_enable(void)
+{
     char *cachedir = mkpathname(xpdir, "Output", "caches",
                                 "BetterPushbackAirports.cache", NULL);
     bool_t dont_hide_xp_tug = B_FALSE;
@@ -962,23 +1034,23 @@ bp_priv_enable(void) {
                                plugins_menu_item, menu_cb, NULL);
 
     start_pb_plan_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
-                                                 _("Pre-plan pushback"), start_cam);
+                                                            _("Pre-plan pushback"), start_cam);
     stop_pb_plan_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
-                                                _("Close pushback planner"), stop_cam);
+                                                           _("Close pushback planner"), stop_cam);
     conn_first_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
-                                           _("Connect tug first"), conn_first);
+                                                         _("Connect tug first"), conn_first);
     start_pb_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
-                                            _("Start pushback"), start_pb);
+                                                       _("Start pushback"), start_pb);
     stop_pb_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
-                                           _("Stop pushback"), stop_pb);
+                                                      _("Stop pushback"), stop_pb);
     cab_cam_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
-                                           _("Tug cab view"), cab_cam);
+                                                      _("Tug cab view"), cab_cam);
 
     XPLMAppendMenuSeparator(root_menu);
     prefs_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
-                                         _("Preferences..."), pref_cmd );
+                                                    _("Preferences..."), pref_cmd);
 
-	prefs_enable = B_TRUE;
+    prefs_enable = B_TRUE;
     start_pb_enable = B_TRUE;
     conn_first_enable = B_TRUE;
     stop_pb_enable = B_FALSE;
@@ -989,9 +1061,8 @@ bp_priv_enable(void) {
 
     XPLMRegisterFlightLoopCallback(status_check, STATUS_CHECK_INTVAL, NULL);
 
-
     /* If the user OK'd it, remove the default tug */
-    (void) conf_get_b(bp_conf, "dont_hide_xp11_tug", &dont_hide_xp_tug);
+    (void)conf_get_b(bp_conf, "dont_hide_xp11_tug", &dont_hide_xp_tug);
     if ((!dont_hide_xp_tug) && (bp_xp_ver >= 11000) && (bp_xp_ver < 12000))
         set_xp11_tug_hidden(B_TRUE);
 
@@ -1001,10 +1072,11 @@ bp_priv_enable(void) {
 
     return (1);
 
-    errout:
+errout:
     if (cachedir != NULL)
         free(cachedir);
-    if (airportdb != NULL) {
+    if (airportdb != NULL)
+    {
         airportdb_destroy(airportdb);
         free(airportdb);
         airportdb = NULL;
@@ -1015,7 +1087,8 @@ bp_priv_enable(void) {
 }
 
 static void
-bp_priv_disable(void) {
+bp_priv_disable(void)
+{
     if (!inited)
         return;
 
@@ -1048,12 +1121,14 @@ bp_priv_disable(void) {
 }
 
 static float
-bp_do_reload(float u1, float u2, int u3, void *u4) {
+bp_do_reload(float u1, float u2, int u3, void *u4)
+{
     UNUSED(u1);
     UNUSED(u2);
     UNUSED(u3);
     UNUSED(u4);
-    if (reload_rqst) {
+    if (reload_rqst)
+    {
         bp_priv_disable();
         VERIFY(bp_priv_enable());
         reload_rqst = B_FALSE;
@@ -1061,8 +1136,8 @@ bp_do_reload(float u1, float u2, int u3, void *u4) {
     return (0);
 }
 
-void
-bp_sched_reload(void) {
+void bp_sched_reload(void)
+{
     reload_rqst = B_TRUE;
     ASSERT(reload_floop_ID != NULL);
     XPLMScheduleFlightLoop(reload_floop_ID, -1, 1);
@@ -1070,7 +1145,7 @@ bp_sched_reload(void) {
 
 static int
 abort_push_handler(XPLMCommandRef cmd, XPLMCommandPhase phase,
-    void *refcon)
+                   void *refcon)
 {
     UNUSED(cmd);
     UNUSED(refcon);
@@ -1079,11 +1154,11 @@ abort_push_handler(XPLMCommandRef cmd, XPLMCommandPhase phase,
     bp_fini();
     logMsg("bp_fini called from abort_push_handler, bp_started = %d", bp_started);
     slave_mode = B_FALSE;
-    coupled_state_change(); 
+    coupled_state_change();
     return (1);
 }
 
-#if    IBM
+#if IBM
 BOOL WINAPI
 DllMain(HINSTANCE hinst, DWORD reason, LPVOID resvd)
 {
@@ -1092,10 +1167,9 @@ DllMain(HINSTANCE hinst, DWORD reason, LPVOID resvd)
     lacf_glew_dllmain_hook(reason);
     return (TRUE);
 }
-#endif    /* IBM */
+#endif /* IBM */
 
-void
-set_pref_widget_status(bool_t active)
+void set_pref_widget_status(bool_t active)
 {
     pref_widget_active_status = active;
     start_pb_enable = !active;

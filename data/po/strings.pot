@@ -7,7 +7,7 @@
 msgid   ""
 msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Report-Msgid-Bugs-To: \n"
-        "POT-Creation-Date: 2024-11-01 08:13+0200\n"
+        "POT-Creation-Date: 2024-11-15 08:57+0200\n"
         "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
         "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
         "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -101,19 +101,19 @@ msgid   "Pushback failure: your flight controls are preventing me from "
         "nosewheel steering\"."
 msgstr  ""
 
-#: src/bp_cam.c:1175 src/bp_cam.c:1174
+#: src/bp_cam.c:1175 src/bp_cam.c:1174 src/bp_cam.c:1262
 msgid   "Pushback failure: aircraft is incompatible with BetterPushback."
 msgstr  ""
 
-#: src/bp_cam.c:1190 src/bp_cam.c:1189
+#: src/bp_cam.c:1190 src/bp_cam.c:1189 src/bp_cam.c:1278
 msgid   "Pushback failure: no suitable tug for your aircraft."
 msgstr  ""
 
-#: src/bp_cam.c:1198 src/bp_cam.c:1197
+#: src/bp_cam.c:1198 src/bp_cam.c:1197 src/bp_cam.c:1287
 msgid   "Can't start planner: aircraft not stationary."
 msgstr  ""
 
-#: src/bp_cam.c:1203 src/bp_cam.c:1202
+#: src/bp_cam.c:1203 src/bp_cam.c:1202 src/bp_cam.c:1293
 msgid   "Can't start planner: pushback already in progress. Please stop the "
         "pushback operation first."
 msgstr  ""
@@ -206,6 +206,7 @@ msgstr  ""
 
 #: src/xplane.c:510 src/xplane.c:514 src/xplane.c:517 src/xplane.c:519
 #: src/xplane.c:511 src/xplane.c:513 src/xplane.c:512 src/xplane.c:508
+#: src/xplane.c:553
 msgid   "ERROR: Unable to select pushback tug view at this time."
 msgstr  ""
 
@@ -214,7 +215,7 @@ msgstr  ""
 #: src/xplane.c:666 src/xplane.c:692 src/xplane.c:667 src/xplane.c:693
 #: src/xplane.c:670 src/xplane.c:696 src/xplane.c:668 src/xplane.c:694
 #: src/xplane.c:664 src/xplane.c:690 src/xplane.c:681 src/xplane.c:707
-#: src/xplane.c:679 src/xplane.c:705
+#: src/xplane.c:679 src/xplane.c:705 src/xplane.c:729 src/xplane.c:761
 msgid   "Pushback failure: smartcopilot attempted to switch master/slave or "
         "network connection lost. Stopping operation."
 msgstr  ""
@@ -224,7 +225,7 @@ msgstr  ""
 #: src/xplane.c:681 src/xplane.c:703 src/xplane.c:682 src/xplane.c:704
 #: src/xplane.c:685 src/xplane.c:707 src/xplane.c:683 src/xplane.c:705
 #: src/xplane.c:679 src/xplane.c:701 src/xplane.c:696 src/xplane.c:718
-#: src/xplane.c:694 src/xplane.c:716
+#: src/xplane.c:694 src/xplane.c:716 src/xplane.c:747 src/xplane.c:775
 msgid   "Pushback failure: Shared Flight attempted to switch pilot flying or "
         "network connection lost. Stopping operation."
 msgstr  ""
@@ -234,7 +235,7 @@ msgstr  ""
 #: src/xplane.c:792 src/xplane.c:952 src/xplane.c:793 src/xplane.c:953
 #: src/xplane.c:796 src/xplane.c:961 src/xplane.c:794 src/xplane.c:954
 #: src/xplane.c:790 src/xplane.c:807 src/xplane.c:973 src/xplane.c:805
-#: src/xplane.c:971
+#: src/xplane.c:971 src/xplane.c:870 src/xplane.c:1043
 msgid   "Start pushback"
 msgstr  ""
 
@@ -243,73 +244,73 @@ msgstr  ""
 #: src/xplane.c:794 src/xplane.c:954 src/xplane.c:795 src/xplane.c:955
 #: src/xplane.c:798 src/xplane.c:963 src/xplane.c:796 src/xplane.c:956
 #: src/xplane.c:792 src/xplane.c:809 src/xplane.c:975 src/xplane.c:807
-#: src/xplane.c:973
+#: src/xplane.c:973 src/xplane.c:872 src/xplane.c:1045
 msgid   "Stop pushback"
 msgstr  ""
 
 #: src/xplane.c:795 src/xplane.c:799 src/xplane.c:802 src/xplane.c:804
 #: src/xplane.c:796 src/xplane.c:797 src/xplane.c:800 src/xplane.c:798
-#: src/xplane.c:794 src/xplane.c:811 src/xplane.c:809
+#: src/xplane.c:794 src/xplane.c:811 src/xplane.c:809 src/xplane.c:874
 msgid   "Start pushback planner"
 msgstr  ""
 
 #: src/xplane.c:797 src/xplane.c:801 src/xplane.c:804 src/xplane.c:806
 #: src/xplane.c:798 src/xplane.c:799 src/xplane.c:802 src/xplane.c:800
-#: src/xplane.c:796 src/xplane.c:813 src/xplane.c:811
+#: src/xplane.c:796 src/xplane.c:813 src/xplane.c:811 src/xplane.c:876
 msgid   "Stop pushback planner"
 msgstr  ""
 
 #: src/xplane.c:799 src/xplane.c:803 src/xplane.c:806 src/xplane.c:808
 #: src/xplane.c:800 src/xplane.c:801 src/xplane.c:804 src/xplane.c:802
-#: src/xplane.c:798 src/xplane.c:815 src/xplane.c:813
+#: src/xplane.c:798 src/xplane.c:815 src/xplane.c:813 src/xplane.c:878
 msgid   "Connect tug before entering pushback plan"
 msgstr  ""
 
 #: src/xplane.c:801 src/xplane.c:805 src/xplane.c:808 src/xplane.c:810
 #: src/xplane.c:802 src/xplane.c:803 src/xplane.c:806 src/xplane.c:804
-#: src/xplane.c:800 src/xplane.c:817 src/xplane.c:815
+#: src/xplane.c:800 src/xplane.c:817 src/xplane.c:815 src/xplane.c:880
 msgid   "View from tug's cab."
 msgstr  ""
 
 #: src/xplane.c:804 src/xplane.c:808 src/xplane.c:811 src/xplane.c:813
 #: src/xplane.c:805 src/xplane.c:806 src/xplane.c:809 src/xplane.c:807
-#: src/xplane.c:803 src/xplane.c:820 src/xplane.c:818
+#: src/xplane.c:803 src/xplane.c:820 src/xplane.c:818 src/xplane.c:883
 msgid   "Recreate scenery routes from WED files."
 msgstr  ""
 
 #: src/xplane.c:807 src/xplane.c:811 src/xplane.c:814 src/xplane.c:816
 #: src/xplane.c:808 src/xplane.c:809 src/xplane.c:812 src/xplane.c:810
-#: src/xplane.c:806 src/xplane.c:826 src/xplane.c:824
+#: src/xplane.c:806 src/xplane.c:826 src/xplane.c:824 src/xplane.c:889
 msgid   "Abort pushback during coupled push"
 msgstr  ""
 
 #: src/xplane.c:945 src/xplane.c:949 src/xplane.c:952 src/xplane.c:954
 #: src/xplane.c:946 src/xplane.c:947 src/xplane.c:955 src/xplane.c:948
-#: src/xplane.c:967 src/xplane.c:965
+#: src/xplane.c:967 src/xplane.c:965 src/xplane.c:1037
 msgid   "Pre-plan pushback"
 msgstr  ""
 
 #: src/xplane.c:947 src/xplane.c:951 src/xplane.c:954 src/xplane.c:956
 #: src/xplane.c:948 src/xplane.c:949 src/xplane.c:957 src/xplane.c:950
-#: src/xplane.c:969 src/xplane.c:967
+#: src/xplane.c:969 src/xplane.c:967 src/xplane.c:1039
 msgid   "Close pushback planner"
 msgstr  ""
 
 #: src/xplane.c:949 src/xplane.c:953 src/xplane.c:956 src/xplane.c:958
 #: src/xplane.c:950 src/xplane.c:951 src/xplane.c:959 src/xplane.c:952
-#: src/xplane.c:971 src/xplane.c:969
+#: src/xplane.c:971 src/xplane.c:969 src/xplane.c:1041
 msgid   "Connect tug first"
 msgstr  ""
 
 #: src/xplane.c:959 src/xplane.c:963 src/xplane.c:966 src/xplane.c:968
 #: src/xplane.c:960 src/xplane.c:961 src/xplane.c:970 src/xplane.c:971
-#: src/xplane.c:962 src/xplane.c:983 src/xplane.c:979
+#: src/xplane.c:962 src/xplane.c:983 src/xplane.c:979 src/xplane.c:1051
 msgid   "Preferences..."
 msgstr  ""
 
 #: src/xplane.c:955 src/xplane.c:959 src/xplane.c:962 src/xplane.c:964
 #: src/xplane.c:956 src/xplane.c:957 src/xplane.c:965 src/xplane.c:958
-#: src/xplane.c:977 src/xplane.c:975
+#: src/xplane.c:977 src/xplane.c:975 src/xplane.c:1047
 msgid   "Tug cab view"
 msgstr  ""
 
@@ -478,6 +479,6 @@ msgid   "The push process is always halted when the tug is at the nose of the "
         "command."
 msgstr  ""
 
-#: src/xplane.c:823 src/xplane.c:821
+#: src/xplane.c:823 src/xplane.c:821 src/xplane.c:886
 msgid   "Open preference window."
 msgstr  ""
