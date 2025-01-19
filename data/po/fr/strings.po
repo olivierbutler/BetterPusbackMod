@@ -404,3 +404,21 @@ msgstr  "Le repoussage est toujours interrompu lorsque le remorqueur se trouve a
 
 msgid "Audio settings"
 msgstr "Réglages audio"
+
+msgid "Some Eye tracker plugins use the X-plane camera system and therefore "
+    "doesn't allow BpB to work properly "
+    "while using the planner or the tug view.\n\n"
+    "If it is the case, select the plugin that is in conflit with BpB.\n\n"
+    "CAUTION: At this point, you know what you are doing, selecting the wrong "
+    "plugin may cause X-plane to crash.\n"
+    "Otherwise this setting must be set to : None."
+msgstr "Certains plugins avec Eye tracking  (suivi occulaire) utilisent le système de camera de X-Plane "
+    "et potentiellement perturbent le fonctionnement de BpB "
+    "lors de la planification ou de la vue depuis le tracteur.\n\n"
+    "Dans ce cas, sélectionnez le plugin en conflit avec BetterPushBack.\n\n"
+    "ATTENTION: Ici, sachez qu'exclure le mauvais plugin "
+    "peut causer le plantage de X-Plane.\n"
+    "Si vous n'avez pas de problème, laissez ce réglage sur : Aucun."
+
+msgid  "None"
+msgstr  "Aucun"

@@ -37,6 +37,7 @@ DIST_FILES=(
     'data/msgs/README.txt'			''
     'data/msgs/cc_aliases.cfg'			''
     'objects/tugs/LIVERIES_HOWTO.txt'		''
+	'objects/tugs/readme.txt'		''
     'objects/night_lamp.obj'			''
 )
 
