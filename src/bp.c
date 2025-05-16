@@ -511,9 +511,9 @@ doors_refs_init(void)
 		if (fp == NULL) {
 			return;
 		}
-		logMsg("founded : BetterPushback_doors.cfg in plugins folder");	
+		logMsg("found : BetterPushback_doors.cfg in plugins folder");	
 	} else {
-	logMsg("founded : BetterPushback_doors.cfg in Output/preferences folder");
+	logMsg("found : BetterPushback_doors.cfg in Output/preferences folder");
 	}
 
 #define	FILTER_PARAM(param) \
