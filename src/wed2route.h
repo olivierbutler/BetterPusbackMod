@@ -11,25 +11,25 @@
  * http://www.illumos.org/license/CDDL.
  *
  * CDDL HEADER END
-*/
+ */
 /*
  * Copyright 2017 Saso Kiselkov. All rights reserved.
  */
 
-#ifndef    _WED2ROUTE_H_
-#define    _WED2ROUTE_H_
+#ifndef _WED2ROUTE_H_
+#define _WED2ROUTE_H_
 
 #include <acfutils/avl.h>
 #include <acfutils/types.h>
 
-#ifdef    __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 void xlate_wedroutes(void);
 
-#ifdef    __cplusplus
+#ifdef __cplusplus
 }
 #endif
 
-#endif    /* _WED2ROUTE_H_ */
+#endif /* _WED2ROUTE_H_ */

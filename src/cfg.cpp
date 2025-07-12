@@ -299,7 +299,6 @@ void SettingsWindow::initPerAircraftSettings(void) {
   magic_squares_height = 50;
   (void)conf_get_i_per_acf((char *)"magic_squares_height",
                            &magic_squares_height);
-
 }
 void SettingsWindow::LoadConfig(void) {
 
@@ -337,9 +336,9 @@ void SettingsWindow::LoadConfig(void) {
   tug_starts_next_plane = B_FALSE;
   (void)conf_get_b(bp_conf, "tug_starts_next_plane", &tug_starts_next_plane);
 
-// feature disabled for now
-//  tug_auto_start = B_FALSE;
-//  (void)conf_get_b(bp_conf, "tug_auto_start", &tug_auto_start);
+  // feature disabled for now
+  //  tug_auto_start = B_FALSE;
+  //  (void)conf_get_b(bp_conf, "tug_auto_start", &tug_auto_start);
 
   initMonitorOrigin();
 
@@ -605,15 +604,16 @@ void SettingsWindow::buildInterface() {
         rowBottomStart, rowBottomEnd, LINE_COLOR,
         LINE_THICKNESS); // White line, 1.0f thickness
 
-    /*  Disabling for now, feature not enough mature  
+    /*  Disabling for now, feature not enough mature
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     ImGui::Text("%s", _("Per aircraft settings are global"));
     Tooltip(_(per_aircraft_is_global_tooltip));
 
     ImGui::TableNextColumn();
-    if (ImGui::Checkbox("##per_aircraft_is_global", (bool *)&per_aircraft_is_global)) {
-      conf_set_b(bp_conf, (char *)"per_aircraft_is_global", per_aircraft_is_global);
+    if (ImGui::Checkbox("##per_aircraft_is_global", (bool
+    *)&per_aircraft_is_global)) { conf_set_b(bp_conf, (char
+    *)"per_aircraft_is_global", per_aircraft_is_global);
       initPerAircraftSettings();
     } */
     ImGui::TableNextRow();
@@ -718,25 +718,25 @@ void SettingsWindow::buildInterface() {
       (void)conf_set_b(bp_conf, "tug_starts_next_plane", tug_starts_next_plane);
     }
 
-/*
-    if (!tug_starts_next_plane) {
-      ImGui::BeginDisabled();
-      tug_auto_start = B_FALSE;
-      (void)conf_set_b(bp_conf, "tug_auto_start", tug_auto_start);
-    }
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    ImGui::Text("%s", _("Tug called by activating the beacon"));
-    Tooltip(_(tug_auto_start_tooltip));
+    /*
+        if (!tug_starts_next_plane) {
+          ImGui::BeginDisabled();
+          tug_auto_start = B_FALSE;
+          (void)conf_set_b(bp_conf, "tug_auto_start", tug_auto_start);
+        }
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::Text("%s", _("Tug called by activating the beacon"));
+        Tooltip(_(tug_auto_start_tooltip));
 
-    ImGui::TableNextColumn();
-    if (ImGui::Checkbox("##tug_auto_start", (bool *)&tug_auto_start)) {
-      (void)conf_set_b(bp_conf, "tug_auto_start", tug_auto_start);
-    }
-    if (!tug_starts_next_plane) {
-      ImGui::EndDisabled();
-    }
-*/
+        ImGui::TableNextColumn();
+        if (ImGui::Checkbox("##tug_auto_start", (bool *)&tug_auto_start)) {
+          (void)conf_set_b(bp_conf, "tug_auto_start", tug_auto_start);
+        }
+        if (!tug_starts_next_plane) {
+          ImGui::EndDisabled();
+        }
+    */
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     ImGui::Text("%s", _("Eye Tracker Plugin Exclusion"));
@@ -992,7 +992,7 @@ void key_sanity(char *key) {
 bool_t conf_get_b_per_acf(char *my_key, bool_t *value) {
   char my_acf[512], my_path[512];
   bool_t per_aircraft_is_global = B_FALSE;
-  (void) conf_get_b(bp_conf, "per_aircraft_is_global", &per_aircraft_is_global);
+  (void)conf_get_b(bp_conf, "per_aircraft_is_global", &per_aircraft_is_global);
   XPLMGetNthAircraftModel(0, my_acf, my_path);
   if (per_aircraft_is_global || (strlen(my_acf) == 0)) {
     // if per_aircraft_is_global , the setting is read as global setting
@@ -1019,7 +1019,7 @@ bool_t conf_get_b_per_acf(char *my_key, bool_t *value) {
 void conf_set_b_per_acf(char *my_key, bool_t value) {
   char my_acf[512], my_path[512];
   bool_t per_aircraft_is_global = B_FALSE;
-  (void) conf_get_b(bp_conf, "per_aircraft_is_global", &per_aircraft_is_global);
+  (void)conf_get_b(bp_conf, "per_aircraft_is_global", &per_aircraft_is_global);
   XPLMGetNthAircraftModel(0, my_acf, my_path);
   if (per_aircraft_is_global || (strlen(my_acf) == 0)) {
     // if per_aircraft_is_global , the setting is written as global setting
@@ -1040,7 +1040,7 @@ void conf_set_b_per_acf(char *my_key, bool_t value) {
 bool_t conf_get_i_per_acf(char *my_key, int *value) {
   char my_acf[512], my_path[512];
   bool_t per_aircraft_is_global = B_FALSE;
-  (void) conf_get_b(bp_conf, "per_aircraft_is_global", &per_aircraft_is_global);
+  (void)conf_get_b(bp_conf, "per_aircraft_is_global", &per_aircraft_is_global);
   XPLMGetNthAircraftModel(0, my_acf, my_path);
   if (per_aircraft_is_global || (strlen(my_acf) == 0)) {
     // if per_aircraft_is_global , the setting is written as global setting
@@ -1067,7 +1067,7 @@ bool_t conf_get_i_per_acf(char *my_key, int *value) {
 void conf_set_i_per_acf(char *my_key, int value) {
   char my_acf[512], my_path[512];
   bool_t per_aircraft_is_global = B_FALSE;
-  (void) conf_get_b(bp_conf, "per_aircraft_is_global", &per_aircraft_is_global);
+  (void)conf_get_b(bp_conf, "per_aircraft_is_global", &per_aircraft_is_global);
   XPLMGetNthAircraftModel(0, my_acf, my_path);
   if (per_aircraft_is_global || (strlen(my_acf) == 0)) {
     // if per_aircraft_is_global , the setting is written as global setting
@@ -1340,6 +1340,4 @@ void bp_conf_open() {
   set_pref_widget_status(B_TRUE);
 }
 
-void cfg_cleanup() {
-  XPImgWindowCleanup();
-}
+void cfg_cleanup() { XPImgWindowCleanup(); }

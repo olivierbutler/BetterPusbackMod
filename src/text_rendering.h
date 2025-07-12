@@ -23,8 +23,8 @@
  * Copyright 2017 Saso Kiselkov. All rights reserved.
  */
 
-#ifndef	_XRAAS_TEXT_RENDERING_H_
-#define	_XRAAS_TEXT_RENDERING_H_
+#ifndef _XRAAS_TEXT_RENDERING_H_
+#define _XRAAS_TEXT_RENDERING_H_
 
 #include <stdint.h>
 
@@ -33,19 +33,20 @@
 
 #include <acfutils/types.h>
 
-#ifdef	__cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 bool_t get_text_block_size(const char *text, FT_Face face, int font_size,
-    int *width, int *height);
-bool_t render_text_block(const char *text, FT_Face face, int font_size,
-    int x, int y, uint8_t r, uint8_t g, uint8_t b,
-    uint8_t *rgba_texture, int texture_width, int texture_height);
+                           int *width, int *height);
+bool_t render_text_block(const char *text, FT_Face face, int font_size, int x,
+                         int y, uint8_t r, uint8_t g, uint8_t b,
+                         uint8_t *rgba_texture, int texture_width,
+                         int texture_height);
 const char *ft_err2str(FT_Error err);
 
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
-#endif	/* _XRAAS_TEXT_RENDERING_H_ */
+#endif /* _XRAAS_TEXT_RENDERING_H_ */

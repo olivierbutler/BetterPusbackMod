@@ -11,13 +11,13 @@
  * http://www.illumos.org/license/CDDL.
  *
  * CDDL HEADER END
-*/
+ */
 /*
  * Copyright 2017 Saso Kiselkov. All rights reserved.
  */
 
-#ifndef    _FF_A320_INTF_H_
-#define    _FF_A320_INTF_H_
+#ifndef _FF_A320_INTF_H_
+#define _FF_A320_INTF_H_
 
 #include <acfutils/types.h>
 
@@ -33,4 +33,4 @@ void ff_a320_intf_fini(void);
 }
 #endif
 
-#endif    /* _FF_A320_INTF_H_ */
+#endif /* _FF_A320_INTF_H_ */

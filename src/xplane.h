@@ -11,22 +11,22 @@
  * http://www.illumos.org/license/CDDL.
  *
  * CDDL HEADER END
-*/
+ */
 /*
  * Copyright 2017 Saso Kiselkov. All rights reserved.
  * Copyright 2024 Robert Wellinger. All rights reserved.
  */
 
-#ifndef    _BP_XPLANE_H_
-#define    _BP_XPLANE_H_
+#ifndef _BP_XPLANE_H_
+#define _BP_XPLANE_H_
 
 #include <stdlib.h>
 
 #include <XPLMDefs.h>
 #include <XPLMUtilities.h>
 
-#include <acfutils/avl.h>
 #include <acfutils/airportdb.h>
+#include <acfutils/avl.h>
 #include <acfutils/geom.h>
 #include <acfutils/list.h>
 
@@ -50,12 +50,12 @@ extern airportdb_t *airportdb;
 extern int bp_xp_ver, bp_xplm_ver;
 extern XPLMHostApplicationID bp_host_id;
 
-extern XPLMCommandRef start_pb,  start_cam, conn_first, stop_pb;
-extern bool_t  start_pb_plan_enable, start_pb_enable;
+extern XPLMCommandRef start_pb, start_cam, conn_first, stop_pb;
+extern bool_t start_pb_plan_enable, start_pb_enable;
 
-#define BP_PLUGIN_NAME          "BetterPushback-" BP_PLUGIN_VERSION
-#define BP_PLUGIN_SIG           "skiselkov.BetterPushback"
-#define BP_PLUGIN_DESCRIPTION   "Generic automated pushback plugin."
+#define BP_PLUGIN_NAME "BetterPushback-" BP_PLUGIN_VERSION
+#define BP_PLUGIN_SIG "skiselkov.BetterPushback"
+#define BP_PLUGIN_DESCRIPTION "Generic automated pushback plugin."
 
 // Internal Log Level
 #define BP_INFO_LOG "INFO: "
@@ -95,4 +95,4 @@ void set_pref_widget_status(bool_t active);
 }
 #endif
 
-#endif    /* _BP_XPLANE_H_ */
+#endif /* _BP_XPLANE_H_ */

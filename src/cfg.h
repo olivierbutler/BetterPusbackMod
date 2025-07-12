@@ -11,45 +11,45 @@
  * http://www.illumos.org/license/CDDL.
  *
  * CDDL HEADER END
-*/
+ */
 /*
  * Copyright 2017 Saso Kiselkov. All rights reserved.
  * Copyright 2024 Robert Wellinger. All rights reserved.
  * */
 
-#ifndef    _CFG_H_
-#define    _CFG_H_
+#ifndef _CFG_H_
+#define _CFG_H_
 
 #include <acfutils/conf.h>
 
-#ifdef    __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct {
-    bool_t planner_running;
-    float fov_h_deg;
-    float fov_h_ratio;
-    float fov_roll;
-    float fov_v_deg;
-    float fov_v_ratio;
+  bool_t planner_running;
+  float fov_h_deg;
+  float fov_h_ratio;
+  float fov_roll;
+  float fov_v_deg;
+  float fov_v_ratio;
 } fov_t;
 
 extern conf_t *bp_conf;
 
 typedef struct {
-    bool_t monitor_found; // to clear before the search
-    int monitor_requested;
-    int monitor_count;
-    int monitor_id;
-    int x_origin;
-    int y_origin;
-    int h;
-    int w;
-    int magic_squares_height;
+  bool_t monitor_found; // to clear before the search
+  int monitor_requested;
+  int monitor_count;
+  int monitor_id;
+  int x_origin;
+  int y_origin;
+  int h;
+  int w;
+  int magic_squares_height;
 } monitors_t;
 
-extern  monitors_t monitor_def;
+extern monitors_t monitor_def;
 extern bool_t setup_view_callback_is_alive;
 
 bool_t bp_conf_init();
@@ -62,27 +62,26 @@ void bp_conf_set_save_enabled(bool_t flag);
 
 void bp_conf_open(void);
 
-bool_t conf_get_b_per_acf(char *my_key,  bool_t *value);
+bool_t conf_get_b_per_acf(char *my_key, bool_t *value);
 
-void conf_set_b_per_acf(char *my_key,  bool_t value);
+void conf_set_b_per_acf(char *my_key, bool_t value);
 
-bool_t conf_get_i_per_acf(char *my_key,  int *value);
+bool_t conf_get_i_per_acf(char *my_key, int *value);
 
-void conf_set_i_per_acf(char *my_key,  int value);
+void conf_set_i_per_acf(char *my_key, int value);
 
 void push_reset_fov_values(void);
 
 void pop_fov_values(void);
 
-char * getPluginUpdateStatus(void);
+char *getPluginUpdateStatus(void);
 
 void initMonitorOrigin(void);
 
 void cfg_cleanup(void);
 
-#ifdef    __cplusplus
+#ifdef __cplusplus
 }
 #endif
 
-
-#endif    /* _CFG_H_ */
+#endif /* _CFG_H_ */

@@ -18,12 +18,12 @@
 #########################################################################
 # Set here the correct path
 # docker's interval path /xpl_dev is mapped one level up the current folder
-# the libacfutils folder is expected to be at the same level of this projet, if not
-# modify docket-compose.yml accordingly. 
+# the libacfutils folder is expected to be at the same level of this project, if not
+# modify docket-compose.yml accordingly.
 
 # Host folders         | Internal docker folders
 # ---------------------|---------------------
-# ../projets/          | /xpl_dev/
+# ../projects/          | /xpl_dev/
 # ├─ libacfutils/      | ├── libacfutils/
 # └─ BetterPusbackMod/ | └── BetterPusbackMod/
 
