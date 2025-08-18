@@ -246,11 +246,17 @@ msgstr "Astuce: placez votre curseur sur n'importe quelle étiquette pour affich
 msgid "BetterPushback is open-source software. See COPYING for more information."
 msgstr "BetterPushback est un logiciel open-source. Voir COPYING pour plus d'informations"
 
-msgid "Don't check the doors/GPU/ASU status before starting the push-back."
-msgstr "Ne vérifie pas le statut des portes, du GPU/ASU pour commencer le repoussage."
+msgid "Select the action after the doors/GPU/ASU status check is done before starting the push-back.\n"
+      "Active with ground crew message: The ground crew will tell you if the doors are not closed.\n"
+      "Active, but stay silent: The ground crew will wait, but not say anything if the doors are not closed.\n"
+      "Ignore: The doors/GPU/ASU status check is ignored and the push-back starts immediately, even if the doors are not closed or the GPU/ASU is still connected."
+msgstr "Sélectionnez l'action à effectuer après la vérification de l'état des portes/GPU/ASU avant de commencer le repoussage.\n"
+        "Actif avec message du personnel au sol: Le personnel au sol vous informera si les portes ne sont pas fermées.\n"
+        "Actif, mais silencieux: Le personnel au sol attendra, mais ne dira rien si les portes ne sont pas fermées.\n"
+        "Ignorer: La vérification de l'état des portes/GPU/ASU est ignorée et le repoussage commence immédiatement, même si les portes ne sont pas fermées ou si le GPU/ASU est toujours connecté."
 
-msgid "Ignore doors/GPU/ASU check"
-msgstr "Ignorer le contrôle des portes et du GPU/ASU"
+msgid "Doors/GPU/ASU check"
+msgstr "Vérification des portes/GPU/ASU"
 
 msgid "Some doors are still opened or the GPU or the ASU are still connected. I'm waiting for all of them closed and disconnected then I will proceed."
 msgstr "Soit des portes sont ouvertes soit le GPU ou l'ASU est encore connecté. Faites le nécessaire pour que la procédure puisse continuer."
@@ -430,11 +436,6 @@ msgid "The tug appears next to the plane avoiding in certain case that he is "
     "travelling inside the buildings."
 msgstr  "Le tracteur apparaît à côté de l'avion, évitant dans certains cas que celui passe à travers les bâtiments."
 
-msgid   "Mutes the message that the GPU is still connected or "
-        "some doors are still open."
-msgstr  "Silence le message que le GPU est toujours connecté ou "
-        "que certaines portes sont encore ouvertes."
-
 msgid "The tug will appear once the beacon light is switched from off to on "
       "then the process will proceed as 'connect the tug first'."
 msgstr  "Le tracteur apparaîtra une fois que l'anti-collision sera allumée, "
@@ -443,8 +444,14 @@ msgstr  "Le tracteur apparaîtra une fois que l'anti-collision sera allumée, "
 msgid "Tug starts near the aircraft"
 msgstr  "Le tracteur démarre près de l'avion"
 
-msgid "Mute GPU and doors message"
-msgstr  "Silence GPU et message des portes"
+msgid   "Active with ground crew message"
+msgstr  "Actif avec message du personnel au sol"
+
+msgid   "Active, but stay silent"
+msgstr  "Actif, mais silencieux"
+
+msgid   "Ignore"
+msgstr  "Ignorer"
 
 msgid "Tug called by activating the beacon"
 msgstr  "Le tracteur est appelé en activant l'anti-collision"

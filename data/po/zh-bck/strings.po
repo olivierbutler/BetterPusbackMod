@@ -170,10 +170,6 @@ msgid "The tug appears next to the plane avoiding in certain case that he is "
     "travelling inside the buildings."
 msgstr  "拖车出现在飞机旁，避免在某些情况下穿过建筑物内部。"
 
-msgid   "Mutes the message that the GPU is still connected or "
-        "some doors are still open."
-msgstr  "静音GPU和门消息"
-
 msgid "The tug will appear once the beacon light is switched from off to on "
       "then the process will proceed as 'connect the tug first'."
 msgstr  "拖车将在信标灯从关闭切换到开启时出现，"
@@ -182,8 +178,14 @@ msgstr  "拖车将在信标灯从关闭切换到开启时出现，"
 msgid "Tug starts near the aircraft"
 msgstr  "拖车从飞机附近开始"
 
-msgid "Mute GPU and doors message"
-msgstr  "静音GPU和门消息"
+msgid   "Active with ground crew message"
+msgstr  "启用地勤消息"
+
+msgid   "Active, but stay silent"
+msgstr  "启用但保持静音"
+
+msgid   "Ignore"
+msgstr  "忽略"
 
 msgid "Tug called by activating the beacon"
 msgstr  "通过激活信标呼叫拖车"

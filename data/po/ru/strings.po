@@ -182,8 +182,14 @@ msgstr  "Никогда не проверяйте «установить сто�
         "Это происходит в начале и в конце.\n"
         "Это должно решить проблему для некоторых самолетов (например, KA350)."
 
-msgid   "Don't check the doors/GPU/ASU status before starting the push-back."
-msgstr  "Не проверяйте статус дверей/GPU/ASU перед началом отката."
+msgid   "Select the action after the doors/GPU/ASU status check is done before starting the push-back.\n"
+        "Active with ground crew message: The ground crew will tell you if the doors are not closed.\n"
+        "Active, but stay silent: The ground crew will wait, but not say anything if the doors are not closed.\n"
+        "Ignore: The doors/GPU/ASU status check is ignored and the push-back starts immediately, even if the doors are not closed or the GPU/ASU is still connected."
+msgstr  "Выберите действие после проверки состояния дверей/GPU/ASU перед началом отката.\n"
+        "Активно с сообщением от наземной службы: наземная служба сообщит вам, если двери не закрыты.\n"
+        "Активно, но молчать: наземная служба будет ждать, но не скажет ничего, если двери не закрыты.\n"
+        "Игнорировать: проверка состояния дверей/GPU/ASU игнорируется, и откат начинается немедленно, даже если двери не закрыты или GPU/ASU все еще подключен."
 
 msgid   "Hides the shortcut buttons on the left side of the screen.\n"
         "The first button starts the planner and the second starts the push-"
@@ -207,8 +213,8 @@ msgid   "Hides default X-Plane 11 pushback tug.\n"
 msgstr  "Скрывает стандартный толкач X-Plane 11.\n"
         "Перезапустите X-Plane, чтобы изменения вступили в силу."
 
-msgid   "Ignore doors/GPU/ASU check"
-msgstr  "Игнорировать проверку дверей/GPU/ASU."
+msgid   "Doors/GPU/ASU check"
+msgstr  "Проверка дверей/GPU/ASU"
 
 msgid   "Hide the magic squares"
 msgstr  "Скрыть волшебные квадраты."
@@ -263,11 +269,6 @@ msgid "The tug appears next to the plane avoiding in certain case that he is "
     "travelling inside the buildings."
 msgstr  "Трактор появляется рядом с самолетом, избегая в некоторых случаях проезда через здания."
 
-msgid   "Mutes the message that the GPU is still connected or "
-        "some doors are still open."
-msgstr  "Заглушает сообщение о том, что GPU все еще подключен или "
-        "некоторые двери все еще открыты."
-
 msgid "The tug will appear once the beacon light is switched from off to on "
       "then the process will proceed as 'connect the tug first'."
 msgstr  "Трактор появится, как только свет маяка переключится с выключенного на включенный, "
@@ -276,8 +277,14 @@ msgstr  "Трактор появится, как только свет маяк�
 msgid "Tug starts near the aircraft"
 msgstr  "Трактор начинает движение рядом с самолетом"
 
-msgid "Mute GPU and doors message"
-msgstr  "Заглушить сообщение GPU и дверей"
+msgid   "Active with ground crew message"
+msgstr  "Активно с сообщением от наземной службы"
+
+msgid   "Active, but stay silent"
+msgstr  "Активно, но молчать"
+
+msgid   "Ignore"
+msgstr  "Игнорировать"
 
 msgid "Tug called by activating the beacon"
 msgstr  "Трактор вызывается активацией маяка"

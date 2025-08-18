@@ -49,6 +49,12 @@ typedef struct {
     int magic_squares_height;
 } monitors_t;
 
+enum DoorCheck : unsigned char {
+    ActiveWithMessage = 0,
+    ActiveSilent,
+    Ignore
+};
+
 extern  monitors_t monitor_def;
 extern bool_t setup_view_callback_is_alive;
 

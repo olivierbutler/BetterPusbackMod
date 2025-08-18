@@ -195,8 +195,14 @@ msgstr  "Nunca verifique \"poner el freno de estacionamiento\".\n"
         "Esto ocurre al inicio y al final.\n"
         "Esto debería resolver el problema en algunas aeronaves (como el KA350)."
 
-msgid   "Don't check the doors/GPU/ASU status before starting the push-back."
-msgstr  "No verifique el estado de las puertas/GPU/ASU antes de iniciar el retroceso."
+msgid   "Select the action after the doors/GPU/ASU status check is done before starting the push-back.\n"
+        "Active with ground crew message: The ground crew will tell you if the doors are not closed.\n"
+        "Active, but stay silent: The ground crew will wait, but not say anything if the doors are not closed.\n"
+        "Ignore: The doors/GPU/ASU status check is ignored and the push-back starts immediately, even if the doors are not closed or the GPU/ASU is still connected."
+msgstr  "Seleccione la acción después de que se haya realizado la verificación del estado de las puertas/GPU/ASU antes de iniciar el retroceso.\n"
+        "Activo con mensaje del personal de tierra: El personal de tierra le informará si las puertas no están cerradas.\n"
+        "Activo, pero en silencio: El personal de tierra esperará, pero no dirá nada si las puertas no están cerradas.\n"
+        "Ignorar: La verificación del estado de las puertas/GPU/ASU se ignora y el retroceso comienza inmediatamente, incluso si las puertas no están cerradas o la GPU/ASU aún está conectada."
 
 msgid   "Hides the shortcut buttons on the left side of the screen.\n"
         "The first button starts the planner and the second starts the push-"
@@ -219,8 +225,8 @@ msgid   "Hides default X-Plane 11 pushback tug.\n"
 msgstr  "Oculta el remolcador de retroceso predeterminado de X-Plane 11.\n"
         "Reinicie X-Plane para que este cambio surta efecto."
 
-msgid   "Ignore doors/GPU/ASU check"
-msgstr  "Ignorar la verificación de puertas/GPU/ASU."
+msgid   "Doors/GPU/ASU check"
+msgstr  "Verificación de puertas/GPU/ASU"
 
 msgid   "Hide the magic squares"
 msgstr  "Ocultar los cuadros mágicos."
@@ -259,11 +265,6 @@ msgid "The tug appears next to the plane avoiding in certain case that he is "
     "travelling inside the buildings."
 msgstr  "El remolcador aparece junto al avión, evitando en ciertos casos que pase por dentro de los edificios."
 
-msgid   "Mutes the message that the GPU is still connected or "
-        "some doors are still open."
-msgstr  "Silencia el mensaje de que la GPU aún está conectada o "
-        "algunas puertas aún están abiertas."
-
 msgid "The tug will appear once the beacon light is switched from off to on "
       "then the process will proceed as 'connect the tug first'."
 msgstr  "El remolcador aparecerá una vez que la luz del faro pase de apagada a encendida, "
@@ -272,8 +273,14 @@ msgstr  "El remolcador aparecerá una vez que la luz del faro pase de apagada a 
 msgid "Tug starts near the aircraft"
 msgstr  "El remolcador comienza cerca del avión"
 
-msgid "Mute GPU and doors message
-msgstr  "Silenciar mensaje de GPU y puertas"
+msgid   "Active with ground crew message"
+msgstr  "Activo con mensaje del personal de tierra"
+
+msgid   "Active, but stay silent"
+msgstr  "Activo, pero permanece en silencio"
+
+msgid   "Ignore"
+msgstr  "Ignorar"
 
 msgid "Tug called by activating the beacon"
 msgstr  "El remolcador se activa encendiendo el faro"

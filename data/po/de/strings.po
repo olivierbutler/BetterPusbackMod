@@ -198,8 +198,14 @@ msgstr  "Nie die \"Parkbremse setzen\" überprüfen.\n"
         "Dies tritt am Anfang und am Ende auf.\n"
         "Dies sollte das Problem bei einigen Flugzeugen lösen (zum Beispiel die KA350)."
 
-msgid   "Don't check the doors/GPU/ASU status before starting the push-back."
-msgstr  "Überprüfen Sie den Status der Türen/GPU/ASU nicht, bevor Sie mit dem Pushback beginnen."
+msgid   "Select the action after the doors/GPU/ASU status check is done before starting the push-back.\n"
+        "Active with ground crew message: The ground crew will tell you if the doors are not closed.\n"
+        "Active, but stay silent: The ground crew will wait, but not say anything if the doors are not closed.\n"
+        "Ignore: The doors/GPU/ASU status check is ignored and the push-back starts immediately, even if the doors are not closed or the GPU/ASU is still connected."
+msgstr  "Wählen Sie die Aktion nach der Überprüfung des Status von Türen/GPU/ASU, bevor der Pushback gestartet wird.\n"
+        "Aktiv mit Bodenpersonal-Nachricht: Das Bodenpersonal wird Ihnen mitteilen, ob die Türen nicht geschlossen sind.\n"
+        "Aktiv, aber still: Das Bodenpersonal wird warten, aber nichts sagen, wenn die Türen nicht geschlossen sind.\n"
+        "Ignorieren: Die Überprüfung des Status von Türen/GPU/ASU wird ignoriert und der Pushback beginnt sofort, auch wenn die Türen nicht geschlossen sind oder die GPU/ASU noch verbunden ist."
 
 msgid   "Hides the shortcut buttons on the left side of the screen.\n"
         "The first button starts the planner and the second starts the push-"
@@ -222,8 +228,8 @@ msgid   "Hides default X-Plane 11 pushback tug.\n"
 msgstr  "Blendet den Standard-Pushback-Schlepper von X-Plane 11 aus.\n"
         "Starten Sie X-Plane neu, damit diese Änderung wirksam wird."
 
-msgid   "Ignore doors/GPU/ASU check"
-msgstr  "Überprüfen der Türen/GPU/ASU ignorieren"
+msgid   "Doors/GPU/ASU check"
+msgstr  "Überprüfen der Türen/GPU/ASU"
 
 msgid   "Hide the magic squares"
 msgstr  "Magische Quadrate ausblenden"
@@ -260,11 +266,6 @@ msgid "The tug appears next to the plane avoiding in certain case that he is "
     "travelling inside the buildings."
 msgstr  "Das Schleppfahrzeug erscheint neben dem Flugzeug und vermeidet in bestimmten Fällen, dass es durch Gebäude fährt."
 
-msgid   "Mutes the message that the GPU is still connected or "
-        "some doors are still open."
-msgstr  "Stummschaltet die Nachricht, dass die GPU noch verbunden ist oder "
-        "einige Türen noch offen sind."
-
 msgid "The tug will appear once the beacon light is switched from off to on "
       "then the process will proceed as 'connect the tug first'."
 msgstr  "Der Schlepper erscheint, sobald das Beacon-Licht von aus auf an geschaltet wird, "
@@ -273,8 +274,14 @@ msgstr  "Der Schlepper erscheint, sobald das Beacon-Licht von aus auf an geschal
 msgid "Tug starts near the aircraft"
 msgstr  "Das Schleppfahrzeug startet in der Nähe des Flugzeugs"
 
-msgid "Mute GPU and doors message"
-msgstr  "GPU- und Türmeldungen stummschalten"
+msgid   "Active with ground crew message"
+msgstr  "Aktiv mit Bodenpersonal-Nachricht"
+
+msgid   "Active, but stay silent"
+msgstr  "Aktiv, aber still"
+
+msgid   "Ignore"
+msgstr  "Ignorieren"
 
 msgid "Tug called by activating the beacon"
 msgstr  "Das Schleppfahrzeug wird durch Aktivierung des Beacon-Lichts gerufen"
