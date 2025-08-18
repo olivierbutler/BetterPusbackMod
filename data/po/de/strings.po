@@ -74,6 +74,9 @@ msgstr "Pushback Fehler: Smartcopilot hat eine Master/Slave Umschaltung "
 msgid "Start pushback"
 msgstr "Pushback starten"
 
+msgid "Change pushback"
+msgstr "Pushback ändern"
+
 msgid "Stop pushback"
 msgstr "Pushback stoppen"
 

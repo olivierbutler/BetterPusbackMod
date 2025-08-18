@@ -91,6 +91,9 @@ bool_t get_pref_widget_status(void);
 
 void set_pref_widget_status(bool_t active);
 
+void enable_replanning(void);
+void disable_replanning(void);
+
 #ifdef __cplusplus
 }
 #endif

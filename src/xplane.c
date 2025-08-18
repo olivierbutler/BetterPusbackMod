@@ -326,9 +326,8 @@ start_pb_handler_(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
 
     if (!start_pb_enable)
     {
-        if (bp.step == PB_STEP_CONNECTED) {
-            start_pb_enable = B_TRUE;
-            late_plan_requested = B_TRUE;
+        if (bp.step == PB_STEP_WAITING_FOR_DOORS || bp.step == PB_STEP_CONNECTED) {
+            enable_replanning();
         }
         else {
             logMsg(BP_WARN_LOG "Command \"BetterPushback/start\" is currently disabled");
@@ -1372,4 +1371,25 @@ bool_t
 get_pref_widget_status(void)
 {
     return pref_widget_active_status;
+}
+
+void
+enable_replanning(void)
+{       
+    if (start_pb_enable) { // (re)planning is already enabled, noop
+        return;
+    }
+
+    start_pb_enable = B_TRUE;
+    late_plan_requested = B_TRUE;
+    enable_menu_items();
+    XPLMSetMenuItemName(root_menu, start_pb_menu_item, _("Change pushback"), 0);
+}
+
+void
+disable_replanning(void)
+{
+    start_pb_enable = B_FALSE;
+    enable_menu_items();
+    XPLMSetMenuItemName(root_menu, start_pb_menu_item, _("Start pushback"), 0);
 }

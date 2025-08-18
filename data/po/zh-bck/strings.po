@@ -75,6 +75,9 @@ msgstr ""
 msgid "Start pushback"
 msgstr "开始推出"
 
+msgid "Change pushback"
+msgstr "更改推出"
+
 msgid "Stop pushback"
 msgstr "停止推出"
 

@@ -80,6 +80,9 @@ msgstr ""
 msgid "Start pushback"
 msgstr "Démarrer le repoussage"
 
+msgid "Change pushback"
+msgstr "Changer le repoussage"
+
 msgid "Stop pushback"
 msgstr "Arrêter le repoussage"
 

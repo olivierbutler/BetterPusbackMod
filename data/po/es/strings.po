@@ -74,6 +74,9 @@ msgstr "Fallo de Pushback: smartcopilot intentó cambiar maestro/esclavo o la "
 msgid "Start pushback"
 msgstr "Empezar retroceso"
 
+msgid "Change pushback"
+msgstr "Cambiar retroceso"
+
 msgid "Stop pushback"
 msgstr "Detener retroceso"
 

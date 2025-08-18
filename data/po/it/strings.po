@@ -75,6 +75,9 @@ msgstr "Errore pushback: smartcopilot ha tentato di effettuare la commutazione "
 msgid "Start pushback"
 msgstr "Avvio pushback"
 
+msgid "Change pushback"
+msgstr "Cambia pushback"
+
 msgid "Stop pushback"
 msgstr "Stop pushback"
 

@@ -221,6 +221,9 @@ msgstr  ""
 msgid   "Start pushback"
 msgstr  ""
 
+msgid   "Change pushback"
+msgstr  ""
+
 #: src/xplane.c:965 src/xplane.c:1164
 msgid   "Stop pushback"
 msgstr  ""

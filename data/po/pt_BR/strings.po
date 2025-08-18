@@ -316,6 +316,9 @@ msgstr ""
 msgid "Start pushback"
 msgstr "Iniciar o pushback"
 
+msgid "Change pushback"
+msgstr "Mudar o pushback"
+
 #: xplane.c:762 xplane.c:922
 msgid "Stop pushback"
 msgstr "Parar o pushback"

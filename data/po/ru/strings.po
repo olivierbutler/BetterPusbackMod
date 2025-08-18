@@ -74,6 +74,9 @@ msgstr "Ошибка: smartcopilot попытался переключить р�
 msgid "Start pushback"
 msgstr "Начать буксировку"
 
+msgid "Change pushback"
+msgstr "Изменить буксировку"
+
 msgid "Stop pushback"
 msgstr "Остановить буксировку"
 
