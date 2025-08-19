@@ -326,16 +326,11 @@ start_pb_handler_(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
 
     if (!start_pb_enable)
     {
-        if (bp.step == PB_STEP_WAITING_FOR_DOORS || bp.step == PB_STEP_CONNECTED) {
-            enable_replanning();
+        logMsg(BP_WARN_LOG "Command \"BetterPushback/start\" is currently disabled");
+        if (push_manual.requested) {
+            manual_bp_stop();
         }
-        else {
-            logMsg(BP_WARN_LOG "Command \"BetterPushback/start\" is currently disabled");
-            if (push_manual.requested) {
-                manual_bp_stop();
-            }
-            return (1);
-        }
+        return (1);
     }
 
     if (push_manual.requested) {
