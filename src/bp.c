@@ -2342,7 +2342,9 @@ pb_step_connected(void) {
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes release");
+        enable_replanning();
     } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
+        disable_replanning();
         if (!slave_mode) {
             bool_t backward = true; 
             if (!push_manual.active) {
@@ -3445,6 +3447,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
         case PB_STEP_OPENING_CRADLE: {
             bp_hint_status_str = _("Waiting for doors/GPU/ASU closed/disconnected");
             if (acf_doors_closed(B_TRUE)) {
+                disable_replanning();
                 bp_hint_status_str = _("Opening the cradle");
                 double d_t = bp.cur_t - bp.step_start_t;
 
@@ -3467,6 +3470,9 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                     bp.step++;
                     bp.step_start_t = bp.cur_t;
                 }
+            }
+            else {
+                enable_replanning();
             }
             break;
         }

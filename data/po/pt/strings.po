@@ -75,6 +75,9 @@ msgstr "Falha do Pushback: smartcopilot tentou alternar master/slave ou a "
 msgid "Start pushback"
 msgstr "Iniciar o pushback"
 
+msgid "Change pushback"
+msgstr "Mudar o pushback"
+
 msgid "Stop pushback"
 msgstr "Parar o pushback"
 

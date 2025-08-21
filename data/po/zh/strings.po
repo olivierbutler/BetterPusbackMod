@@ -84,6 +84,9 @@ msgid "Start pushback"
 #msgstr "开始推车"
 msgstr  "開始推車"
 
+msgid "Change pushback"
+msgstr "更改推车"
+
 msgid "Stop pushback"
 #msgstr "停止推车"
 msgstr  "停止推車"
