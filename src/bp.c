@@ -639,9 +639,9 @@ acf_doors_closed(bool_t with_cfg_flag) {
     }
 
     if (with_cfg_flag) {
-        bool_t ignore_doors_check = B_FALSE;
-        (void) conf_get_b_per_acf("ignore_doors_check", &ignore_doors_check);
-        if (ignore_doors_check) {
+        int doors_check;
+        conf_get_i_per_acf((char *)"doors_check", &doors_check);
+        if (doors_check == Ignore) {
             return result;
         }
     }
@@ -2377,7 +2377,11 @@ pb_step_connected(void) {
 static void
 pb_step_waiting_for_doors(void) {
     if (!acf_doors_closed(B_TRUE)) {
-        XPLMSpeakString(_(MSG_DOORS_GPU));
+        int doors_check;
+        conf_get_i_per_acf((char *)"doors_check", &doors_check);
+        if (doors_check == ActiveWithMessage) {
+            XPLMSpeakString(_(MSG_DOORS_GPU));
+        }
     } 
     bp.step++;
     bp.step_start_t = bp.cur_t;

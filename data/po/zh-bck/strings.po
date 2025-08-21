@@ -178,5 +178,14 @@ msgstr  "拖车将在信标灯从关闭切换到开启时出现，"
 msgid "Tug starts near the aircraft"
 msgstr  "拖车从飞机附近开始"
 
+msgid   "Active with ground crew message"
+msgstr  "启用地勤消息"
+
+msgid   "Active, but stay silent"
+msgstr  "启用但保持静音"
+
+msgid   "Ignore"
+msgstr  "忽略"
+
 msgid "Tug called by activating the beacon"
 msgstr  "通过激活信标呼叫拖车"

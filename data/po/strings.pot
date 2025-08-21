@@ -182,7 +182,7 @@ msgstr  ""
 msgid   "Ignore check parking brake is set"
 msgstr  ""
 
-msgid   "Ignore doors/GPU/ASU check"
+msgid   "Doors/GPU/ASU check"
 msgstr  ""
 
 msgid   "Hide the magic squares"
@@ -319,7 +319,10 @@ msgid   "BetterPushback is open-source software. See COPYING for more "
         "information."
 msgstr  ""
 
-msgid   "Don't check the doors/GPU/ASU status before starting the push-back."
+msgid   "Select the action after the doors/GPU/ASU status check is done before starting the push-back.\n"
+        "Active with ground crew message: The ground crew will tell you if the doors are not closed.\n"
+        "Active, but stay silent: The ground crew will wait, but not say anything if the doors are not closed.\n"
+        "Ignore: The doors/GPU/ASU status check is ignored and the push-back starts immediately, even if the doors are not closed or the GPU/ASU is still connected."
 msgstr  ""
 
 msgid   "In case of multiple monitors configuration, BpB need to use the "
@@ -451,6 +454,15 @@ msgid   "The tug will appear once the beacon light is switched from off to on "
 msgstr  ""
 
 msgid   "Tug starts near the aircraft"
+msgstr  ""
+
+msgid   "Active with ground crew message"
+msgstr  ""
+
+msgid   "Active, but stay silent"
+msgstr  ""
+
+msgid   "Ignore"
 msgstr  ""
 
 msgid   "Tug called by activating the beacon"

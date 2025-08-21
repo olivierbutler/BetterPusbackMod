@@ -149,8 +149,11 @@ const char *hide_xp11_tug_tooltip =
 const char *hide_magic_squares_tooltip =
     "Hides the shortcut buttons on the left side of the screen.\n"
     "The first button starts the planner and the second starts the push-back.";
-const char *ignore_doors_check_tooltip =
-    "Don't check the doors/GPU/ASU status before starting the push-back.";
+const char *doors_check_tooltip =
+    "Select the action after the doors/GPU/ASU status check is done before starting the push-back.\n"
+    "Active with ground crew message: The ground crew will tell you if the doors are not closed.\n"
+    "Active, but stay silent: The ground crew will wait, but not say anything if the doors are not closed.\n"
+    "Ignore: The doors/GPU/ASU status check is ignored and the push-back starts immediately, even if the doors are not closed or the GPU/ASU is still connected.";
 
 const char *monitor_tooltip =
     "In case of multiple monitors configuration, BpB need to use the primary "
@@ -226,6 +229,9 @@ comboList_t sound_device_list = {sound_device_list_, 0, "##sound_device_list",
 comboList_t_ *plg_list_ = nullptr;
 comboList_t plg_list = {plg_list_, 0, "##plg_list", 0};
 
+comboList_t_ *doors_check_list_ = nullptr;
+comboList_t doors_check_list = {doors_check_list_, 0, "##doors_check", 0};
+
 class SettingsWindow : public XPImgWindow {
 public:
   SettingsWindow(WndMode _mode = WND_MODE_FLOAT_CENTERED);
@@ -239,6 +245,7 @@ public:
     comboList_free(&radio_device_list);
     comboList_free(&sound_device_list);
     comboList_free(&plg_list);
+    comboList_free(&doors_check_list);
   }
 
   bool_t getIsDestroy(void) { return is_destroy; }
@@ -249,7 +256,6 @@ private:
   lang_pref_t lang_pref;
   bool_t disco_when_done;
   bool_t ignore_park_brake;
-  bool_t ignore_doors_check;
   bool_t hide_magic_squares;
   bool_t dont_hide;
   bool_t always_connect_tug_first;
@@ -261,10 +267,12 @@ private:
   int monitor_id;
   int for_credit;
   int magic_squares_height;
+  int doors_check;
   const char *radio_dev, *sound_dev, *plg_to_exclude;
   void LoadConfig(void);
   void sound_comboList_init(comboList_t *list);
   void plugin_comboList_init(comboList_t *list);
+  void doorscheck_comboList_init(comboList_t *list);
   void comboList_free(comboList_t *list);
   void initPerAircraftSettings(void);
 
@@ -290,8 +298,8 @@ void SettingsWindow::initPerAircraftSettings(void) {
   ignore_park_brake = B_FALSE;
   (void)conf_get_b_per_acf((char *)"ignore_park_brake", &ignore_park_brake);
 
-  ignore_doors_check = B_FALSE;
-  (void)conf_get_b_per_acf((char *)"ignore_doors_check", &ignore_doors_check);
+  doors_check = ActiveWithMessage;
+  (void)conf_get_i_per_acf((char *)"doors_check", &doors_check);
 
   hide_magic_squares = B_FALSE;
   (void)conf_get_b_per_acf((char *)"hide_magic_squares", &hide_magic_squares);
@@ -390,6 +398,9 @@ void SettingsWindow::LoadConfig(void) {
       }
     }
   }
+
+  doorscheck_comboList_init(&doors_check_list);
+  doors_check_list.selected = doors_check;
 }
 
 void SettingsWindow::plugin_comboList_init(comboList_t *list) {
@@ -442,6 +453,25 @@ void SettingsWindow::sound_comboList_init(comboList_t *list) {
     list->combo_list[i].string = strdup(devs[i - 1]);
     list->combo_list[i].use_chinese = B_FALSE;
     list->combo_list[i].value = strdup(list->combo_list[i].string);
+  }
+}
+
+void SettingsWindow::doorscheck_comboList_init(comboList_t *list) {
+  // Options for doors/GPU/ASU check
+  list->combo_list = (comboList_t_ *)safe_calloc(3, sizeof(comboList_t_));
+  list->list_size = 3;
+
+  // These should follow the order of the DoorCheck enum
+  static const char* doors_check_strings[] = {
+    _("Active with ground crew message"),
+    _("Active, but stay silent"),
+    _("Ignore")
+  };
+
+  for (int i = 0; i < 3; ++i) {
+    list->combo_list[i].string = strdup(doors_check_strings[i]);
+    list->combo_list[i].use_chinese = B_FALSE;
+    list->combo_list[i].value = strdup("");
   }
 }
 
@@ -639,13 +669,13 @@ void SettingsWindow::buildInterface() {
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    ImGui::Text("%s", _("Ignore doors/GPU/ASU check"));
-    Tooltip(_(ignore_doors_check_tooltip));
+    ImGui::Text("%s", _("Doors/GPU/ASU check"));
+    Tooltip(_(doors_check_tooltip));
 
     ImGui::TableNextColumn();
-    if (ImGui::Checkbox("##ignore_doors_check_cbox",
-                        (bool *)&ignore_doors_check)) {
-      conf_set_b_per_acf((char *)"ignore_doors_check", ignore_doors_check);
+    ImGui::SetNextItemWidth(combowithWidth);
+    if (comboList(&doors_check_list)) {
+      conf_set_i_per_acf((char *)"doors_check", doors_check_list.selected);
     }
 
     ImGui::TableNextRow();
