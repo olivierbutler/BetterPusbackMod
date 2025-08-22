@@ -2309,6 +2309,7 @@ pb_step_lift(void) {
              */
             if (!late_plan_end_cond()) {
                 bp_hint_status_str = _("Connected to the aircraft, waiting for clearance");
+                enable_replanning();
                 return;
             }
             late_plan_requested = B_FALSE;
@@ -3019,7 +3020,7 @@ main_intf_show(void) {
     } else {
     magic_buttons[0].wind_id = (!bp_started && !always_connect_tug_first) ? bp_ls.planner_win : NULL;
     magic_buttons[1].wind_id = (!bp_started && !always_connect_tug_first) ? bp_ls.conn_tug_first : NULL;
-    magic_buttons[2].wind_id = !bp_started  || ( ( bp.step == PB_STEP_LIFTING) && late_plan_requested) ? bp_ls.start_pb_win : NULL;
+    magic_buttons[2].wind_id = !bp_started  || ( (( bp.step == PB_STEP_LIFTING) ||  (bp.step == PB_STEP_CONNECTED) ) && late_plan_requested) ? bp_ls.start_pb_win : NULL;
     }
     magic_buttons[3].wind_id = bp_started ? bp_ls.pb_status_win : NULL;
 }
