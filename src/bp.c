@@ -641,7 +641,7 @@ acf_doors_closed(bool_t with_cfg_flag) {
     if (with_cfg_flag) {
         int doors_check;
         conf_get_i_per_acf((char *)"doors_check", &doors_check);
-        if (doors_check == Ignore) {
+        if (doors_check == DOOR_CHECK_Ignore) {
             return result;
         }
     }
@@ -2379,7 +2379,7 @@ pb_step_waiting_for_doors(void) {
     if (!acf_doors_closed(B_TRUE)) {
         int doors_check;
         conf_get_i_per_acf((char *)"doors_check", &doors_check);
-        if (doors_check == ActiveWithMessage) {
+        if (doors_check == DOOR_CHECK_ActiveWithMessage) {
             XPLMSpeakString(_(MSG_DOORS_GPU));
         }
     } 

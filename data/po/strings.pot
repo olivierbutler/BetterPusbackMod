@@ -7,7 +7,7 @@
 msgid   ""
 msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Report-Msgid-Bugs-To: \n"
-        "POT-Creation-Date: 2025-06-19 16:21+0300\n"
+        "POT-Creation-Date: 2025-08-22 09:26+0300\n"
         "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
         "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
         "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -87,15 +87,15 @@ msgid   "Pushback warning: unable to remove your chocks. Remove them "
         "yourself, or else I won't be able to push your aircraft."
 msgstr  ""
 
-#: src/bp.c:2394
+#: src/bp.c:2394 src/bp.c:2398
 msgid   "Hey! Quit blinding me with your landing lights! Turn them off!"
 msgstr  ""
 
-#: src/bp.c:2397
+#: src/bp.c:2397 src/bp.c:2401
 msgid   "Hey! Quit blinding me with your taxi light! Turn it off!"
 msgstr  ""
 
-#: src/bp.c:3338
+#: src/bp.c:3338 src/bp.c:3342
 msgid   "Pushback failure: your flight controls are preventing me from "
         "steering the aircraft. Unbind any buttons you have set to \"toggle "
         "nosewheel steering\"."
@@ -319,10 +319,15 @@ msgid   "BetterPushback is open-source software. See COPYING for more "
         "information."
 msgstr  ""
 
-msgid   "Select the action after the doors/GPU/ASU status check is done before starting the push-back.\n"
-        "Active with ground crew message: The ground crew will tell you if the doors are not closed.\n"
-        "Active, but stay silent: The ground crew will wait, but not say anything if the doors are not closed.\n"
-        "Ignore: The doors/GPU/ASU status check is ignored and the push-back starts immediately, even if the doors are not closed or the GPU/ASU is still connected."
+msgid   "Select the action after the doors/GPU/ASU status check is done "
+        "before starting the push-back.\n"
+        "Active with ground crew message: The ground crew will tell you if "
+        "the doors are not closed.\n"
+        "Active, but stay silent: The ground crew will wait, but not say "
+        "anything if the doors are not closed.\n"
+        "Ignore: The doors/GPU/ASU status check is ignored and the push-back "
+        "starts immediately, even if the doors are not closed or the GPU/ASU "
+        "is still connected."
 msgstr  ""
 
 msgid   "In case of multiple monitors configuration, BpB need to use the "
@@ -340,79 +345,79 @@ msgstr  ""
 msgid   "Waiting for the parking brakes release"
 msgstr  ""
 
-#: src/bp.c:2493 src/bp.c:3474
+#: src/bp.c:2493 src/bp.c:3474 src/bp.c:2497 src/bp.c:3478
 msgid   "Waiting for the parking brakes set"
 msgstr  ""
 
-#: src/bp.c:3433
+#: src/bp.c:3433 src/bp.c:3437
 msgid   "Push-back called"
 msgstr  ""
 
-#: src/bp.c:3438
+#: src/bp.c:3438 src/bp.c:3442
 msgid   "Driving to the aircraft"
 msgstr  ""
 
-#: src/bp.c:3442 src/bp.c:3446
+#: src/bp.c:3442 src/bp.c:3446 src/bp.c:3450
 msgid   "Waiting for doors/GPU/ASU closed/disconnected"
 msgstr  ""
 
-#: src/bp.c:3448
+#: src/bp.c:3448 src/bp.c:3452
 msgid   "Opening the cradle"
 msgstr  ""
 
-#: src/bp.c:3478
+#: src/bp.c:3478 src/bp.c:3482
 msgid   "Connecting to the aircraft"
 msgstr  ""
 
-#: src/bp.c:3490
+#: src/bp.c:3490 src/bp.c:3494
 msgid   "Connected to the aircraft"
 msgstr  ""
 
-#: src/bp.c:3494
+#: src/bp.c:3494 src/bp.c:3498
 msgid   "Push-back started"
 msgstr  ""
 
-#: src/bp.c:3524
+#: src/bp.c:3524 src/bp.c:3528
 msgid   "Push-back in progress"
 msgstr  ""
 
-#: src/bp.c:3528
+#: src/bp.c:3528 src/bp.c:3532
 msgid   "Push-back stopping"
 msgstr  ""
 
-#: src/bp.c:3532
+#: src/bp.c:3532 src/bp.c:3536
 msgid   "Push-back stopped"
 msgstr  ""
 
-#: src/bp.c:3536
+#: src/bp.c:3536 src/bp.c:3540
 msgid   "Lowering the nose"
 msgstr  ""
 
-#: src/bp.c:3540
+#: src/bp.c:3540 src/bp.c:3544
 msgid   "Ungrabbing the nose"
 msgstr  ""
 
-#: src/bp.c:3544
+#: src/bp.c:3544 src/bp.c:3548
 msgid   "Waiting the OK to disconnect"
 msgstr  ""
 
-#: src/bp.c:3548
+#: src/bp.c:3548 src/bp.c:3552
 msgid   "Disconnecting the tug away from the aircraft"
 msgstr  ""
 
-#: src/bp.c:3589
+#: src/bp.c:3589 src/bp.c:3593
 msgid   "Closing the cradle"
 msgstr  ""
 
-#: src/bp.c:3593 src/bp.c:3597
+#: src/bp.c:3593 src/bp.c:3597 src/bp.c:3601
 msgid   "Moving to the side of the aircraft"
 msgstr  ""
 
-#: src/bp.c:3604
+#: src/bp.c:3604 src/bp.c:3608
 msgid   "Showing the pin and the clear signal"
 msgstr  ""
 
-#: src/bp.c:3608
+#: src/bp.c:3608 src/bp.c:3612
 msgid   "Driving the tug away back to his station"
 msgstr  ""
 
@@ -420,11 +425,11 @@ msgstr  ""
 msgid   "Connected to the aircraft, waiting for clearance"
 msgstr  ""
 
-#: src/bp.c:3486
+#: src/bp.c:3486 src/bp.c:3490
 msgid   "Lifting the aircraft"
 msgstr  ""
 
-#: src/bp.c:3482
+#: src/bp.c:3482 src/bp.c:3486
 msgid   "Grabbing the aircraft"
 msgstr  ""
 
@@ -441,7 +446,7 @@ msgstr  ""
 msgid   "Open preference window."
 msgstr  ""
 
-#: src/bp.c:3430
+#: src/bp.c:3430 src/bp.c:3434
 msgid   "Push-back waiting to be called"
 msgstr  ""
 

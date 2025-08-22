@@ -49,10 +49,10 @@ typedef struct {
     int magic_squares_height;
 } monitors_t;
 
-enum DoorCheck : unsigned char {
-    ActiveWithMessage = 0,
-    ActiveSilent,
-    Ignore
+enum  {
+    DOOR_CHECK_ActiveWithMessage = 0,
+    DOOR_CHECK_ActiveSilent,
+    DOOR_CHECK_Ignore
 };
 
 extern  monitors_t monitor_def;

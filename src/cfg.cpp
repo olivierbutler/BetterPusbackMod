@@ -298,7 +298,7 @@ void SettingsWindow::initPerAircraftSettings(void) {
   ignore_park_brake = B_FALSE;
   (void)conf_get_b_per_acf((char *)"ignore_park_brake", &ignore_park_brake);
 
-  doors_check = ActiveWithMessage;
+  doors_check = DOOR_CHECK_ActiveWithMessage;
   (void)conf_get_i_per_acf((char *)"doors_check", &doors_check);
 
   hide_magic_squares = B_FALSE;
