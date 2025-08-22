@@ -2309,6 +2309,7 @@ pb_step_lift(void) {
              */
             if (!late_plan_end_cond()) {
                 bp_hint_status_str = _("Connected to the aircraft, waiting for clearance");
+                enable_replanning();
                 return;
             }
             late_plan_requested = B_FALSE;
