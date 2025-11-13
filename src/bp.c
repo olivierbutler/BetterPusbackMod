@@ -1572,6 +1572,8 @@ bp_delete_all_segs(void) {
     seg_t *seg;
     while ((seg = list_remove_head(&bp.segs)) != NULL)
         free(seg);
+    if (!slave_mode)
+        plan_complete = B_FALSE;
 }
 
 bool_t

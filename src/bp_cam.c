@@ -1379,6 +1379,8 @@ bp_cam_start(void)
     }
 
     cam_inited = B_TRUE;
+    if (!slave_mode)
+        plan_complete = B_FALSE;
 
     updateAvailable = getPluginUpdateStatus();
     if (updateAvailable != NULL)
@@ -1440,6 +1442,9 @@ bp_cam_stop(void)
     pop_fov_values();
     eye_track_fini();
     clear_bottom_msg();
+
+    if (!slave_mode)
+        plan_complete = (list_head(&bp.segs) != NULL);
 
     return (B_TRUE);
 }
