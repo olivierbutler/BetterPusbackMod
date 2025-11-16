@@ -175,7 +175,7 @@ static XPLMFlightLoopID reload_floop_ID = NULL;
  */
 static dr_t bp_started_dr, bp_connected_dr, slave_mode_dr, op_complete_dr;
 static dr_cfg_t slave_mode_dr_cfg ;
-static dr_t plan_complete_dr, bp_tug_name_dr;
+static dr_t plan_complete_dr, planner_open_dr, bp_tug_name_dr;
 static dr_t pb_set_remote_dr, pb_set_override_dr;
 static dr_cfg_t pb_set_remote_dr_cfg, pb_set_override_dr_cfg;
 bool_t bp_started = B_FALSE;
@@ -183,6 +183,7 @@ bool_t bp_connected = B_FALSE;
 bool_t slave_mode = B_FALSE;
 bool_t op_complete = B_FALSE;
 bool_t plan_complete = B_FALSE;
+bool_t planner_open = B_FALSE;
 bool_t pb_set_remote = B_FALSE;
 bool_t pb_set_override = B_FALSE;
 char bp_tug_name[64] = {0};
@@ -290,6 +291,7 @@ init_core_state(void)
     slave_mode = B_FALSE;
     op_complete = B_FALSE;
     plan_complete = B_FALSE;
+    planner_open = B_FALSE;
     cab_view_init();
 }
 
@@ -1008,6 +1010,8 @@ XPluginStart(char *name, char *sig, char *desc)
                 "bp/op_complete");
     dr_create_i(&plan_complete_dr, (int *)&plan_complete, B_TRUE,
                 "bp/plan_complete");
+    dr_create_i(&planner_open_dr, (int *)&planner_open, B_FALSE,
+                "bp/planner_open");
     dr_create_b(&bp_tug_name_dr, bp_tug_name, sizeof(bp_tug_name),
                 B_TRUE, "bp/tug_name");
 
@@ -1041,6 +1045,8 @@ XPluginStop(void)
     dr_delete(&bp_started_dr);
     dr_delete(&slave_mode_dr);
     dr_delete(&op_complete_dr);
+    dr_delete(&plan_complete_dr);
+    dr_delete(&planner_open_dr);
     dr_delete(&bp_tug_name_dr);
     dr_delete(&pb_set_remote_dr);
     dr_delete(&pb_set_override_dr);

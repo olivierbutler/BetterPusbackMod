@@ -1379,6 +1379,7 @@ bp_cam_start(void)
     }
 
     cam_inited = B_TRUE;
+    planner_open = B_TRUE;
     if (!slave_mode)
         plan_complete = B_FALSE;
 
@@ -1438,6 +1439,7 @@ bp_cam_stop(void)
     }
     dr_seti(&drs.use_real_wx, saved_real_wx);
     cam_inited = B_FALSE;
+    planner_open = B_FALSE;
 
     pop_fov_values();
     eye_track_fini();
