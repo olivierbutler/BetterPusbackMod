@@ -150,8 +150,9 @@ static XPLMFlightLoopID reload_floop_ID = NULL;
  *   1 on the slave before engaging the tug. We must not change roles mid-run.
  * - "bp/op_complete": boolean the master toggles when pushback should end.
  *   The slave watches this to jump to PB_STEP_STOPPING/bp_complete().
- * - "bp/plan_complete": master-side flag that late-planning has finished so
- *   the slave may continue past the late-plan gate even without segments.
+ * - "bp/plan_complete": master-side flag that flips to 1 as soon as a valid
+ *   pushback plan exists (route saved or late-plan completed). Slaves can
+ *   use this to continue past the late-plan gate even without segments.
  * - "bp/planner_open" (read-only): indicates whether the planner UI is shown.
  *   Helpful for UI sync and for deciding which SmartCopilot controls to hide.
  * - "bp/tug_name": string identifying the exact tug picked on the master.
