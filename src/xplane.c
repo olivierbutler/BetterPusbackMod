@@ -138,40 +138,33 @@ static XPLMCreateFlightLoop_t reload_floop = {
 static XPLMFlightLoopID reload_floop_ID = NULL;
 
 /*
- * These datarefs are for syncing two instances of BetterPushback over the
- * net via syncing addons such as smartcopilot and Shared Flight.
- * This works as follows:
- * 1) Master/slave must not be switched during pushback (undefined behavior
- *	may result). It's possible to observe if BetterPushback is running by
- *	monitoring the read-only boolean "bp/started" dataref. This dataref
- *	must NOT be synced, it's only a hint to smartcopilot whether
- *	switching is safe.
- * 2) The boolean dataref "bp/slave_mode" must be set to 0 on the master and
- *	1 on the slave.
- * 3) The boolean dataref "bp/op_complete" must be synced from master to
- *	slave. This signals to bp_run() that the pushback stage needs to
- *	progress to either PB_STEP_STOPPING if the tug has already attached,
- *	or immediately to bp_complete() if it has not. The master sets this
- *	dataref in response to either a "Stop" command request, or when it
- *	has processed all pushback segments. The slave cannot set this
- *	(master controls when pushback stops).
- * 4) The boolean dataref "bp/plan_complete" must be synced from master to
- *	slave. This is a signal from the master machine to the slave that
- *	if late_plan_requested was in effect, the slave can continue with
- *	the state transitions past the late_plan_requested limit. This is
- *	needed because we don't transfer the route to the slave, so the
- *	slave cannot use the presence of a route as a condition to continue.
- * 5) The string dataref "bp/tug_name" must be synced from master to slave.
- *	This string identifies which tug model the master selected (since tug
- *	selection is non-deterministic). The slave then instances its tug
- *	object using tug_alloc_man. Both master and slave must have identical
- *	tug libraries, otherwise sync fails.
- * 6) The command "BetterPushback/start" should be synced from mater to slave.
- *	There's no need to sync any other commands. The planning GUI is
- *	disabled on the slave machine and stopping of the pushback can only be
- *	performed by the master machine.
- * 7) The dataref bp/parking_brake_override can be set to 1 on slaves and
- *  then bp/parking_brake_set will be used instead of the local parking brake.
+ * These datarefs are surfaced so that coupling add-ons (SmartCopilot,
+ * SharedFlight, etc.) can keep two copies of BetterPushback in sync. The
+ * expected behaviour of each dataref/command is:
+ *
+ * - "bp/started" (read-only): goes to 1 when pushback logic is running.
+ *   Use it only as a hint for whether switching master/slave roles is safe.
+ * - "bp/connected" (read-only): becomes 1 once the tug is fully attached.
+ *   This mirrors the local PB_STEP_CONNECTED state for remote clients.
+ * - "bp/slave_mode": writable flag that must be set to 0 on the master and
+ *   1 on the slave before engaging the tug. We must not change roles mid-run.
+ * - "bp/op_complete": boolean the master toggles when pushback should end.
+ *   The slave watches this to jump to PB_STEP_STOPPING/bp_complete().
+ * - "bp/plan_complete": master-side flag that late-planning has finished so
+ *   the slave may continue past the late-plan gate even without segments.
+ * - "bp/planner_open" (read-only): indicates whether the planner UI is shown.
+ *   Helpful for UI sync and for deciding which SmartCopilot controls to hide.
+ * - "bp/tug_name": string identifying the exact tug picked on the master.
+ *   Both sides need an identical tug library for deterministic behaviour.
+ * - "bp/parking_brake_override": when set to 1 on a slave, BetterPushback
+ *   reads the boolean "bp/parking_brake_set" instead of the local brake
+ *   dataref. This allows remote hardware (or a master instance) to signal
+ *   the brake state explicitly.
+ *
+ * Commands: mirror the "BetterPushback/start" command from master to slave.
+ * The other commands remain local – the slave GUI stays disabled and only
+ * the master can stop a pushback. Master/slave assignments should therefore
+ * be established before either instance enters the pushback state machine.
  */
 static dr_t bp_started_dr, bp_connected_dr, slave_mode_dr, op_complete_dr;
 static dr_cfg_t slave_mode_dr_cfg ;
@@ -182,8 +175,8 @@ bool_t bp_started = B_FALSE;
 bool_t bp_connected = B_FALSE;
 bool_t slave_mode = B_FALSE;
 bool_t op_complete = B_FALSE;
-bool_t plan_complete = B_FALSE;
-bool_t planner_open = B_FALSE;
+bool_t plan_complete = B_FALSE; /* BP_DATAREF plan_complete */
+bool_t planner_open = B_FALSE;  /* BP_DATAREF planner_open */
 bool_t pb_set_remote = B_FALSE;
 bool_t pb_set_override = B_FALSE;
 char bp_tug_name[64] = {0};
@@ -290,8 +283,8 @@ init_core_state(void)
     bp_connected = B_FALSE;
     slave_mode = B_FALSE;
     op_complete = B_FALSE;
-    plan_complete = B_FALSE;
-    planner_open = B_FALSE;
+    plan_complete = B_FALSE; /* BP_DATAREF plan_complete */
+    planner_open = B_FALSE;  /* BP_DATAREF planner_open */
     cab_view_init();
 }
 
@@ -1009,9 +1002,9 @@ XPluginStart(char *name, char *sig, char *desc)
     dr_create_i(&op_complete_dr, (int *)&op_complete, B_TRUE,
                 "bp/op_complete");
     dr_create_i(&plan_complete_dr, (int *)&plan_complete, B_TRUE,
-                "bp/plan_complete");
+                "bp/plan_complete"); /* BP_DATAREF plan_complete */
     dr_create_i(&planner_open_dr, (int *)&planner_open, B_FALSE,
-                "bp/planner_open");
+                "bp/planner_open"); /* BP_DATAREF planner_open */
     dr_create_b(&bp_tug_name_dr, bp_tug_name, sizeof(bp_tug_name),
                 B_TRUE, "bp/tug_name");
 
@@ -1045,8 +1038,8 @@ XPluginStop(void)
     dr_delete(&bp_started_dr);
     dr_delete(&slave_mode_dr);
     dr_delete(&op_complete_dr);
-    dr_delete(&plan_complete_dr);
-    dr_delete(&planner_open_dr);
+    dr_delete(&plan_complete_dr); /* BP_DATAREF plan_complete */
+    dr_delete(&planner_open_dr);  /* BP_DATAREF planner_open */
     dr_delete(&bp_tug_name_dr);
     dr_delete(&pb_set_remote_dr);
     dr_delete(&pb_set_override_dr);

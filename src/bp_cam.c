@@ -1379,9 +1379,9 @@ bp_cam_start(void)
     }
 
     cam_inited = B_TRUE;
-    planner_open = B_TRUE;
+    planner_open = B_TRUE; /* BP_DATAREF planner_open */
     if (!slave_mode)
-        plan_complete = B_FALSE;
+        plan_complete = B_FALSE; /* BP_DATAREF plan_complete */
 
     updateAvailable = getPluginUpdateStatus();
     if (updateAvailable != NULL)
@@ -1439,14 +1439,14 @@ bp_cam_stop(void)
     }
     dr_seti(&drs.use_real_wx, saved_real_wx);
     cam_inited = B_FALSE;
-    planner_open = B_FALSE;
+    planner_open = B_FALSE; /* BP_DATAREF planner_open */
 
     pop_fov_values();
     eye_track_fini();
     clear_bottom_msg();
 
     if (!slave_mode)
-        plan_complete = (list_head(&bp.segs) != NULL);
+        plan_complete = (list_head(&bp.segs) != NULL); /* BP_DATAREF plan_complete */
 
     return (B_TRUE);
 }

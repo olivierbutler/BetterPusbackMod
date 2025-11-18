@@ -1573,7 +1573,7 @@ bp_delete_all_segs(void) {
     while ((seg = list_remove_head(&bp.segs)) != NULL)
         free(seg);
     if (!slave_mode)
-        plan_complete = B_FALSE;
+        plan_complete = B_FALSE; /* BP_DATAREF plan_complete */
 }
 
 bool_t
@@ -1925,7 +1925,7 @@ bp_complete(void) {
     bp_connected = B_FALSE;
     bp_conf_set_save_enabled(!bp_started);
     late_plan_requested = B_FALSE;
-    plan_complete = B_FALSE;
+    plan_complete = B_FALSE; /* BP_DATAREF plan_complete */
 
     if (bp_ls.tug != NULL) {
         tug_free(bp_ls.tug);
@@ -1958,7 +1958,7 @@ bp_complete(void) {
 static bool_t
 late_plan_end_cond(void) {
     return ((!slave_mode && list_head(&bp.segs) != NULL &&
-             !bp_cam_is_running()) || (slave_mode && plan_complete));
+            !bp_cam_is_running()) || (slave_mode && plan_complete)); /* BP_DATAREF plan_complete */
 }
 
 static bool_t
@@ -2335,7 +2335,7 @@ pb_step_lift(void) {
              * we need to save it now.
              */
             if (!slave_mode) {
-                plan_complete = B_TRUE;
+                plan_complete = B_TRUE; /* BP_DATAREF plan_complete */
                 route_save(&bp.segs);
             }
         }
