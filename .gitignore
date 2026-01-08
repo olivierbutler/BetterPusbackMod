@@ -1,6 +1,7 @@
 *.zip
 *.cbp
 .idea
+.DS_Store
 lin64
 win64
 mac64

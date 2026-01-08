@@ -66,14 +66,14 @@ static bool_t inited = B_FALSE;
 XPLMCommandRef start_pb, start_cam, conn_first, stop_pb;
 static XPLMCommandRef stop_cam;
 static XPLMCommandRef cab_cam, recreate_routes;
-static XPLMCommandRef abort_push, pref_cmd;
+static XPLMCommandRef abort_push, pref_cmd, reload_cmd;
 static XPLMCommandRef manual_push_start, manual_push_start_no_yoke;
 static XPLMCommandRef manual_push_left, manual_push_right, manual_push_reverse;
 static XPLMMenuID root_menu;
 static int plugins_menu_item;
 static int start_pb_plan_menu_item, stop_pb_plan_menu_item;
 static int start_pb_menu_item, stop_pb_menu_item, conn_first_menu_item;
-static int cab_cam_menu_item, prefs_menu_item;
+static int cab_cam_menu_item, prefs_menu_item, reload_menu_item;
 static bool_t prefs_enable, stop_pb_plan_enable,
     stop_pb_enable, conn_first_enable, cab_cam_enable;
 bool_t start_pb_plan_enable, start_pb_enable;
@@ -99,6 +99,8 @@ static int cab_cam_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 static int recreate_routes_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static int abort_push_handler(XPLMCommandRef, XPLMCommandPhase, void *);
+
+static int reload_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static int manual_push_left_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 static int manual_push_right_handler(XPLMCommandRef, XPLMCommandPhase, void *);
@@ -163,9 +165,11 @@ static XPLMFlightLoopID reload_floop_ID = NULL;
  *   the brake state explicitly.
  *
  * Commands: mirror the "BetterPushback/start" command from master to slave.
- * The other commands remain local – the slave GUI stays disabled and only
- * the master can stop a pushback. Master/slave assignments should therefore
- * be established before either instance enters the pushback state machine.
+ * The other commands remain local (including "BetterPushback/reload") – the
+ * slave GUI stays disabled and only the master can stop a pushback. Reload
+ * is only safe when pushback is idle and planner/prefs are closed.
+ * Master/slave assignments should therefore be established before either
+ * instance enters the pushback state machine.
  */
 static dr_t bp_started_dr, bp_connected_dr, slave_mode_dr, op_complete_dr;
 static dr_cfg_t slave_mode_dr_cfg ;
@@ -292,7 +296,11 @@ init_core_state(void)
 static void
 enable_menu_items()
 {
+    bool_t reload_enable = (!bp_started && !planner_open &&
+        !get_pref_widget_status());
+
     XPLMEnableMenuItem(root_menu, prefs_menu_item, prefs_enable);
+    XPLMEnableMenuItem(root_menu, reload_menu_item, reload_enable);
     XPLMEnableMenuItem(root_menu, start_pb_menu_item, start_pb_enable);
     XPLMEnableMenuItem(root_menu, stop_pb_menu_item, stop_pb_enable);
     XPLMEnableMenuItem(root_menu, start_pb_plan_menu_item, start_pb_plan_enable);
@@ -676,6 +684,24 @@ preference_window_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refc
     return (1);
 }
 
+static int
+reload_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
+    UNUSED(cmd);
+    UNUSED(refcon);
+    if (phase != xplm_CommandEnd)
+        return (0);
+
+    if (bp_started || planner_open || get_pref_widget_status())
+    {
+        logMsg(BP_WARN_LOG "Command \"BetterPushback/reload\" is currently disabled");
+        return (0);
+    }
+
+    bp_sched_reload();
+    return (1);
+}
+
 static void
 menu_cb(void *inMenuRef, void *inItemRef)
 {
@@ -973,6 +999,9 @@ XPluginStart(char *name, char *sig, char *desc)
     pref_cmd = XPLMCreateCommand(
         "BetterPushback/preference",
         _("Open preference window."));
+    reload_cmd = XPLMCreateCommand(
+        "BetterPushback/reload",
+        _("Reload BetterPushback"));
 
     abort_push = XPLMCreateCommand("BetterPushback/abort_push",
                                    _("Abort pushback during coupled push"));
@@ -1139,6 +1168,7 @@ bp_priv_enable(void)
                                1, NULL);
     XPLMRegisterCommandHandler(pref_cmd, preference_window_handler,
                                1, NULL);
+    XPLMRegisterCommandHandler(reload_cmd, reload_handler, 1, NULL);
     XPLMRegisterCommandHandler(abort_push, abort_push_handler, 1, NULL);
 
     XPLMRegisterCommandHandler(manual_push_left, manual_push_left_handler, 1, NULL);
@@ -1168,6 +1198,8 @@ bp_priv_enable(void)
     XPLMAppendMenuSeparator(root_menu);
     prefs_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
                                                     _("Preferences..."), pref_cmd);
+    reload_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
+                                                     _("Reload BetterPushback"), reload_cmd);
 
     tug_starts_next_plane = B_FALSE;
     (void) conf_get_b(bp_conf,"tug_starts_next_plane", &tug_starts_next_plane);
@@ -1236,6 +1268,7 @@ bp_priv_disable(void)
     XPLMUnregisterCommandHandler(manual_push_start, manual_push_start_handler, 1, NULL);
     XPLMUnregisterCommandHandler(manual_push_start_no_yoke, manual_push_start_no_yoke_handler, 1, NULL);
     XPLMUnregisterCommandHandler(pref_cmd, preference_window_handler, 1, NULL);
+    XPLMUnregisterCommandHandler(reload_cmd, reload_handler, 1, NULL);
 
     bp_fini();
     tug_glob_fini();
