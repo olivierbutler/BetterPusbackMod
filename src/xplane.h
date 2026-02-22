@@ -42,7 +42,8 @@ extern bool_t slave_mode;
 extern bool_t pb_set_remote;
 extern bool_t pb_set_override;
 extern bool_t op_complete;
-extern bool_t plan_complete;
+extern bool_t plan_complete; /* BP_DATAREF plan_complete */
+extern bool_t planner_open;  /* BP_DATAREF planner_open */
 extern char bp_tug_name[64];
 
 extern airportdb_t *airportdb;

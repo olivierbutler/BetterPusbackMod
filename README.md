@@ -70,6 +70,30 @@ For details on how to add tug liveries, see
 
 To add a voice set, see `data/msgs/README.txt` for the information.
 
+## Commands
+
+BetterPushback registers these X-Plane commands:
+
+- `BetterPushback/start`: Start pushback (or connect-first if configured).
+- `BetterPushback/stop`: Stop pushback.
+- `BetterPushback/start_planner`: Open the pushback planner.
+- `BetterPushback/stop_planner`: Close the pushback planner.
+- `BetterPushback/connect_first`: Connect the tug before planning/pushback.
+- `BetterPushback/cab_camera`: View from the tug cab.
+- `BetterPushback/recreate_scenery_routes`: Recreate scenery routes from WED files.
+- `BetterPushback/preference`: Open the preference window.
+- `BetterPushback/reload`: Reload BetterPushback (disabled if pushback is running,
+  the planner is open, or the preferences window is active).
+- `BetterPushback/abort_push`: Abort pushback during coupled push.
+- `BetterPushback/manual_push_left`: Turn the tug left (manual push).
+- `BetterPushback/manual_push_right`: Turn the tug right (manual push).
+- `BetterPushback/manual_push_toggle`: Toggle manual push direction.
+- `BetterPushback/manual_push_start`: Start/pause manual push (yoke used).
+- `BetterPushback/manual_push_start_no_yoke`: Start/pause manual push (no yoke).
+
+Note: For coupling add-ons, only `BetterPushback/start` is intended to be
+mirrored to the slave. Other commands remain local.
+
 ### libacfutils Library Required
 
 I removed from the project. It need to by downloaded separatly. To make sure you have a matched version, take the fork in my repository.

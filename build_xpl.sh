@@ -81,7 +81,8 @@ set -e
 # for one make instance to be blocking on disk.
 HOST_OS="$(uname)"
 if [[ "$HOST_OS" = "Darwin" ]]; then
-	NCPUS=$(( $(sysctl -n hw.ncpu) + 1 ))
+	NCPU_COUNT=$(sysctl -n hw.ncpu 2>/dev/null || echo 1)
+	NCPUS=$(( NCPU_COUNT + 1 ))
 else
 	NCPUS=$(( $(grep 'processor[[:space:]]\+:' /proc/cpuinfo  | wc -l) + \
 	    1 ))

@@ -151,6 +151,18 @@ typedef struct {
  *	same time as the driver, i.e. the cab either raises or lowers
  *	depending on the direction the tug is moving (down - forward, up -
  *	backward).
+ * bp/anim/winch_on: 0/1: for winch-style tugs, this is 1 while the winch
+ *	mechanism is pulling cable or otherwise engaged.
+ * bp/anim/clear_signal: -1/0/1: BP displays a marshaller-style clear signal
+ *	as the push finishes. 0 hides the gestures, 1 plays the "clear right"
+ *	animation and -1 plays the "clear left" variant.
+ * bp/anim/lift_in_transit: 0/1: becomes 1 whenever the cradle or tire-sense
+ *	arms are actively moving and drops back to 0 once they stop.
+ * bp/anim/beacon_flash: 0/1: flashes at the configured beacon flash rate
+ *	whenever bp/anim/hazard_lights is 1.
+ * bp/anim/tug_pos_x/y/z: world-space coordinates of the tug draw origin in
+ *	X-Plane local meters. These are provided so OBJ animations can offset
+ *	external equipment relative to the tug's actual location and terrain.
  */
 
 static anim_info_t anim[TUG_NUM_ANIMS] = {
