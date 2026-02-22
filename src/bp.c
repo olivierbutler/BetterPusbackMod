@@ -650,7 +650,7 @@ acf_doors_closed(bool_t with_cfg_flag) {
     }
 
     if (with_cfg_flag) {
-        int doors_check;
+        int doors_check = DOOR_CHECK_ActiveWithMessage;
         conf_get_i_per_acf((char *)"doors_check", &doors_check);
         if (doors_check == DOOR_CHECK_Ignore) {
             return result;
@@ -2116,7 +2116,8 @@ pb_step_waiting_for_pbrake(void) {
     vect2_t p_end, dir;
     dr_t zibo_chocks;
 
-    if (!pbrake_is_set() ||
+    if ((!pbrake_is_set() && !cfg_ignore_park_break) ||
+    // if (!pbrake_is_set() ||
         /* wait until the rdy2conn message has stopped playing */
         bp.cur_t - bp.last_voice_t < msg_dur(MSG_RDY2CONN)) {
         /* keep resetting the start time to enforce a delay */
@@ -2396,7 +2397,7 @@ pb_step_connected(void) {
 static void
 pb_step_waiting_for_doors(void) {
     if (!acf_doors_closed(B_TRUE)) {
-        int doors_check;
+        int doors_check = DOOR_CHECK_ActiveWithMessage;
         conf_get_i_per_acf((char *)"doors_check", &doors_check);
         if (doors_check == DOOR_CHECK_ActiveWithMessage) {
             XPLMSpeakString(_(MSG_DOORS_GPU));
