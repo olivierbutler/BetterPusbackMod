@@ -55,6 +55,12 @@ enum  {
     DOOR_CHECK_Ignore
 };
 
+enum  {
+    HIDE_M_SQUARE_USE_ACF_SETTING = 0,
+    HIDE_M_SQUARE_YES,
+    HIDE_M_SQUARE_NO
+};
+
 extern  monitors_t monitor_def;
 extern bool_t setup_view_callback_is_alive;
 

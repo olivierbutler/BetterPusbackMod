@@ -475,3 +475,15 @@ msgstr "Exclusion de plugin ACF (expérimental)"
 
 msgid "Eye Tracker Plugin Exclusion"
 msgstr "Exclusion de plugin Eye Tracker"
+
+msgid "Yes"
+msgstr "Oui"
+
+msgid "No"
+msgstr "Non"
+
+msgid "Use Aircraft setting"
+msgstr "Utiliser le paramètre de l’avion"
+
+msgid   "Reload BetterPushback"
+msgstr  "Recharger BetterPushback"

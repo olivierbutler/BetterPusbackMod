@@ -203,7 +203,7 @@ comboList_t_ language_list_[] = {{_("X-Plane's language"), B_FALSE, "xp_l"},
                                  {"Português", B_FALSE, "pt"},
                                  {"Português do Brasil", B_FALSE, "pt_BR"},
                                  {"Русский", B_FALSE, "ru"},
-                                 {"中文", B_TRUE, "cn"}};
+                                 {"中文", B_TRUE, "zh"}};
 
 comboList_t language_list = {language_list_, IM_ARRAYSIZE(language_list_),
                              "##lang_list", 0};
@@ -242,6 +242,9 @@ comboList_t plg_acf_list = {plg_list_acf_, 0, "##plg_acf_list", 0};
 comboList_t_ *doors_check_list_ = nullptr;
 comboList_t doors_check_list = {doors_check_list_, 0, "##doors_check", 0};
 
+comboList_t_ *hide_magic_squares_global_list_ = nullptr;
+comboList_t hide_magic_squares_global_list = {hide_magic_squares_global_list_, 0, "##hide_magic_global", 0};
+
 class SettingsWindow : public XPImgWindow {
 public:
   SettingsWindow(WndMode _mode = WND_MODE_FLOAT_CENTERED);
@@ -257,6 +260,7 @@ public:
     comboList_free(&plg_list);
     comboList_free(&plg_acf_list);
     comboList_free(&doors_check_list);
+    comboList_free(&hide_magic_squares_global_list);
   }
 
   bool_t getIsDestroy(void) { return is_destroy; }
@@ -279,11 +283,13 @@ private:
   int for_credit;
   int magic_squares_height;
   int doors_check;
+  int hide_magic_squares_global;
   const char *radio_dev, *sound_dev, *plg_to_exclude, *plg_acf_to_exclude;
   void LoadConfig(void);
   void sound_comboList_init(comboList_t *list);
   void plugin_comboList_init(comboList_t *list, bool_t only_aircraft);
   void doorscheck_comboList_init(comboList_t *list);
+  void hide_magic_squares_global_comboList_init(comboList_t *list);
   void comboList_free(comboList_t *list);
   void initPerAircraftSettings(void);
 
@@ -333,7 +339,7 @@ void SettingsWindow::LoadConfig(void) {
         break;
       }
     }
-    is_chinese = (strcmp(lang, "cn") == 0);
+    is_chinese = (strcmp(lang, "zh") == 0);
   }
 
   lang_pref = LANG_PREF_MATCH_REAL;
@@ -425,6 +431,11 @@ void SettingsWindow::LoadConfig(void) {
 
   doorscheck_comboList_init(&doors_check_list);
   doors_check_list.selected = doors_check;
+
+  hide_magic_squares_global_comboList_init(&hide_magic_squares_global_list);
+  hide_magic_squares_global = HIDE_M_SQUARE_USE_ACF_SETTING;
+  (void)conf_get_i( bp_conf,"hide_magic_squares_global", &hide_magic_squares_global);
+  hide_magic_squares_global_list.selected = hide_magic_squares_global;
 }
 
 void SettingsWindow::plugin_comboList_init(comboList_t *list,  bool_t only_aircraft) {
@@ -503,6 +514,25 @@ void SettingsWindow::doorscheck_comboList_init(comboList_t *list) {
     list->combo_list[i].value = strdup("");
   }
 }
+
+void SettingsWindow::hide_magic_squares_global_comboList_init(comboList_t *list) {
+  list->combo_list = (comboList_t_ *)safe_calloc(3, sizeof(comboList_t_));
+  list->list_size = 3;
+
+  // These should follow the order of the DoorCheck enum
+  static const char* hide_square_strings[] = {
+    _("Use Aircraft setting"),
+    _("Yes"),
+    _("No")
+  };
+
+  for (int i = 0; i < 3; ++i) {
+    list->combo_list[i].string = strdup(hide_square_strings[i]);
+    list->combo_list[i].use_chinese = B_FALSE;
+    list->combo_list[i].value = strdup("");
+  }
+}
+
 
 void SettingsWindow::comboList_free(comboList_t *list) {
   for (size_t i = 0; i < list->list_size; i++) {
@@ -770,6 +800,17 @@ void SettingsWindow::buildInterface() {
     ImGui::GetWindowDrawList()->AddLine(rowBottomStart, rowBottomEnd,
                                         LINE_COLOR, LINE_THICKNESS);
 
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Hide the magic squares"));
+    Tooltip(_(hide_magic_squares_tooltip));
+
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(combowithWidth);
+    if (comboList(&hide_magic_squares_global_list)) {
+      (void)conf_set_i(bp_conf,"hide_magic_squares_global", hide_magic_squares_global_list.selected);
+    }
+    
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     ImGui::Text("%s", _("Always connect the tug first"));

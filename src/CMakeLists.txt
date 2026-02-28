@@ -126,7 +126,7 @@ execute_process(COMMAND git describe --abbrev=0 --tags
 string(REGEX REPLACE "\n$" "" BP_PLUGIN_VERSION "${BP_PLUGIN_VERSION}")
 
 add_definitions(-DBP_PLUGIN_VERSION="${BP_PLUGIN_VERSION}")
-add_definitions(-DXPLM200=1 -DXPLM210=1 -DXPLM300=1 -DXPLM301=1 -DXPLM303=1)
+add_definitions(-DXPLM200=1 -DXPLM210=1 -DXPLM300=1 -DXPLM301=1 -DXPLM303=1 -DXPLM400=1 -DXPLM411=1 -DXPLM420=1)
 if(APPLE)
 	add_definitions(-DAPL=1 -DIBM=0 -DLIN=0)
 elseif(WIN32)

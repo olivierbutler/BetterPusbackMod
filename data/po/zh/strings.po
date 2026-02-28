@@ -336,3 +336,15 @@ msgstr "ACF 插件排除（实验性）"
 
 msgid "Eye Tracker Plugin Exclusion"
 msgstr "Eye Tracker 插件排除"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "No"
+msgstr "否"
+
+msgid "Use Aircraft setting"
+msgstr "使用飞机设置"
+
+msgid   "Reload BetterPushback"
+msgstr  "重新加载 BetterPushback"

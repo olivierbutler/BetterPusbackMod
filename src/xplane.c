@@ -825,9 +825,16 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
         bp_plan_callback_is_alive--;
     }
 
-    if (!conf_get_b_per_acf("hide_magic_squares", &hide_main_intf))
-    {
-        hide_main_intf = B_FALSE;
+    int hide_magic_squares_global = HIDE_M_SQUARE_USE_ACF_SETTING;
+    (void)conf_get_i( bp_conf,"hide_magic_squares_global", &hide_magic_squares_global);
+
+    if (hide_magic_squares_global == HIDE_M_SQUARE_USE_ACF_SETTING) {
+        if (!conf_get_b_per_acf("hide_magic_squares", &hide_main_intf))
+        {
+            hide_main_intf = B_FALSE;
+        }
+    } else {
+            hide_main_intf =  (hide_magic_squares_global == HIDE_M_SQUARE_YES) ? B_TRUE : B_FALSE;
     }
 
     main_intf(hide_main_intf);
