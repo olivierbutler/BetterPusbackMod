@@ -346,12 +346,13 @@ eng_ok2start(void) {
 bool_t
 acf_is_airliner(void) {
     /* For our purposes, airliners don't exist in the light category. */
+    /* for Airliners considered also a GA (i.e Legacy 650) airliner flag override GA flag */
     enum {
         AIRLINE_MIN_MTOW = 7000
     };
     bool_t result = (dr_getf(&drs.mtow) >= AIRLINE_MIN_MTOW &&
                      !bp.acf.model_flags.is_experimental &&
-                     !bp.acf.model_flags.is_general_aviation &&
+                     (!bp.acf.model_flags.is_general_aviation || bp.acf.model_flags.is_airliner ) &&
                      !bp.acf.model_flags.is_glider &&
                      !bp.acf.model_flags.is_helicopter &&
                      !bp.acf.model_flags.is_military &&
@@ -2352,6 +2353,14 @@ pb_step_lift(void) {
 
 static void
 pb_step_connected(void) {
+    seg_t *seg = NULL;
+    if ( !push_manual.active ) {
+        seg = list_head(&bp.segs);
+        if  ( seg == NULL ) {
+            bp_hint_status_str = _("Waiting for planning the pushback");
+            return;
+        }
+    }
     if (pbrake_is_set() ||
         bp.cur_t - bp.last_voice_t < msg_dur(MSG_CONNECTED)) {
         /*
@@ -2366,7 +2375,6 @@ pb_step_connected(void) {
         if (!slave_mode) {
             bool_t backward = true; 
             if (!push_manual.active) {
-                seg_t *seg = list_head(&bp.segs);
                 ASSERT(seg != NULL);
                 backward = seg->backward;
             }

@@ -487,3 +487,6 @@ msgstr "Utiliser le paramètre de l’avion"
 
 msgid   "Reload BetterPushback"
 msgstr  "Recharger BetterPushback"
+
+msgid "Waiting for planning the pushback"
+msgstr "En attente de la planification du repoussage"

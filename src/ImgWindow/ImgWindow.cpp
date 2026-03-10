@@ -52,7 +52,7 @@ static XPLMDataRef		gFrameRatePeriodRef     = nullptr;
 
 std::shared_ptr<ImgFontAtlas> ImgWindow::sFontAtlas;
 std::shared_ptr<ImFont> ImgWindow::fontDefault;
-std::shared_ptr<ImFont> ImgWindow::fontChinese;
+ImFont* ImgWindow::fontChinese = nullptr;
 
 ImgWindow::ImgWindow(
 	int left,

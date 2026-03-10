@@ -348,3 +348,6 @@ msgstr "使用飞机设置"
 
 msgid   "Reload BetterPushback"
 msgstr  "重新加载 BetterPushback"
+
+msgid "Waiting for planning the pushback"
+msgstr "等待规划推出"

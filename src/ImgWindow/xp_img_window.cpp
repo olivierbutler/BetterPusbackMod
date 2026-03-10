@@ -296,7 +296,7 @@ bool XPImgWindowInit() {
 	}
 
 
-	ImgWindow::fontChinese = std::shared_ptr<ImFont>(ImgWindow::sFontAtlas->AddFontFromFileTTF((GetXPlanePath() + CN_WND_STANDARD_FONT).c_str(), WND_FONT_SIZE, nullptr,ImgWindow::sFontAtlas->getAtlas()->GetGlyphRangesChineseFull()));
+	ImgWindow::fontChinese = ImgWindow::sFontAtlas->AddFontFromFileTTF((GetXPlanePath() + CN_WND_STANDARD_FONT).c_str(), WND_FONT_SIZE, nullptr,ImgWindow::sFontAtlas->getAtlas()->GetGlyphRangesChineseFull());
 	if (!ImgWindow::fontChinese) {
 	// if (!ImgWindow::sFontAtlas->AddFontFromFileTTF((GetXPlanePath() + CN_WND_STANDARD_FONT).c_str(), WND_FONT_SIZE, nullptr,ImgWindow::sFontAtlas->getAtlas()->GetGlyphRangesChineseFull())) {
 		logMsg(BP_FATAL_LOG "%s %s", FATAL_COULD_NOT_LOAD_FONT, CN_WND_STANDARD_FONT);

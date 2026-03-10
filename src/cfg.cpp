@@ -547,7 +547,7 @@ bool_t SettingsWindow::comboList(comboList_t *list) {
   bool_t is_changed = B_FALSE;
   comboList_t_ combo_previous = list->combo_list[list->selected];
   if (combo_previous.use_chinese) {
-    ImGui::PushFont(ImgWindow::fontChinese.get());
+    ImGui::PushFont(ImgWindow::fontChinese);
   }
 
   //  ImGui::SetNextItemWidth(360.0f); // Width in pixels
@@ -561,7 +561,7 @@ bool_t SettingsWindow::comboList(comboList_t *list) {
     for (int i = 0; i < list->list_size; i++) {
       int is_selected = (i == list->selected);
       if (list->combo_list[i].use_chinese) {
-        ImGui::PushFont(ImgWindow::fontChinese.get());
+        ImGui::PushFont(ImgWindow::fontChinese);
       }
       if (ImGui::Selectable(_(list->combo_list[i].string), is_selected)) {
         is_changed = (list->selected != i);
@@ -621,7 +621,7 @@ void SettingsWindow::Tooltip(const char *tip) {
 }
 void SettingsWindow::buildInterface() {
   if (is_chinese) {
-    ImGui::PushFont(ImgWindow::fontChinese.get());
+    ImGui::PushFont(ImgWindow::fontChinese);
   }
 
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, ROUNDED);
@@ -646,7 +646,7 @@ void SettingsWindow::buildInterface() {
                    language_list.combo_list[language_list.selected].value);
     }
     if (is_chinese) {
-      ImGui::PushFont(ImgWindow::fontChinese.get());
+      ImGui::PushFont(ImgWindow::fontChinese);
     }
     ImGui::TableNextRow();
 
@@ -1462,10 +1462,10 @@ void initMonitorOrigin(void) {
 
   if (monitor_id == -1) {
     monitor_id = get_ui_monitor_from_pref();
-    logMsg("Automatic UI monitor search: id %d found as UI monitor",
+    logMsg("Automatic UI monitor search: id #%d found as UI monitor",
            monitor_id);
   } else {
-    logMsg("From pref file, id %d is the UI monitor", monitor_id);
+    logMsg("From pref file, id #%d is the UI monitor", monitor_id);
   }
 
   monitor_def.monitor_found = B_FALSE; // 'clear' the found flag
@@ -1475,14 +1475,15 @@ void initMonitorOrigin(void) {
   monitor_def.x_origin = 0;
   monitor_def.y_origin = 0;
   XPLMGetScreenSize(&monitor_def.w, &monitor_def.h);
-  logMsg("%d monitor(s) found. id %d requested / id %d found",
-         monitor_def.monitor_count, monitor_def.monitor_requested,
-         monitor_def.monitor_id);
+  logMsg("current monitor with  x %d y %d h %d w %d",  
+         monitor_def.x_origin, monitor_def.y_origin, monitor_def.h,
+         monitor_def.w);
   XPLMGetAllMonitorBoundsGlobal(inMonitorBoundsCallback, NULL);
-  logMsg("%d monitor(s) found. id %d requested / id %d found",
+  logMsg("Searching all monitors");
+  logMsg("%d monitor(s) found. id #%d requested / id #%d found",
          monitor_def.monitor_count, monitor_def.monitor_requested,
          monitor_def.monitor_id);
-  logMsg("id %d found with  x %d y %d h %d w %d", monitor_def.monitor_id,
+  logMsg("id #%d found with  x %d y %d h %d w %d", monitor_def.monitor_id,
          monitor_def.x_origin, monitor_def.y_origin, monitor_def.h,
          monitor_def.w);
 

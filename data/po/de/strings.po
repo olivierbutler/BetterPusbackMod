@@ -335,3 +335,6 @@ msgstr "Flugzeugeinstellung verwenden"
 
 msgid   "Reload BetterPushback"
 msgstr  "BetterPushback neu laden"
+
+msgid "Waiting for planning the pushback"
+msgstr "Warten auf die Planung des Pushbacks"

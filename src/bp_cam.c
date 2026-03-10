@@ -120,6 +120,9 @@ static char current_icao[8] = {0};
 static int key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey,
                        void *refcon);
 
+static XPLMFlightLoopID bp_floop_nightlamp = NULL;
+float loop_nightlamp(float elapsed, float elapsed2, int counter, void *refcon);                       
+
 static struct
 {
     dr_t lat, lon;
@@ -701,7 +704,6 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon)
     XPLMProbeRef probe = XPLMCreateProbe(xplm_ProbeY);
     XPLMProbeInfo_t info = {.structSize = sizeof(XPLMProbeInfo_t)};
     mat4 view, proj;
-    XPLMDrawInfo_t di;
     vec3 up = {sin(DEG2RAD(cam_hdg)), 0, -cos(DEG2RAD(cam_hdg))};
     vec3 fwd = {0, -1, 0};
     vec3 cam_posx = {dr_getf(&drs.cam_x), dr_getf(&drs.cam_y),
@@ -805,27 +807,6 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon)
                               seg->end_pos.y),
                         seg->end_hdg, GREEN_TUPLE);
     }
-
-    /* Draw the night-lighting lamp so the user can see under the cursor */
-    // VERIFY3U(XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
-    //                              -cursor_world_pos.y, &info), ==, xplm_ProbeHitTerrain);
-    if (XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
-                            -cursor_world_pos.y, &info))
-    {
-        XPLMDestroyProbe(probe);
-        return (1);
-    }
-    di.structSize = sizeof(di);
-    di.x = cursor_world_pos.x;
-    di.y = info.locationY;
-    di.z = -cursor_world_pos.y;
-    di.heading = 0;
-    di.pitch = 0;
-    di.roll = 0;
-    ASSERT(cam_lamp_inst != NULL);
-    XPLMInstanceSetPosition(cam_lamp_inst, &di, NULL);
-
-    XPLMDestroyProbe(probe);
 
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
@@ -1218,6 +1199,38 @@ find_drs(void)
     fdr_find(&drs.viewport, "sim/graphics/view/viewport");
 }
 
+float loop_nightlamp(float elapsed, float elapsed2, int counter, void *refcon)
+{
+    UNUSED(elapsed);
+    UNUSED(elapsed2);
+    UNUSED(counter);
+    UNUSED(refcon);
+
+    XPLMDrawInfo_t di;
+    XPLMProbeInfo_t info = {.structSize = sizeof(XPLMProbeInfo_t)};
+    XPLMProbeRef probe = XPLMCreateProbe(xplm_ProbeY);
+
+     /* Draw the night-lighting lamp so the user can see under the cursor */
+    if (XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
+                            -cursor_world_pos.y, &info))
+    {
+        XPLMDestroyProbe(probe);
+        return (1);
+    }
+
+    di.structSize = sizeof(di);
+    di.x = cursor_world_pos.x;
+    di.y = info.locationY;
+    di.z = -cursor_world_pos.y;
+    di.heading = 0;
+    di.pitch = 0;
+    di.roll = 0;
+    ASSERT(cam_lamp_inst != NULL);
+    XPLMInstanceSetPosition(cam_lamp_inst, &di, NULL);
+    XPLMDestroyProbe(probe);
+    return (-1);
+}
+
 bool_t
 bp_cam_start(void)
 {
@@ -1234,6 +1247,16 @@ bp_cam_start(void)
         .handleCursorFunc = fake_win_cursor,
         .handleMouseWheelFunc = fake_win_wheel,
         .refcon = NULL};
+
+    XPLMCreateFlightLoop_t floop_nightlamp = {
+        .structSize = sizeof(XPLMCreateFlightLoop_t),
+        .phase = xplm_FlightLoop_Phase_BeforeFlightModel,
+        .callbackFunc = loop_nightlamp,
+        .refcon = NULL
+    };
+
+    
+
     char icao[8] = {0};
     char *cam_obj_path;
     char airline[1024] = {0};
@@ -1390,6 +1413,10 @@ bp_cam_start(void)
         init_bottom_msg(bottom_msg);
     }
 
+    if (bp_floop_nightlamp == NULL)
+        bp_floop_nightlamp = XPLMCreateFlightLoop(&floop_nightlamp);
+    XPLMScheduleFlightLoop(bp_floop_nightlamp, -1, 1);
+
     return (B_TRUE);
 }
 
@@ -1401,6 +1428,11 @@ bp_cam_stop(void)
 
     if (!cam_inited)
         return (B_FALSE);
+
+    if (bp_floop_nightlamp != NULL) {
+        XPLMDestroyFlightLoop(bp_floop_nightlamp);
+        bp_floop_nightlamp = NULL;
+    }
 
     if (cam_lamp_inst != NULL)
         XPLMDestroyInstance(cam_lamp_inst);

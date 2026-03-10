@@ -338,3 +338,6 @@ msgstr "Использовать настройки самолёта"
 
 msgid   "Reload BetterPushback"
 msgstr  "Перезагрузить BetterPushback"
+
+msgid "Waiting for planning the pushback"
+msgstr "Ожидание планирования выталкивания"

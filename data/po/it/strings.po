@@ -355,3 +355,6 @@ msgstr "Usa l'impostazione dell'aeromobile"
 
 msgid   "Reload BetterPushback"
 msgstr  "Ricarica BetterPushback"
+
+msgid "Waiting for planning the pushback"
+msgstr "A aguardar o planeamento do pushback"

@@ -83,7 +83,7 @@ public:
      */
     static std::shared_ptr<ImgFontAtlas> sFontAtlas;
     static std::shared_ptr<ImFont> fontDefault;
-    static std::shared_ptr<ImFont> fontChinese;
+    static ImFont* fontChinese;
 
     virtual ~ImgWindow();
     
