@@ -89,6 +89,7 @@
 #define COMPASS_ROSE_TICK_SHORT 6
 #define COMPASS_ROSE_ARROW_HEAD 7
 #define COMPASS_ROSE_SEGMENTS 48
+#define COMPASS_ROSE_RIGHT_CLEARANCE 64
 
 #define PREDICTION_DRAWING_PHASE xplm_Phase_Window
 #define PREDICTION_DRAWING_PHASE_BEFORE 1
@@ -876,7 +877,8 @@ void draw_icon(button_t *btn, int x, int y, double scale, bool_t is_clicked,
 static void
 draw_compass_rose(void)
 {
-    const float cx = monitor_def.x_origin + COMPASS_ROSE_MARGIN +
+    const float cx = monitor_def.x_origin + monitor_def.w -
+        COMPASS_ROSE_RIGHT_CLEARANCE - COMPASS_ROSE_MARGIN -
         COMPASS_ROSE_RADIUS;
     const float cy = monitor_def.y_origin + monitor_def.h -
         COMPASS_ROSE_MARGIN - COMPASS_ROSE_RADIUS;
