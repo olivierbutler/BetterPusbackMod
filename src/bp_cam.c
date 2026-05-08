@@ -83,6 +83,13 @@
 #define BP_PLANNER_VISIBILITY 40000 /* meters */
 #define BP_PLANNER_VISIBILITY_SM 25 /* statut miles */
 
+#define COMPASS_ROSE_RADIUS 36
+#define COMPASS_ROSE_MARGIN 18
+#define COMPASS_ROSE_TICK_LONG 10
+#define COMPASS_ROSE_TICK_SHORT 6
+#define COMPASS_ROSE_ARROW_HEAD 7
+#define COMPASS_ROSE_SEGMENTS 48
+
 #define PREDICTION_DRAWING_PHASE xplm_Phase_Window
 #define PREDICTION_DRAWING_PHASE_BEFORE 1
 
@@ -867,6 +874,99 @@ void draw_icon(button_t *btn, int x, int y, double scale, bool_t is_clicked,
 }
 
 static void
+draw_compass_rose(void)
+{
+    const float cx = monitor_def.x_origin + COMPASS_ROSE_MARGIN +
+        COMPASS_ROSE_RADIUS;
+    const float cy = monitor_def.y_origin + monitor_def.h -
+        COMPASS_ROSE_MARGIN - COMPASS_ROSE_RADIUS;
+    const float r = COMPASS_ROSE_RADIUS;
+    const float box_pad = 10;
+    const double north_angle = DEG2RAD(-cam_hdg);
+    const float north_x = sin(north_angle);
+    const float north_y = cos(north_angle);
+    const vect2_t north_dir = VECT2(north_x, north_y);
+    const vect2_t right_dir = VECT2(north_y, -north_x);
+
+    XPLMDrawTranslucentDarkBox(cx - r - box_pad, cy + r + box_pad,
+                               cx + r + box_pad, cy - r - box_pad);
+    XPLMSetGraphicsState(0, 0, 0, 0, 1, 0, 0);
+
+    glColor4f(1, 1, 1, 0.9);
+    glLineWidth(1);
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < COMPASS_ROSE_SEGMENTS; i++)
+    {
+        double angle = DEG2RAD((360.0 * i) / COMPASS_ROSE_SEGMENTS);
+        glVertex2f(cx + sin(angle) * r, cy + cos(angle) * r);
+    }
+    glEnd();
+
+    glBegin(GL_LINES);
+    for (int hdg = 0; hdg < 360; hdg += 45)
+    {
+        const bool_t cardinal = ((hdg % 90) == 0);
+        const float tick_len = cardinal ? COMPASS_ROSE_TICK_LONG :
+            COMPASS_ROSE_TICK_SHORT;
+        const double angle = DEG2RAD(hdg - cam_hdg);
+        const float dir_x = sin(angle);
+        const float dir_y = cos(angle);
+
+        glVertex2f(cx + dir_x * (r - tick_len), cy + dir_y * (r - tick_len));
+        glVertex2f(cx + dir_x * r, cy + dir_y * r);
+    }
+    glEnd();
+
+    glLineWidth(2);
+    glColor4f(0.95, 0.85, 0.1, 1);
+    glBegin(GL_LINES);
+    glVertex2f(cx, cy);
+    glVertex2f(cx + north_x * (r - 8), cy + north_y * (r - 8));
+    glEnd();
+
+    glBegin(GL_LINES);
+    glVertex2f(cx + north_x * (r - 8), cy + north_y * (r - 8));
+    glVertex2f(cx + north_x * r + right_dir.x * COMPASS_ROSE_ARROW_HEAD,
+               cy + north_y * r + right_dir.y * COMPASS_ROSE_ARROW_HEAD);
+    glVertex2f(cx + north_x * (r - 8), cy + north_y * (r - 8));
+    glVertex2f(cx + north_x * r - right_dir.x * COMPASS_ROSE_ARROW_HEAD,
+               cy + north_y * r - right_dir.y * COMPASS_ROSE_ARROW_HEAD);
+    glEnd();
+
+    /*
+     * Draw a tiny "N" aligned with the north arrow so the overlay reads as
+     * a compass rose rather than just a heading indicator.
+     */
+    {
+        const vect2_t label_center = vect2_add(VECT2(cx, cy),
+            vect2_scmul(north_dir, r + 12));
+        const float half_h = 5;
+        const float half_w = 3;
+        const vect2_t base_l = vect2_add(label_center,
+            vect2_add(vect2_scmul(north_dir, -half_h),
+                      vect2_scmul(right_dir, -half_w)));
+        const vect2_t top_l = vect2_add(label_center,
+            vect2_add(vect2_scmul(north_dir, half_h),
+                      vect2_scmul(right_dir, -half_w)));
+        const vect2_t base_r = vect2_add(label_center,
+            vect2_add(vect2_scmul(north_dir, -half_h),
+                      vect2_scmul(right_dir, half_w)));
+        const vect2_t top_r = vect2_add(label_center,
+            vect2_add(vect2_scmul(north_dir, half_h),
+                      vect2_scmul(right_dir, half_w)));
+
+        glBegin(GL_LINES);
+        glVertex2f(base_l.x, base_l.y);
+        glVertex2f(top_l.x, top_l.y);
+        glVertex2f(base_l.x, base_l.y);
+        glVertex2f(top_r.x, top_r.y);
+        glVertex2f(base_r.x, base_r.y);
+        glVertex2f(top_r.x, top_r.y);
+        glEnd();
+    }
+}
+
+static void
 fake_win_draw(XPLMWindowID inWindowID, void *inRefcon)
 {
     double scale;
@@ -922,6 +1022,7 @@ if (bp_plan_callback_is_alive == 0) {
     }
 
     draw_prediction(0, 0, NULL);
+    draw_compass_rose();
 }
 
 static int
