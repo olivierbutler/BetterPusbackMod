@@ -88,6 +88,7 @@
 #define COMPASS_ROSE_TICK_LONG 10
 #define COMPASS_ROSE_TICK_SHORT 6
 #define COMPASS_ROSE_ARROW_HEAD 7
+#define COMPASS_ROSE_ARROW_DEPTH 10
 #define COMPASS_ROSE_SEGMENTS 48
 #define COMPASS_ROSE_RIGHT_CLEARANCE 64
 
@@ -889,6 +890,8 @@ draw_compass_rose(void)
     const float north_y = cos(north_angle);
     const vect2_t north_dir = VECT2(north_x, north_y);
     const vect2_t right_dir = VECT2(north_y, -north_x);
+    const vect2_t text_right_dir = VECT2(-right_dir.x, -right_dir.y);
+    const vect2_t rose_center = VECT2(cx, cy);
 
     XPLMDrawTranslucentDarkBox(cx - r - box_pad, cy + r + box_pad,
                                cx + r + box_pad, cy - r - box_pad);
@@ -923,16 +926,38 @@ draw_compass_rose(void)
     glColor4f(0.95, 0.85, 0.1, 1);
     glBegin(GL_LINES);
     glVertex2f(cx, cy);
-    glVertex2f(cx + north_x * (r - 8), cy + north_y * (r - 8));
+    glVertex2f(cx + north_x * (r - COMPASS_ROSE_ARROW_DEPTH),
+               cy + north_y * (r - COMPASS_ROSE_ARROW_DEPTH));
     glEnd();
 
+    {
+        const vect2_t arrow_tip = vect2_add(rose_center,
+            vect2_scmul(north_dir, r));
+        const vect2_t arrow_base = vect2_add(rose_center,
+            vect2_scmul(north_dir, r - COMPASS_ROSE_ARROW_DEPTH));
+        const vect2_t arrow_base_l = vect2_add(arrow_base,
+            vect2_scmul(right_dir, -COMPASS_ROSE_ARROW_HEAD));
+        const vect2_t arrow_base_r = vect2_add(arrow_base,
+            vect2_scmul(right_dir, COMPASS_ROSE_ARROW_HEAD));
+
+        glBegin(GL_TRIANGLES);
+        glVertex2f(arrow_tip.x, arrow_tip.y);
+        glVertex2f(arrow_base_l.x, arrow_base_l.y);
+        glVertex2f(arrow_base_r.x, arrow_base_r.y);
+        glEnd();
+    }
+
     glBegin(GL_LINES);
-    glVertex2f(cx + north_x * (r - 8), cy + north_y * (r - 8));
-    glVertex2f(cx + north_x * r + right_dir.x * COMPASS_ROSE_ARROW_HEAD,
-               cy + north_y * r + right_dir.y * COMPASS_ROSE_ARROW_HEAD);
-    glVertex2f(cx + north_x * (r - 8), cy + north_y * (r - 8));
-    glVertex2f(cx + north_x * r - right_dir.x * COMPASS_ROSE_ARROW_HEAD,
-               cy + north_y * r - right_dir.y * COMPASS_ROSE_ARROW_HEAD);
+    glVertex2f(cx + north_x * r, cy + north_y * r);
+    glVertex2f(cx + north_x * (r - COMPASS_ROSE_ARROW_DEPTH) +
+               right_dir.x * COMPASS_ROSE_ARROW_HEAD,
+               cy + north_y * (r - COMPASS_ROSE_ARROW_DEPTH) +
+               right_dir.y * COMPASS_ROSE_ARROW_HEAD);
+    glVertex2f(cx + north_x * r, cy + north_y * r);
+    glVertex2f(cx + north_x * (r - COMPASS_ROSE_ARROW_DEPTH) -
+               right_dir.x * COMPASS_ROSE_ARROW_HEAD,
+               cy + north_y * (r - COMPASS_ROSE_ARROW_DEPTH) -
+               right_dir.y * COMPASS_ROSE_ARROW_HEAD);
     glEnd();
 
     /*
@@ -940,22 +965,22 @@ draw_compass_rose(void)
      * a compass rose rather than just a heading indicator.
      */
     {
-        const vect2_t label_center = vect2_add(VECT2(cx, cy),
+        const vect2_t label_center = vect2_add(rose_center,
             vect2_scmul(north_dir, r + 12));
         const float half_h = 5;
         const float half_w = 3;
         const vect2_t base_l = vect2_add(label_center,
             vect2_add(vect2_scmul(north_dir, -half_h),
-                      vect2_scmul(right_dir, -half_w)));
+                      vect2_scmul(text_right_dir, -half_w)));
         const vect2_t top_l = vect2_add(label_center,
             vect2_add(vect2_scmul(north_dir, half_h),
-                      vect2_scmul(right_dir, -half_w)));
+                      vect2_scmul(text_right_dir, -half_w)));
         const vect2_t base_r = vect2_add(label_center,
             vect2_add(vect2_scmul(north_dir, -half_h),
-                      vect2_scmul(right_dir, half_w)));
+                      vect2_scmul(text_right_dir, half_w)));
         const vect2_t top_r = vect2_add(label_center,
             vect2_add(vect2_scmul(north_dir, half_h),
-                      vect2_scmul(right_dir, half_w)));
+                      vect2_scmul(text_right_dir, half_w)));
 
         glBegin(GL_LINES);
         glVertex2f(base_l.x, base_l.y);
