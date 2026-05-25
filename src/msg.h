@@ -58,6 +58,8 @@ void msg_play(message_t msg);
 
 void msg_stop(void);
 
+bool_t mgs_initiated(void);
+
 double msg_dur(message_t msg);
 
 #ifdef    __cplusplus

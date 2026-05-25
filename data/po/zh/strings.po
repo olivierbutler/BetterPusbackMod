@@ -351,3 +351,14 @@ msgstr  "重新加载 BetterPushback"
 
 msgid "Waiting for planning the pushback"
 msgstr "等待规划推出"
+
+msgid "Ground crew audio relative default audio volume:\n"
+      "The volume can be changed here or by using the dataref:\n"
+      "'bp/ground_crew_audio_volume'"
+
+msgstr "地勤人员音频默认相对音量：\n"
+        "音量可以在此处修改，或使用 dataref：\n"
+        "'bp/ground_crew_audio_volume'"
+
+msgid "Ground crew audio volume"
+msgstr "地勤人员音频音量"

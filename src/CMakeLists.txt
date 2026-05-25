@@ -106,7 +106,7 @@ if(APPLE)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -arch x86_64 -arch arm64 \
 	    -Wno-deprecated")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -arch x86_64 -arch arm64 \
-	    -Wno-deprecated")
+	    -Wno-deprecated -Wno-nontrivial-memcall")
 endif()
 
 # Defines

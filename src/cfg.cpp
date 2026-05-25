@@ -56,7 +56,7 @@ static bool_t gui_inited = B_FALSE;
 bool_t setup_view_callback_is_alive = B_FALSE;
 
 #define MAIN_WINDOW_W 800
-#define MAIN_WINDOW_H 700
+#define MAIN_WINDOW_H 750
 
 #define ROUNDED 8.0f
 #define TOOLTIP_BG_COLOR ImVec4(0.2f, 0.3f, 0.8f, 1.0f)
@@ -107,6 +107,11 @@ void get_fov_values_impl(fov_t *values);
 void set_fov_values_impl(fov_t *values);
 
 void fetchGitVersion(void);
+
+const char *ground_crew_audio_volume_tooltip =
+    "Ground crew audio relative default audio volume:\n"
+    "The volume can be changed here or by using the dataref:\n"
+    "'bp/ground_crew_audio_volume'";
 
 const char *crew_language_tooltip =
     "My language only at domestic airports:\n"
@@ -659,6 +664,22 @@ void SettingsWindow::buildInterface() {
     if (comboList(&crew_lang_list)) {
       conf_set_i(bp_conf, "lang_pref", crew_lang_list.selected);
     }
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Ground crew audio volume"));
+    Tooltip(_(ground_crew_audio_volume_tooltip));
+
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(combowithWidth);
+    float temp = bp_ground_crew_audio_volume * 100.0f;
+    if (ImGui::SliderFloat("##ground_crew_audio_volume", &temp, 10, 100,
+                         "%.0f %%")) {
+                         bp_ground_crew_audio_volume = temp / 100.0f; 
+      conf_set_f(bp_conf, "ground_crew_audio_volume",
+                         bp_ground_crew_audio_volume);
+    }
+
 
     if (monitor_list.list_size) {
       ImGui::TableNextRow();
@@ -1302,7 +1323,7 @@ int get_ui_monitor_from_pref(void) {
       char *search = strstr(line, key);
       if (search != NULL) {
         monit_id = atoi(search + strlen(key));
-        logMsg("monit id %d found in the prf file", monit_id);
+        logMsg(BP_INFO_LOG "monit id %d found in the prf file", monit_id);
         break;
       }
     }
@@ -1356,7 +1377,7 @@ void parse_response(char *response, char *parsed) {
   tag_length = lastpos - firstpos;
 
   if ((tag_length > (MAX_VERSION_BF_SIZE - 1)) || (tag_length <= 0)) {
-    logMsg("Response len %d over buffer len size %d.. skipping",
+    logMsg(BP_INFO_LOG "Response len %d over buffer len size %d.. skipping",
            (int)tag_length, MAX_VERSION_BF_SIZE - 1);
     goto in_error;
   }
@@ -1365,7 +1386,7 @@ void parse_response(char *response, char *parsed) {
   return;
 
 in_error:
-  logMsg("Unable to parse git json response;");
+  logMsg(BP_ERROR_LOG "Unable to parse git json response;");
   return;
 }
 
@@ -1404,13 +1425,13 @@ void fetchGitVersion(void) {
 
     /* check for errors */
     if (res != CURLE_OK) {
-      logMsg("curl_easy_perform() failed: %s.. skipping",
+      logMsg(BP_ERROR_LOG "curl_easy_perform() failed: %s.. skipping",
              curl_easy_strerror(res));
     } else {
       parse_response(response.response, gitHubVersion.version);
       gitHubVersion.new_version_available =
           (strcmp(gitHubVersion.version, BP_PLUGIN_VERSION) != 0);
-      logMsg(
+      logMsg(BP_INFO_LOG 
           "current version %s / new available version %s / update available %s",
           BP_PLUGIN_VERSION, gitHubVersion.version,
           gitHubVersion.new_version_available ? "true" : "false");
@@ -1462,10 +1483,10 @@ void initMonitorOrigin(void) {
 
   if (monitor_id == -1) {
     monitor_id = get_ui_monitor_from_pref();
-    logMsg("Automatic UI monitor search: id #%d found as UI monitor",
+    logMsg(BP_INFO_LOG "Automatic UI monitor search: id #%d found as UI monitor",
            monitor_id);
   } else {
-    logMsg("From pref file, id #%d is the UI monitor", monitor_id);
+    logMsg(BP_INFO_LOG "From pref file, id #%d is the UI monitor", monitor_id);
   }
 
   monitor_def.monitor_found = B_FALSE; // 'clear' the found flag
@@ -1475,15 +1496,15 @@ void initMonitorOrigin(void) {
   monitor_def.x_origin = 0;
   monitor_def.y_origin = 0;
   XPLMGetScreenSize(&monitor_def.w, &monitor_def.h);
-  logMsg("current monitor with  x %d y %d h %d w %d",  
+  logMsg(BP_INFO_LOG "current monitor with  x %d y %d h %d w %d",  
          monitor_def.x_origin, monitor_def.y_origin, monitor_def.h,
          monitor_def.w);
   XPLMGetAllMonitorBoundsGlobal(inMonitorBoundsCallback, NULL);
-  logMsg("Searching all monitors");
-  logMsg("%d monitor(s) found. id #%d requested / id #%d found",
+  logMsg(BP_INFO_LOG "Searching all monitors");
+  logMsg(BP_INFO_LOG "%d monitor(s) found. id #%d requested / id #%d found",
          monitor_def.monitor_count, monitor_def.monitor_requested,
          monitor_def.monitor_id);
-  logMsg("id #%d found with  x %d y %d h %d w %d", monitor_def.monitor_id,
+  logMsg(BP_INFO_LOG "id #%d found with  x %d y %d h %d w %d", monitor_def.monitor_id,
          monitor_def.x_origin, monitor_def.y_origin, monitor_def.h,
          monitor_def.w);
 

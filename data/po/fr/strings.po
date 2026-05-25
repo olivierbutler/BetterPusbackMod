@@ -36,7 +36,7 @@ msgid ""
 "able to hear ground crew. Please increase your radio volume in the X-Plane "
 "sound preferences."
 msgstr ""
-"Votre volume radio est trop bas, et vous n’entendrez pas l’équipe sol."
+"Votre volume radio est trop bas, et vous n'entendrez pas l'équipe sol."
 "Augmentez le volume radio dans les préférences de X Plane."
 
 msgid ""
@@ -47,24 +47,24 @@ msgstr ""
 "%s ou plus."
 
 msgid "Pushback failure: aircraft appears to not have any steerable gears."
-msgstr "Repoussage impossible: L’avion ne dispose pas d’un train orientable."
+msgstr "Repoussage impossible: L'avion ne dispose pas d'un train orientable."
 
 msgid ""
 "Pushback failure: aircraft has non-positive wheelbase. Sorry, tail draggers "
 "aren't supported."
 msgstr ""
-"Repoussage impossible : L’avion ne dispose pas d’un train tricycle. \n"
+"Repoussage impossible : L'avion ne dispose pas d'un train tricycle. \n"
 "Les trains classiques ne sont pas supportés."
 
 msgid "Pushback failure: aircraft is incompatible with BetterPushback."
 msgstr ""
-"Repoussage impossible: votre avion n’est pas compatible avec BetterPushback."
+"Repoussage impossible: votre avion n'est pas compatible avec BetterPushback."
 
 msgid ""
 "Pushback failure: master requested tug \"%s\", which we don't have in our in "
 "our library. Please sync your tug libraries before trying again."
 msgstr ""
-"Repoussage impossible: Le tracteur \"%s\" demandé  n’existe pas. "
+"Repoussage impossible: Le tracteur \"%s\" demandé  n'existe pas. "
 "Mettez à jour votre liste de tracteurs et réessayez."
 
 msgid "Pushback failure: no suitable tug for your aircraft."
@@ -483,10 +483,21 @@ msgid "No"
 msgstr "Non"
 
 msgid "Use Aircraft setting"
-msgstr "Utiliser le paramètre de l’avion"
+msgstr "Utiliser le paramètre de l'avion"
 
 msgid   "Reload BetterPushback"
 msgstr  "Recharger BetterPushback"
 
 msgid "Waiting for planning the pushback"
 msgstr "En attente de la planification du repoussage"
+
+msgid "Ground crew audio relative default audio volume:\n"
+      "The volume can be changed here or by using the dataref:\n"
+      "'bp/ground_crew_audio_volume'"
+
+msgstr "Volume audio relatif par défaut de l’équipe au sol :\n"
+        "Le volume peut être modifié ici ou en utilisant le dataref :\n"
+        "'bp/ground_crew_audio_volume'"
+
+msgid "Ground crew audio volume"
+msgstr "Volume audio de l'équipe au sol"

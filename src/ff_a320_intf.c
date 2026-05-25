@@ -104,7 +104,7 @@ ff_a320_intf_init(void) {
 
     XPLMSendMessageToPlugin(plugin, XPLM_FF_MSG_GET_SHARED_INTERFACE, &svi);
     if (svi.DataAddUpdate == NULL) {
-        logMsg("FF A320 interface init failure: func vector empty");
+        logMsg(BP_ERROR_LOG "FF A320 interface init failure: func vector empty");
         return (B_FALSE);
     }
 

@@ -454,7 +454,7 @@ xlate_wedroutes(void) {
     struct dirent *de;
 
     if (d == NULL) {
-        logMsg("Error opening %s: %s", path, strerror(errno));
+        logMsg(BP_ERROR_LOG "Error opening %s: %s", path, strerror(errno));
         free(path);
         return;
     }
@@ -479,13 +479,13 @@ xlate_wedroutes(void) {
             goto done;
         if (stat(earthwed, &earthwed_st) < 0 ||
             (exists && stat(routefile, &routefile_st) < 0)) {
-            logMsg("Cannot stat %s or %s: %s", earthwed,
+            logMsg(BP_ERROR_LOG "Cannot stat %s or %s: %s", earthwed,
                    routefile, strerror(errno));
             goto done;
         }
         if ((!exists || earthwed_st.st_mtime > routefile_st.st_mtime) &&
             !wed2dat(earthwed, routefile)) {
-            logMsg("WED2ROUTE: Error translating %s to %s",
+            logMsg(BP_ERROR_LOG "Error translating %s to %s",
                    earthwed, routefile);
         }
         done:

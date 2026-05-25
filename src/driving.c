@@ -881,7 +881,7 @@ routes_load(void) {
                        &seg.backward) != 7 ||
                 !is_valid_hdg(seg.start_hdg) ||
                 !is_valid_hdg(seg.end_hdg)) {
-                logMsg("[BP]ERROR: Error parsing %s: bad coordinates "
+                logMsg(BP_ERROR_LOG "Error parsing %s: bad coordinates "
                        "following 'seg' keyword", filename);
                 goto out;
             }

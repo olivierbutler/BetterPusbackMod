@@ -338,3 +338,14 @@ msgstr  "BetterPushback neu laden"
 
 msgid "Waiting for planning the pushback"
 msgstr "Warten auf die Planung des Pushbacks"
+
+msgid "Ground crew audio relative default audio volume:\n"
+      "The volume can be changed here or by using the dataref:\n"
+      "'bp/ground_crew_audio_volume'"
+
+msgstr "Relative Standardlautstärke der Bodencrew-Audios:\n"
+        "Die Lautstärke kann hier oder über die Dataref geändert werden:\n"
+        "'bp/ground_crew_audio_volume'"
+
+msgid "Ground crew audio volume"
+msgstr "Lautstärke der Bodencrew-Audios"

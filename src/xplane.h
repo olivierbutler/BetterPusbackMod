@@ -45,7 +45,7 @@ extern bool_t op_complete;
 extern bool_t plan_complete; /* BP_DATAREF plan_complete */
 extern bool_t planner_open;  /* BP_DATAREF planner_open */
 extern char bp_tug_name[64];
-
+extern float bp_ground_crew_audio_volume ;
 extern airportdb_t *airportdb;
 
 extern int bp_xp_ver, bp_xplm_ver;
@@ -59,10 +59,10 @@ extern bool_t  start_pb_plan_enable, start_pb_enable;
 #define BP_PLUGIN_DESCRIPTION   "Generic automated pushback plugin."
 
 // Internal Log Level
-#define BP_INFO_LOG "INFO: "
-#define BP_WARN_LOG "WARN: "
-#define BP_ERROR_LOG "ERROR: "
-#define BP_FATAL_LOG "FATAL ERROR: "
+#define BP_INFO_LOG  "[I] "
+#define BP_WARN_LOG  "[W] "
+#define BP_ERROR_LOG "[E] "
+#define BP_FATAL_LOG "[F] "
 
 #define CAMERA_TIMEOUT 1
 #define CAMERA_IS_OFF -1

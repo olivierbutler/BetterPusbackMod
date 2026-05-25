@@ -26,6 +26,7 @@
 #include <acfutils/assert.h>
 #include <acfutils/helpers.h>
 
+#include "xplane.h"
 #include "text_rendering.h"
 
 /*
@@ -54,7 +55,7 @@ get_text_block_size(const char *text, FT_Face face, int font_size,
 	size_t h = font_size * LINE_MARGIN_MULTIPLIER, w = 0, line_w = 0;
 
 	if ((err = FT_Set_Pixel_Sizes(face, 0, font_size)) != 0) {
-		logMsg("Error setting font size to %d: %d", font_size, err);
+		logMsg(BP_ERROR_LOG "Error setting font size to %d: %d", font_size, err);
 		return (B_FALSE);
 	}
 
@@ -68,13 +69,13 @@ get_text_block_size(const char *text, FT_Face face, int font_size,
 
 			if ((err = FT_Load_Glyph(face, glyph_index,
 			    FT_LOAD_DEFAULT)) != 0) {
-				logMsg("Error loading glyph for '%c': %d",
+				logMsg(BP_ERROR_LOG "Error loading glyph for '%c': %d",
 				    text[i], err);
 				return (B_FALSE);
 			}
 			if ((err = FT_Render_Glyph(face->glyph,
 			    FT_RENDER_MODE_NORMAL)) != 0) {
-				logMsg("Error rendering glyph for '%c': %d",
+				logMsg(BP_ERROR_LOG "Error rendering glyph for '%c': %d",
 				    text[i], err);
 				return (B_FALSE);
 			}
@@ -118,7 +119,7 @@ render_text_block(const char *text, FT_Face face, int font_size, int x, int y,
 	int start_x = x;
 
 	if ((err = FT_Set_Pixel_Sizes(face, 0, font_size)) != 0) {
-		logMsg("Error setting font size to %d: %d", font_size, err);
+		logMsg(BP_ERROR_LOG "Error setting font size to %d: %d", font_size, err);
 		return (B_FALSE);
 	}
 
@@ -131,7 +132,7 @@ render_text_block(const char *text, FT_Face face, int font_size, int x, int y,
 
 			if ((err = FT_Load_Char(face, text[i],
 			    FT_LOAD_RENDER)) != 0) {
-				logMsg("Error rendering glyph for '%c': %d",
+				logMsg(BP_ERROR_LOG "Error rendering glyph for '%c': %d",
 				    text[i], err);
 				return (B_FALSE);
 			}

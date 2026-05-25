@@ -57,9 +57,8 @@ static msg_info_t msgs[MSG_NUM_MSGS] = {
         {.filename = "done_left.opus", .wav = NULL}
 };
 
-bool_t inited = B_FALSE;
+static bool_t inited = B_FALSE;
 static dr_t sound_on;
-static dr_t radio_vol;
 static message_t last_msg = 0;
 static alc_t *alc = NULL;
 
@@ -141,6 +140,11 @@ msg_pack_variant_select(char *base) {
     free(variants);
 
     return (winner);
+}
+
+bool_t
+mgs_initiated(void) {
+    return inited;
 }
 
 bool_t
@@ -262,7 +266,6 @@ msg_init(const char *my_lang, const char *icao, lang_pref_t lang_pref) {
 
     free(msg_dir_name);
     fdr_find(&sound_on, "sim/operation/sound/sound_on");
-    fdr_find(&radio_vol, "sim/operation/sound/radio_volume_ratio");
 
     inited = B_TRUE;
 
@@ -305,7 +308,8 @@ msg_play(message_t msg) {
     ASSERT(inited);
     if (dr_geti(&sound_on) == 0)
         return;
-    wav_set_gain(msgs[msg].wav, dr_getf(&radio_vol));
+    // log convertion, we are controling here audio volume
+    wav_set_gain(msgs[msg].wav, (double) (bp_ground_crew_audio_volume * bp_ground_crew_audio_volume));
     wav_play(msgs[msg].wav);
     last_msg = msg;
 }

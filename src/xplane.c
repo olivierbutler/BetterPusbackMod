@@ -176,6 +176,8 @@ static dr_cfg_t slave_mode_dr_cfg ;
 static dr_t plan_complete_dr, planner_open_dr, bp_tug_name_dr;
 static dr_t pb_set_remote_dr, pb_set_override_dr;
 static dr_cfg_t pb_set_remote_dr_cfg, pb_set_override_dr_cfg;
+static dr_t bp_groud_crew_audio_volume_dr;
+float bp_ground_crew_audio_volume ;
 bool_t bp_started = B_FALSE;
 bool_t bp_connected = B_FALSE;
 bool_t slave_mode = B_FALSE;
@@ -409,7 +411,7 @@ manual_push_start_handler_(XPLMCommandRef cmd, XPLMCommandPhase phase, void *ref
         return start_pb_handler_(cmd, phase, refcon);
     } else {
         push_manual.pause = !push_manual.pause;
-        logMsg("Manual push: Status %s", push_manual.pause ? "paused" : "pushing");
+        logMsg(BP_INFO_LOG "Manual push: Status %s", push_manual.pause ? "paused" : "pushing");
         return (1);
     }
 }
@@ -475,13 +477,13 @@ manual_push_reverse_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *re
 
     if (push_manual.active)  {
         if ((bp_ls.tug->pos.spd > 0.1) || (bp_ls.tug->pos.spd < -0.1)) {
-            logMsg("Manual push:  in progress, tug is moving to fast toggling direction is not yet possibe");
+            logMsg(BP_INFO_LOG "Manual push:  in progress, tug is moving to fast toggling direction is not yet possibe");
             return (1);
         }
         push_manual.forward_direction = !push_manual.forward_direction;
-        logMsg("Manual push:  Toggling direction to %s", push_manual.forward_direction ? "forward" : "backward");
+        logMsg(BP_INFO_LOG "Manual push:  Toggling direction to %s", push_manual.forward_direction ? "forward" : "backward");
     } else {
-        logMsg("Manual push:  Not in progress, toggling direction is disabled");
+        logMsg(BP_INFO_LOG "Manual push:  Not in progress, toggling direction is disabled");
     }
     return (1);
 }
@@ -921,7 +923,7 @@ XPluginStart(char *name, char *sig, char *desc)
     char *p;
     GLenum err;
 
-    log_init(XPLMDebugString, "BetterPushback");
+    log_init(XPLMDebugString, "BpB");
     logMsg(BP_INFO_LOG "This is Better Pushback (MOD) -" BP_PLUGIN_VERSION " libacfutils-%s - for X-Plane 11/12",
            libacfutils_version);
 
@@ -1031,6 +1033,12 @@ XPluginStart(char *name, char *sig, char *desc)
     dr_create_i(&bp_connected_dr, (int *)&bp_connected, B_FALSE,
                 "bp/connected");
     
+
+    bp_ground_crew_audio_volume = 1.0f;
+    (void)conf_get_f(bp_conf, "ground_crew_audio_volume", &bp_ground_crew_audio_volume);            
+    dr_create_f(&bp_groud_crew_audio_volume_dr, (float *)&bp_ground_crew_audio_volume, B_TRUE,
+                "bp/ground_crew_audio_volume");
+
     slave_mode_dr_cfg.write_cb = slave_mode_cb;    
     slave_mode_dr_cfg.writable = B_TRUE;    
     dr_create_i_cfg(&slave_mode_dr, (int *)&slave_mode, slave_mode_dr_cfg,
@@ -1324,7 +1332,7 @@ abort_push_handler(XPLMCommandRef cmd, XPLMCommandPhase phase,
     if (phase != xplm_CommandEnd)
         return (0);
     bp_fini();
-    logMsg("bp_fini called from abort_push_handler, bp_started = %d", bp_started);
+    logMsg(BP_INFO_LOG "bp_fini called from abort_push_handler, bp_started = %d", bp_started);
     slave_mode = B_FALSE;
     coupled_state_change();
     return (1);
@@ -1338,7 +1346,7 @@ static void manual_push_handler(bool_t to_the_left)
 
     if (push_manual.active) {
         if (push_manual.with_yoke) {
-            logMsg("Manual push:  Manual nose tug rotation disabled (yoke support enabled)");
+            logMsg(BP_INFO_LOG "Manual push:  Manual nose tug rotation disabled (yoke support enabled)");
             return;
         }
         float angle =  to_the_left ? push_manual.angle - STEER_INCR : push_manual.angle + STEER_INCR;
@@ -1350,10 +1358,10 @@ static void manual_push_handler(bool_t to_the_left)
             angle = -STEER_MAX;
         }
         push_manual.angle = angle;
-        logMsg("Manual push: New steer angle %f", angle);
+        logMsg(BP_INFO_LOG "Manual push: New steer angle %f", angle);
         return;
     } else {
-        logMsg("Manual push: Manual nose tug rotation disabled (manual push not active)");
+        logMsg(BP_INFO_LOG "Manual push: Manual nose tug rotation disabled (manual push not active)");
     }
 }
 

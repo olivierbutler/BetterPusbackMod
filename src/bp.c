@@ -96,7 +96,6 @@
 #define    TUG_APPCH_LONG_DIST    (6 * bp_ls.tug->veh.wheelbase)
 #define    TUG_APPCH_SHORT_DIST    (2 * bp_ls.tug->veh.wheelbase)
 
-#define    MIN_RADIO_VOLUME_THRESH    0.1
 #define    MIN_STEP_TIME        0.001    /* minimum simulation step in secs */
 
 #define    MSG_DOORS_GPU "Some doors are still opened or the GPU or the ASU are still connected. I'm waiting for all of them closed and disconnected then I will proceed."
@@ -222,6 +221,8 @@ static bool_t bp_run_push_manual(void);
 
 void acf_plg_debut(void);
 void acf_plg_fini(void);
+
+static char current_icao[8] = {0};
 
 static bool_t radio_volume_warn = B_FALSE;
 
@@ -523,9 +524,9 @@ doors_refs_init(void)
 		if (fp == NULL) {
 			return;
 		}
-		logMsg("found : BetterPushback_doors.cfg in plugins folder");	
+		logMsg(BP_INFO_LOG "found : BetterPushback_doors.cfg in plugins folder");	
 	} else {
-	logMsg("found : BetterPushback_doors.cfg in Output/preferences folder");
+	logMsg(BP_INFO_LOG "found : BetterPushback_doors.cfg in Output/preferences folder");
 	}
 
 #define	FILTER_PARAM(param) \
@@ -535,7 +536,7 @@ doors_refs_init(void)
 		if (!doors_info.info_valid) \
 			continue; \
 		if (fscanf(fp, "%255s", param) != 1) { \
-			logMsg("Error parsing BetterPushback_doors.cfg: expected " \
+			logMsg(BP_ERROR_LOG "Error parsing BetterPushback_doors.cfg: expected " \
 			    "string following \"" #param "\"."); \
 			goto errout; \
 		} \
@@ -562,7 +563,7 @@ doors_refs_init(void)
 				break;
 			}
 			if (fscanf(fp, "%7s", icao) != 1) {
-				logMsg("Error parsing BetterPushback_doors.cfg: "
+				logMsg(BP_ERROR_LOG "Error parsing BetterPushback_doors.cfg: "
 				    "expected string following \"icao\".");
 				goto errout;
 			}
@@ -585,7 +586,7 @@ doors_refs_init(void)
 			if ((!doors_info.info_valid) || (doors_info.nb_doors >= MAX_DOOR -1) )
 				continue;
     		if (fscanf(fp, "%64s", doors_info.dr[doors_info.nb_doors]) != 1) { 
-	    		logMsg("Error parsing BetterPushback_doors.cfg: expected " 
+	    		logMsg(BP_ERROR_LOG "Error parsing BetterPushback_doors.cfg: expected " 
 		    	    "string following \"door\"."); 
 			    goto errout; 
 		        } else {
@@ -593,7 +594,7 @@ doors_refs_init(void)
                     doors_info.nb_doors++;
                 }
 		}  else if (!skip) {
-			logMsg("Error parsing BetterPushback_doors.cfg: "
+			logMsg(BP_ERROR_LOG "Error parsing BetterPushback_doors.cfg: "
 			    "unknown keyword \"%s\".", buf);
 			goto errout;
 		}
@@ -606,7 +607,7 @@ doors_refs_init(void)
 errout:
     doors_info.nb_doors = 0;
     doors_info.info_valid = B_FALSE;
-    logMsg("Fail reading doors info :%d", doors_info.nb_doors);
+    logMsg(BP_ERROR_LOG "Fail reading doors info :%d", doors_info.nb_doors);
 	fclose(fp);
 }
 
@@ -1151,7 +1152,7 @@ bp_state_init(void) {
         //XPLMSpeakString(_("Pushback failure: Are you seriously "
         //                  "trying to call pushback for a helicopter?"));
         // no need to speak up here
-        logMsg("User is starting flight with an helicopter: BpB idle for now");
+        logMsg(BP_INFO_LOG "User is starting flight with an helicopter: BpB idle for now");
         return (B_FALSE);
     }
 
@@ -1166,7 +1167,7 @@ bp_state_init(void) {
         //XPLMSpeakString(_("Pushback failure: aircraft has non-positive "
         //                  "wheelbase. Sorry, tail daggers aren't supported."));
         // No need to speak up here
-        logMsg("aircraft has still non-positive wheelbase. (wheelbase = %f): BpB idle for now", bp.veh.wheelbase);
+        logMsg(BP_INFO_LOG "aircraft has still non-positive wheelbase. (wheelbase = %f): BpB idle for now", bp.veh.wheelbase);
         return (B_FALSE);
     }
 
@@ -1202,18 +1203,25 @@ bool_t
 audio_sys_init(void) {
     lang_pref_t lang_pref = LANG_PREF_MATCH_REAL;
     char icao[8];
-    logMsg(BP_INFO_LOG "Initialising audio");
     find_nearest_airport(icao);
-    (void) conf_get_i(bp_conf, "lang_pref", (int *) &lang_pref);
-    if (!msg_init(bp_get_lang(), icao, lang_pref)) {
-        XPLMSpeakString(_("Pushback failure: error initialising audio "
-                          "messages. Please reinstall BetterPushback."));
-        logMsg(BP_FATAL_LOG "Error initialising audio");
-        return (B_FALSE);
+    if ((strcmp(icao, current_icao) != 0 ) || !mgs_initiated() ) {
+        logMsg(BP_INFO_LOG "Initialising audio: At airport %s, initialising messages languages", icao);
+        (void) conf_get_i(bp_conf, "lang_pref", (int *) &lang_pref);
+        msg_fini();
+        if (!msg_init(bp_get_lang(), icao, lang_pref)) {
+            XPLMSpeakString(_("Pushback failure: error initialising audio "
+                            "messages. Please reinstall BetterPushback."));
+            logMsg(BP_FATAL_LOG "Error initialising audio");
+            return (B_FALSE);
+        }
+        strlcpy(current_icao, icao, sizeof(current_icao));
     }
 
     return (B_TRUE);
 }
+
+
+
 
 static bool_t
 acf_on_gnd_stopped(const char **reason) {
@@ -1336,25 +1344,9 @@ read_acf_file_info(void) {
 bool_t
 bp_init(void) {
     const char *reason;
-    dr_t radio_vol, sound_on;
     char my_acf[512], my_path[512];
     char *acf_override_file;
 
-    /*
-     * Due to numerous spurious bug reports of missing ground crew audio,
-     * check that the user hasn't turned down the radio volume and just
-     * forgotten about it. Warn the user if the volume is very low.
-     */
-    fdr_find(&sound_on, "sim/operation/sound/sound_on");
-    fdr_find(&radio_vol, "sim/operation/sound/radio_volume_ratio");
-    if (dr_getf(&radio_vol) < MIN_RADIO_VOLUME_THRESH &&
-        dr_geti(&sound_on) == 1 && !radio_volume_warn) {
-        XPLMSpeakString(_("Pushback advisory: you have your radio "
-                          "volume turned very low and may not be able to hear "
-                          "ground crew. Please increase your radio volume in "
-                          "the X-Plane sound preferences."));
-        radio_volume_warn = B_TRUE;
-    }
 
     if (inited)
         return (B_TRUE);
@@ -1562,7 +1554,7 @@ bp_can_start(const char **reason) {
             return (B_FALSE);
         }
     } else {
-        logMsg("Manual push: Just started, not checking the pre-plan");
+        logMsg(BP_INFO_LOG "Manual push: Just started, not checking the pre-plan");
     }
 
     return (B_TRUE);
@@ -1629,6 +1621,10 @@ bp_start(void) {
      */
     dr_seti(&drs.landing_lights_on, 0);
     dr_seti(&drs.taxi_light_on, 0);
+
+    // reload voices in case of a new pushback at the destination airport
+    logMsg(BP_INFO_LOG "bp-start: re-initialising messages languages"); 
+    audio_sys_init();
 
     return (B_TRUE);
 }
@@ -1889,7 +1885,7 @@ void manual_bp_start() {
     push_manual.pause = false;
     push_manual.forward_direction = false;
     push_manual.angle = 0;
-    logMsg("Manual push:  Starting %s yoke support", push_manual.with_yoke ? "with" : "without");
+    logMsg(BP_INFO_LOG "Manual push:  Starting %s yoke support", push_manual.with_yoke ? "with" : "without");
 }
 
 void manual_bp_request(bool_t with_yoke) {
@@ -3690,7 +3686,7 @@ void acf_plg_debut(void)
         }
         else
         {
-            logMsg("Acf XPLMDisablePlugin not done, no Acf plugin to exclude selected");
+            logMsg(BP_INFO_LOG "Acf XPLMDisablePlugin not done, no Acf plugin to exclude selected");
             return;
         }
 
@@ -3700,16 +3696,16 @@ void acf_plg_debut(void)
             if (acf_tracker_plg_exclude.plg_status)
             {
                 XPLMDisablePlugin(acf_tracker_plg_exclude.plg_id);
-                logMsg("Acf XPLMDisablePlugin on %s", plg_to_exclude);
+                logMsg(BP_INFO_LOG "Acf XPLMDisablePlugin on %s", plg_to_exclude);
             }
             else
             {
-                logMsg("Acf XPLMDisablePlugin not done, was already disabled");
+                logMsg(BP_INFO_LOG "Acf XPLMDisablePlugin not done, was already disabled");
             }
         }
         else
         {
-            logMsg("Acf XPLMDisablePlugin not done, plugin %s not found", plg_to_exclude);
+            logMsg(BP_INFO_LOG "Acf XPLMDisablePlugin not done, plugin %s not found", plg_to_exclude);
         }
     }
 }
@@ -3725,11 +3721,11 @@ void acf_plg_fini(void)
         if (!acf_tracker_plg_exclude.plg_status)
         {
             int r = XPLMEnablePlugin(acf_tracker_plg_exclude.plg_id);
-            logMsg("Acf XPLMEnablePlugin %d", r);
+            logMsg(BP_INFO_LOG "Acf XPLMEnablePlugin %d", r);
         }
         else
         {
-            logMsg("Acf XPLMEnablePlugin not done, was already enabled");
+            logMsg(BP_INFO_LOG "Acf XPLMEnablePlugin not done, was already enabled");
         }
     }
     acf_tracker_plg_exclude.exclusion_started = 0;

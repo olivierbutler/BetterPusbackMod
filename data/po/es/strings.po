@@ -338,3 +338,14 @@ msgstr  "Recargar BetterPushback"
 
 msgid "Waiting for planning the pushback"
 msgstr "Esperando la planificación del pushback"
+
+msgid "Ground crew audio relative default audio volume:\n"
+      "The volume can be changed here or by using the dataref:\n"
+      "'bp/ground_crew_audio_volume'"
+
+msgstr "Volumen predeterminado relativo del audio del personal de tierra:\n"
+        "El volumen puede cambiarse aquí o usando el dataref:\n"
+        "'bp/ground_crew_audio_volume'"
+
+msgid "Ground crew audio volume"
+msgstr "Volumen del audio del personal de tierra"

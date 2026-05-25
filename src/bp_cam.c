@@ -115,7 +115,6 @@ static XPLMObjectRef cam_lamp_obj = NULL;
 static XPLMInstanceRef cam_lamp_inst = NULL;
 static const char *cam_lamp_drefs[] = {NULL};
 int bp_plan_callback_is_alive = CAMERA_IS_OFF;
-static char current_icao[8] = {0};
 
 static int key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey,
                        void *refcon);
@@ -879,7 +878,7 @@ fake_win_draw(XPLMWindowID inWindowID, void *inRefcon)
 
 if (bp_plan_callback_is_alive == 0) {
     // if camera is lost we simulate ESC button
-    logMsg("VK_ESCAPE simulated fake_win_draw");
+    logMsg(BP_INFO_LOG "VK_ESCAPE simulated fake_win_draw");
     bp_plan_callback_is_alive = CAMERA_IS_OFF;
     key_sniffer(0, xplm_DownFlag, XPLM_VK_ESCAPE, NULL);
     return;
@@ -1290,16 +1289,6 @@ bp_cam_start(void)
 
 
     (void)find_nearest_airport(icao);
-    if (strcmp(icao, current_icao) != 0 ) {
-        // reload here the voices if at a new airport i.e after landing
-        msg_fini();
-        logMsg(BP_INFO_LOG "At new airport %s, re-initialising messages languages", icao);
-        strlcpy(current_icao, icao, sizeof(current_icao));
-        audio_sys_init();
-    } else {
-        logMsg(BP_INFO_LOG "Still at airport %s, NOT re-initialising messages languages", icao);
-    }
-
     if (acf_is_airliner())
         read_acf_airline(airline);
     if (!tug_available(dr_getf(&drs.mtow), bp.acf.nw_len, bp.acf.tirrad,
@@ -1498,7 +1487,7 @@ void init_bottom_msg(char *msg)
 
     if ((err = FT_Init_FreeType(&ft)) != 0)
     {
-        logMsg("Error initializing FreeType library: %s",
+        logMsg(BP_ERROR_LOG "Error initializing FreeType library: %s",
                ft_err2str(err));
         return;
     }
@@ -1507,7 +1496,7 @@ void init_bottom_msg(char *msg)
                           NULL);
     if ((err = FT_New_Face(ft, filename, 0, &face)) != 0)
     {
-        logMsg("Error loading init_msg font %s: %s", filename,
+        logMsg(BP_ERROR_LOG "Error loading init_msg font %s: %s", filename,
                ft_err2str(err));
         VERIFY(FT_Done_FreeType(ft) == 0);
         free(filename);
@@ -1598,7 +1587,7 @@ void eye_track_debut(void)
     }
     else
     {
-        logMsg("XPLMDisablePlugin not done, no plugin to exclude selected");
+        logMsg(BP_INFO_LOG "XPLMDisablePlugin not done, no plugin to exclude selected");
         return;
     }
 
@@ -1608,16 +1597,16 @@ void eye_track_debut(void)
         if (eye_tracker_plg.plg_status)
         {
             XPLMDisablePlugin(eye_tracker_plg.plg_id);
-            logMsg("XPLMDisablePlugin on %s", plg_to_exclude);
+            logMsg(BP_INFO_LOG "XPLMDisablePlugin on %s", plg_to_exclude);
         }
         else
         {
-            logMsg("XPLMDisablePlugin not done, was already disabled");
+            logMsg(BP_INFO_LOG "XPLMDisablePlugin not done, was already disabled");
         }
     }
     else
     {
-        logMsg("XPLMDisablePlugin not done, plugin %s not found", plg_to_exclude);
+        logMsg(BP_INFO_LOG "XPLMDisablePlugin not done, plugin %s not found", plg_to_exclude);
     }
 }
 
@@ -1629,11 +1618,11 @@ void eye_track_fini(void)
         if (!eye_tracker_plg.plg_status)
         {
             int r = XPLMEnablePlugin(eye_tracker_plg.plg_id);
-            logMsg("XPLMEnablePlugin %d", r);
+            logMsg(BP_INFO_LOG "XPLMEnablePlugin %d", r);
         }
         else
         {
-            logMsg("XPLMEnablePlugin not done, was already enabled");
+            logMsg(BP_INFO_LOG "XPLMEnablePlugin not done, was already enabled");
         }
     }
 }
