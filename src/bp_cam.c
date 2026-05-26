@@ -877,9 +877,7 @@ void draw_icon(button_t *btn, int x, int y, double scale, bool_t is_clicked,
 static void
 draw_compass_rose(void)
 {
-    const float cx = monitor_def.x_origin + monitor_def.w -
-        COMPASS_ROSE_RIGHT_CLEARANCE - COMPASS_ROSE_MARGIN -
-        COMPASS_ROSE_RADIUS;
+    const float cx = monitor_def.x_origin + monitor_def.w/2 ; 
     const float cy = monitor_def.y_origin + monitor_def.h -
         COMPASS_ROSE_MARGIN - COMPASS_ROSE_RADIUS;
     const float r = COMPASS_ROSE_RADIUS;
