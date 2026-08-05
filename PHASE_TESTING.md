@@ -1422,7 +1422,7 @@ Rejected binaries and all simulator evidence are preserved at:
 
 ### Corrective Slice 3 - broad tow arc and no persistent route reuse
 
-Date prepared: 2026-08-05  
+Date prepared: 2026-08-05
 Status: **Rejected in simulator and replaced**
 
 Corrected behavior:
@@ -1526,6 +1526,73 @@ Simulator validation result:
 - X-Plane exited cleanly. Exact accepted binaries, `Log.txt`, telemetry,
   screenshot, and evidence notes are preserved at
   `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\phase7-slice4-validation1-accepted-20260805`.
+
+### Corrective Slice 5 - published-start gate cache rewrite
+
+Date prepared: 2026-08-05
+Status: **Accepted after two-stage simulator validation**
+
+Product decisions implemented:
+
+- The active scenery-priority-resolved `apt.dat` row-1300 location is the
+  persistent cache identity: airport, ramp name, latitude, longitude, and true
+  heading.
+- A route is cacheable only when the live nosewheel uniquely matches a
+  published start within 1 m and 1 degree.
+- An arbitrary or saved-situation start remains fully usable for the current
+  manual pushback session, but persistent load and save are disabled.
+- The cache uses a new file,
+  `Output/caches/BetterPushback_gate_routes_v1.dat`; the legacy route file is
+  ignored by the active planner.
+- Controller segments are stored in an aircraft-heading-relative metre frame
+  anchored at the nosewheel. No altitude-zero geographic round trip, nearest
+  route shifting, or 15 m acceptance window is used.
+- Internal steering remains main-gear referenced. The blue planner trajectory
+  is drawn from the corresponding nosewheel positions, making its first point
+  the published ramp anchor.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Strict published-start and reversible anchor-transform tests | Passed |
+| Five existing ground-ops, planner-cache, and vehicle-physics suites | Passed |
+| Windows warnings-as-errors release build | Passed |
+| Linux warnings-as-errors release build | Passed |
+| `git diff --check` | Passed |
+
+Installed candidate SHA-256 values:
+
+- Windows: `13BA30F5BCFA759B0B1BBE8FFB4BA0295819BEC0F203E8C19801BC3B796D3725`
+- Linux: `D9D98FF7C593E818B4E8850D77A38EC08B8643F4BBAB1E520EDA3A98768DC089`
+
+Focused simulator validation completed on 2026-08-05:
+
+- The test began from a clean slate with both `BetterPushback_routes.dat` and
+  `BetterPushback_gate_routes_v1.dat` absent.
+- Test 1 loaded the 737-700NG at KCOS Gate 8. The blue trajectory began at the
+  aircraft nosewheel, the pilot drew and accepted the manual route, the new
+  cache file was created, and pushback/ground-operations completion succeeded.
+- Test 2 reloaded the same aircraft at the same published start. The log reports
+  `Gate route cache recalled for KCOS Gate 8; published anchor 38.79933100,
+  -104.70027200 at 269.20 degrees`. The recalled blue route began at the same
+  nosewheel location and retained the intended endpoint.
+- The second planner summary reports 217 recalled preview points, 76 successful
+  path builds, 2,691 path-cache hits, and zero prediction failures. The second
+  operation reached controller `off`, preparation `complete`, and a clean plugin
+  unload.
+- The two saved cache records have the same gate identity, aircraft geometry,
+  anchor, heading, and route. Segment-coordinate differences are only
+  floating-point serialization noise of approximately 4e-12 m.
+- Both telemetry files contain the complete operational sequence through
+  `driving_away`, with 3,526 and 3,422 samples respectively and no NaN or
+  infinity values.
+- Screenshots confirm the initial and recalled blue trajectories begin at the
+  nosewheel and the ground-operations UI reports successful completion in both
+  runs.
+- Accepted binaries, screenshots, `Log.txt`, cache data, and both telemetry
+  files are preserved at
+  `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\phase7-slice5-validation1-accepted-20260805`.
 
 ## Open release-engineering requirements
 

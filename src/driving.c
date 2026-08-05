@@ -36,7 +36,6 @@
 #include <XPLMUtilities.h>
 
 #include "driving.h"
-#include "route_realign.h"
 #include "vehicle_physics.h"
 #include "xplane.h"
 
@@ -840,40 +839,6 @@ route_table_compar(const void *a, const void *b) {
     return (0);
 }
 
-static route_t *
-route_find_nearest(avl_tree_t *routes, const route_t *search,
-    double *match_distance, double *match_heading)
-{
-    route_t *best = NULL;
-    double best_distance = HUGE_VAL;
-    double best_heading = HUGE_VAL;
-
-    for (route_t *route = avl_first(routes); route != NULL;
-        route = AVL_NEXT(routes, route)) {
-        double distance = vect3_dist(route->pos_ecef, search->pos_ecef);
-        double heading = route_realign_heading_delta(route->hdg,
-            search->hdg);
-
-        if (!route_cache_pose_matches(distance, heading))
-            continue;
-        if (distance < best_distance ||
-            (distance == best_distance && fabs(heading) <
-            fabs(best_heading))) {
-            best = route;
-            best_distance = distance;
-            best_heading = heading;
-        }
-    }
-
-    if (best != NULL) {
-        if (match_distance != NULL)
-            *match_distance = best_distance;
-        if (match_heading != NULL)
-            *match_heading = best_heading;
-    }
-    return (best);
-}
-
 static avl_tree_t *
 routes_load(void) {
     char *filename = mkpathname(ROUTE_TABLE_DIRS, ROUTE_TABLE_FILENAME,
@@ -1073,7 +1038,6 @@ void
 route_load(geo_pos2_t start_pos, double start_hdg, list_t *segs) {
     avl_tree_t *t;
     route_t srch, *r;
-    double match_distance = NAN, heading_delta = NAN;
 
     ASSERT3P(list_head(segs), ==, NULL);
 
@@ -1084,45 +1048,15 @@ route_load(geo_pos2_t start_pos, double start_hdg, list_t *segs) {
                                  &wgs84);
     srch.hdg = start_hdg;
 
-    r = route_find_nearest(t, &srch, &match_distance, &heading_delta);
+    r = avl_find(t, &srch, NULL);
     if (r != NULL) {
-        seg_t *first = list_head(&r->segs);
-        vect2_t saved_origin, current_origin;
-        double unused;
-
-        ASSERT(first != NULL);
-        seg_world2local(first);
-        saved_origin = first->start_pos;
-        XPLMWorldToLocal(start_pos.lat, start_pos.lon, 0,
-            &current_origin.x, &unused, &current_origin.y);
-        current_origin.y = -current_origin.y;
-
         for (seg_t *seg = list_head(&r->segs); seg != NULL;
              seg = list_next(&r->segs, seg)) {
             seg_t *seg2 = safe_calloc(1, sizeof(*seg2));
-            double start_x, start_y, end_x, end_y;
-
             memcpy(seg2, seg, sizeof(*seg2));
             seg_world2local(seg2);
-            route_realign_point(seg2->start_pos.x, seg2->start_pos.y,
-                saved_origin.x, saved_origin.y, current_origin.x,
-                current_origin.y, heading_delta, &start_x, &start_y);
-            route_realign_point(seg2->end_pos.x, seg2->end_pos.y,
-                saved_origin.x, saved_origin.y, current_origin.x,
-                current_origin.y, heading_delta, &end_x, &end_y);
-            seg2->start_pos = VECT2(start_x, start_y);
-            seg2->end_pos = VECT2(end_x, end_y);
-            seg2->start_hdg = route_realign_heading(seg2->start_hdg,
-                heading_delta);
-            seg2->end_hdg = route_realign_heading(seg2->end_hdg,
-                heading_delta);
-            /* Force any later save to persist the corrected coordinates. */
-            seg2->have_world_coords = B_FALSE;
             list_insert_tail(segs, seg2);
         }
-        logMsg(BP_INFO_LOG "Saved route available: matched current gate "
-            "within %.2f m and %.1f degrees; preview re-anchored to the "
-            "current aircraft pose", match_distance, heading_delta);
     }
 
     routes_free(t);

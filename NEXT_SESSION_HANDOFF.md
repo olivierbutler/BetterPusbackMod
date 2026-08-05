@@ -6,15 +6,14 @@ Branch: `feature/realistic-tug-physics`
 
 ## Start here
 
-Phase 7 Corrective Slice 4 is **simulator accepted**. It restores the original
-manual planner after the automatic wind/runway proposal experiment was rejected.
-The entire accepted fork baseline is committed. The next work is diagnostic
-analysis of the persistent route-cache failure; do not change cache code until
-the user explains the required behavior.
+Phase 7 Corrective Slice 5 is the **simulator-accepted baseline**. The
+gate-anchored persistent-cache rewrite is built, installed, and validated. It
+preserves the manual planner and does not restore any automatic wind/runway
+proposal behavior.
 
-The worktree is intentionally dirty and contains the user's accumulated fork.
-Preserve every existing change and untracked file. Do not reset, clean, revert,
-or replace unrelated work.
+The accepted implementation is committed on `feature/realistic-tug-physics`.
+Preserve the user's accumulated fork. Do not reset, clean, revert, or replace
+unrelated work.
 
 ## Fixed product decisions
 
@@ -25,9 +24,16 @@ or replace unrelated work.
 - The pilot moves and rotates the cursor, clicks to place the desired aircraft
   pose, edits the route, and explicitly accepts it.
 - A route explicitly drawn during the current planner session may be retained.
-- Persistent route loading and saving remain disabled for this candidate.
-- The persistent-cache alignment defect is the next separate design/fix topic,
-  but only after the manual planner is simulator validated with the user.
+- Persistent routes may load and save only when the live nosewheel uniquely
+  matches an active `apt.dat` row-1300 start within 1 m and 1 degree.
+- Arbitrary/saved-situation starts remain fully usable for manual planning but
+  are neither loaded from nor written to the persistent cache.
+- The published ramp latitude, longitude, heading, airport, and ramp name are
+  the cache identity. Route geometry is stored as aircraft-frame metre offsets
+  from the live nosewheel anchor.
+- The internal controller continues to use the main-gear path. The pilot-facing
+  blue trajectory is the corresponding nosewheel path, so its first point is
+  the published start without changing accepted steering physics.
 
 ## Rejected automatic proposal
 
@@ -42,12 +48,12 @@ dedicated `src/airport_flow.c`, `src/airport_flow.h`, unit test, and runner were
 deleted. Source and binary-string audits found no remaining operational proposal
 references.
 
-## Currently installed manual-planner candidate
+## Currently installed and accepted gate-cache rewrite
 
 - Windows SHA-256:
-  `0BAE410F37632C192AF1DF31710DC6272B6A0B7139C7AF877F8B12DF5636EC09`
+  `13BA30F5BCFA759B0B1BBE8FFB4BA0295819BEC0F203E8C19801BC3B796D3725`
 - Linux SHA-256:
-  `71A2C20C80A66AB2704F4EF9CC94A24DCED8C6D7A5EECA106B005617C3241D18`
+  `D9D98FF7C593E818B4E8850D77A38EC08B8643F4BBAB1E520EDA3A98768DC089`
 
 Installed at:
 
@@ -56,39 +62,52 @@ Installed at:
 
 ## Accepted simulator validation
 
-- **Plan push** opened with no prebuilt route, no suggested-departure message,
-  and no **Saved route** control.
-- The pilot manually positioned and accepted the aircraft route and completed
-  the operation successfully.
-- The planner reported zero prediction failures and X-Plane exited cleanly.
+- Test 1 began with both BetterPushback route-cache files absent. At KCOS Gate
+  8, the blue trajectory began at the aircraft nosewheel. The pilot drew and
+  accepted the manual route, the new versioned cache was created, and the full
+  pushback completed successfully.
+- Test 2 reloaded the same 737-700NG at KCOS Gate 8. The planner logged `Gate
+  route cache recalled for KCOS Gate 8` at the published anchor, and the cached
+  blue trajectory began at the same nosewheel location and retained the same
+  endpoint. The second pushback also completed successfully.
+- The second planner session reported 217 recalled preview points and zero
+  prediction failures. Both telemetry recordings contain the complete sequence
+  through tug clear/departure with no non-finite numeric values. X-Plane and the
+  plugin exited cleanly.
 - Exact evidence is preserved at
-  `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\phase7-slice4-validation1-accepted-20260805`.
+  `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\phase7-slice5-validation1-accepted-20260805`.
 
-## Next work: persistent route-cache diagnosis
+## Next work
 
-Remain in diagnostic mode. Read the dormant `route_save`/`route_load` code, the
-rejected Slice 2 evidence, and the saved cache file. Establish how coordinates,
-aircraft pose, segment headings, matching, and re-anchoring currently work.
-Present the diagnosis to the user and let the user explain the intended flawless
-workflow before implementing a correction. Do not re-enable route loading or
-saving during diagnosis.
+The published-start cache-route problem is resolved and accepted. Await the
+user's next requested diagnostic or implementation scope. Do not alter the
+manual planner or gate-anchor cache contract without new simulator evidence and
+explicit direction.
 
 ## Verification completed
 
-- Six remaining automated regression scripts passed.
+- Six current automated regression scripts passed, including the new strict
+  gate-anchor and relative-coordinate math test.
 - Windows and Linux warnings-as-errors release builds passed.
 - Source audit found no automatic proposal implementation references.
 - Windows and Linux binary-string audits found no proposal messages.
 - Planner-source `git diff --check` passed.
+- Two-stage simulator validation passed from a clean cache slate: initial save,
+  exact Gate 8 recall, successful pushback, and successful ground-operations
+  completion in both runs.
 
 ## Relevant files
 
 - `src/bp_cam.c`: restored manual planner startup and interaction.
-- `src/driving.c` and `src/driving.h`: dormant legacy route-cache definitions;
-  do not change until the user explains the required behavior.
+- `src/gate_route_cache.c` and `.h`: active published-start recognition and the
+  new append-only, versioned persistent cache.
+- `src/gate_route_math.c` and `.h`: strict start-pose guard and reversible
+  anchor-relative transforms.
+- `src/driving.c` and `src/driving.h`: dormant legacy route-table tooling; the
+  active planner does not call its old persistent load/save interface.
 - `src/planner_cache.c` and `src/planner_cache.h`: trajectory-render cache, not
   the persistent saved gate-route workflow.
-- `PHASE_TESTING.md`: full history and current Corrective Slice 4 test.
+- `PHASE_TESTING.md`: full history and accepted Corrective Slice 5 test.
 - `GROUND_OPS_UI_DESIGN.md` and `ROADMAP.md`: automatic proposal removed from
   the active product design.
 

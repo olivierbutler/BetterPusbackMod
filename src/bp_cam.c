@@ -57,6 +57,7 @@
 #include "bp.h"
 #include "bp_cam.h"
 #include "driving.h"
+#include "gate_route_cache.h"
 #include "planner_cache.h"
 #include "realism_config.h"
 #include "vehicle_physics.h"
@@ -149,6 +150,7 @@ static bool_t planner_prediction_failure_announced;
 static bool_t planner_band_failure_announced;
 static planner_cache_state_t planner_path_cache;
 static planner_prediction_key_t planner_pred_key;
+static gate_route_context_t planner_gate_context;
 static uint64_t planner_cursor_solve_count;
 static uint64_t planner_cursor_reuse_count;
 static float fsaved_cloud_types[3];
@@ -565,6 +567,67 @@ planner_prediction_signature(void)
     return (hash);
 }
 
+static vect2_t
+planner_aircraft_gear_position(double gear_z)
+{
+    vect2_t origin = VECT2(dr_getf(&drs.local_x),
+        -dr_getf(&drs.local_z));
+    double heading = dr_getf(&drs.hdg);
+
+    return vect2_add(origin,
+        vect2_scmul(hdg2dir(heading), -gear_z));
+}
+
+static vect2_t
+planner_main_gear_position(void)
+{
+    return planner_aircraft_gear_position(bp.acf.main_z);
+}
+
+static vect2_t
+planner_nosewheel_position(void)
+{
+    return planner_aircraft_gear_position(bp.acf.nw_z);
+}
+
+static vect2_t
+planner_nosewheel_from_main_gear(vect2_t main_gear, double heading)
+{
+    return vect2_add(main_gear,
+        vect2_scmul(hdg2dir(heading), bp.veh.wheelbase));
+}
+
+static bool_t
+planner_prepare_gate_context(double *match_distance, double *match_heading)
+{
+    XPLMProbeRef probe;
+    XPLMProbeInfo_t info = {.structSize = sizeof(info)};
+    vect2_t nosewheel = planner_nosewheel_position();
+    geo_pos2_t nosewheel_geo;
+    char aircraft[256] = {0};
+    char aircraft_path[512] = {0};
+    double unused;
+
+    gate_route_context_reset(&planner_gate_context);
+    probe = XPLMCreateProbe(xplm_ProbeY);
+    if (probe == NULL)
+        return B_FALSE;
+    if (XPLMProbeTerrainXYZ(probe, nosewheel.x, 0, -nosewheel.y,
+        &info) != xplm_ProbeHitTerrain) {
+        XPLMDestroyProbe(probe);
+        return B_FALSE;
+    }
+    XPLMDestroyProbe(probe);
+
+    XPLMLocalToWorld(nosewheel.x, info.locationY, -nosewheel.y,
+        &nosewheel_geo.lat, &nosewheel_geo.lon, &unused);
+    XPLMGetNthAircraftModel(0, aircraft, aircraft_path);
+    return gate_route_find_published_start(airportdb, nosewheel_geo,
+        nosewheel, dr_getf(&drs.hdg), aircraft, bp.veh.wheelbase,
+        bp.acf.nw_z, bp.acf.main_z, &planner_gate_context,
+        match_distance, match_heading);
+}
+
 static int
 cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
 {
@@ -610,8 +673,8 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
     }
     else
     {
-        start_pos = VECT2(dr_getf(&drs.local_x),
-                          -dr_getf(&drs.local_z)); /* inverted X-Plane Z */
+        /* The steering route is referenced to the aircraft main gear. */
+        start_pos = planner_main_gear_position();
         start_hdg = dr_getf(&drs.hdg);
     }
 
@@ -786,8 +849,8 @@ planner_path_append(const vehicle_pos_t *pose)
 
 /*
  * Simulate the planned route through the same steering target and rate limits
- * used during pushback. The rear-axle pose is the aircraft main-gear point,
- * which is also the route reference drawn by the planner.
+ * used during pushback. The controller pose is the aircraft main-gear point;
+ * drawing converts each sampled pose to the corresponding nosewheel point.
  */
 static bool_t
 planner_build_controller_path(void)
@@ -1060,14 +1123,20 @@ draw_controller_path(void)
         planner_band_failure_announced = B_FALSE;
     }
 
-    /* Keep the controller-matched blue trajectory clear above the band. */
+    /*
+     * The controller works from the main gear, while the pilot-facing blue
+     * trajectory shows the corresponding nosewheel path. This makes its first
+     * point the published ramp-start anchor without changing steering physics.
+     */
     XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
     glColor3f(0, 0, 1);
     glLineWidth(3);
     glBegin(GL_LINE_STRIP);
     for (size_t i = 0; i < planner_path_count; i++) {
-        glVertex3f(planner_path[i].pos.x, planner_path_height[i],
-            -planner_path[i].pos.y);
+        vect2_t nosewheel = planner_nosewheel_from_main_gear(
+            planner_path[i].pos, planner_path[i].hdg);
+
+        glVertex3f(nosewheel.x, planner_path_height[i], -nosewheel.y);
     }
     glEnd();
     return (B_TRUE);
@@ -1088,6 +1157,7 @@ draw_segment(const seg_t *seg)
     {
         float h1, h2;
         vect2_t wing_l, wing_r, p;
+        vect2_t nose_start, nose_end;
 
         // VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->start_pos.x, 0,
         //                              -seg->start_pos.y, &info), ==, xplm_ProbeHitTerrain);
@@ -1112,8 +1182,12 @@ draw_segment(const seg_t *seg)
         glColor3f(0, 0, 1);
         glLineWidth(3);
         glBegin(GL_LINES);
-        glVertex3f(seg->start_pos.x, h1, -seg->start_pos.y);
-        glVertex3f(seg->end_pos.x, h2, -seg->end_pos.y);
+        nose_start = planner_nosewheel_from_main_gear(seg->start_pos,
+            seg->start_hdg);
+        nose_end = planner_nosewheel_from_main_gear(seg->end_pos,
+            seg->end_hdg);
+        glVertex3f(nose_start.x, h1, -nose_start.y);
+        glVertex3f(nose_end.x, h2, -nose_end.y);
         glEnd();
 
         wing_l = vect2_rot(wing_off_l, seg->start_hdg);
@@ -1173,8 +1247,15 @@ draw_segment(const seg_t *seg)
             glColor3f(0, 0, 1);
             glLineWidth(3);
             glBegin(GL_LINES);
-            glVertex3f(p1.x, info.locationY, -p1.y);
-            glVertex3f(p2.x, info.locationY, -p2.y);
+            {
+                vect2_t nose1 = planner_nosewheel_from_main_gear(p1,
+                    seg->start_hdg + a);
+                vect2_t nose2 = planner_nosewheel_from_main_gear(p2,
+                    seg->start_hdg + a + step);
+
+                glVertex3f(nose1.x, info.locationY, -nose1.y);
+                glVertex3f(nose2.x, info.locationY, -nose2.y);
+            }
             glEnd();
 
             glColor3f(1, 0.25, 1);
@@ -1954,6 +2035,8 @@ bp_cam_start(void)
     char airline[1024] = {0};
     char update_message[256] = {0};
     char *updateAvailable;
+    double gate_match_distance = NAN, gate_match_heading = NAN;
+    bool_t at_published_start;
 
     if (cam_inited || !bp_init())
         return (B_FALSE);
@@ -2055,11 +2138,36 @@ bp_cam_start(void)
     }
     XPLMRegisterKeySniffer(key_sniffer, 1, NULL);
 
+    at_published_start = planner_prepare_gate_context(
+        &gate_match_distance, &gate_match_heading);
     if (list_head(&bp.segs) == NULL) {
-        logMsg(BP_INFO_LOG "Planner opened for manual route placement");
+        if (at_published_start &&
+            gate_route_cache_load(&planner_gate_context, &bp.segs)) {
+            logMsg(BP_INFO_LOG "Gate route cache recalled for %s %s; "
+                "published anchor %.8f, %.8f at %.2f degrees",
+                planner_gate_context.airport, planner_gate_context.ramp,
+                planner_gate_context.anchor_geo.lat,
+                planner_gate_context.anchor_geo.lon,
+                planner_gate_context.anchor_hdg);
+        } else if (at_published_start) {
+            logMsg(BP_INFO_LOG "Published start recognized: %s %s "
+                "(nosewheel match %.2f m, %.2f degrees); no compatible "
+                "saved route, planner opened for manual placement",
+                planner_gate_context.airport, planner_gate_context.ramp,
+                gate_match_distance, gate_match_heading);
+        } else {
+            logMsg(BP_INFO_LOG "No unique published apt.dat start matched; "
+                "planner begins at the live nosewheel and this route will "
+                "not be saved persistently");
+        }
+    } else if (at_published_start) {
+        logMsg(BP_INFO_LOG "Planner retained the pilot's current in-session "
+            "route at published start %s %s",
+            planner_gate_context.airport, planner_gate_context.ramp);
     } else {
         logMsg(BP_INFO_LOG "Planner retained the pilot's current in-session "
-            "route; no persistent cache was auto-selected");
+            "route; current position is not a unique published apt.dat "
+            "start, so persistent saving is disabled");
     }
 
     /*
@@ -2146,6 +2254,24 @@ bp_cam_stop(void)
         planner_path_cache.build_count / 1000.0 : 0,
         planner_path_cache.max_build_us / 1000.0,
         (unsigned)planner_path_cache.point_count);
+    if (!slave_mode && list_head(&bp.segs) != NULL) {
+        if (!planner_gate_context.recognized) {
+            logMsg(BP_INFO_LOG "Route remains available for this pushback "
+                "session but was not saved: aircraft did not start at a "
+                "unique published apt.dat location");
+        } else if (gate_route_cache_save(&planner_gate_context, &bp.segs)) {
+            logMsg(BP_INFO_LOG "Gate route cache saved for %s %s; anchor "
+                "%.8f, %.8f at %.2f degrees",
+                planner_gate_context.airport, planner_gate_context.ramp,
+                planner_gate_context.anchor_geo.lat,
+                planner_gate_context.anchor_geo.lon,
+                planner_gate_context.anchor_hdg);
+        } else {
+            logMsg(BP_WARN_LOG "Gate route cache was not saved for %s %s: "
+                "route start or cache file validation failed",
+                planner_gate_context.airport, planner_gate_context.ramp);
+        }
+    }
     planner_clear_predicted_segments();
     planner_prediction_key_invalidate(&planner_pred_key);
     list_destroy(&pred_segs);
