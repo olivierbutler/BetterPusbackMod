@@ -28,6 +28,7 @@
 #include <acfutils/icao2cc.h>
 #include <acfutils/intl.h>
 #include <acfutils/log.h>
+#include <acfutils/time.h>
 #include <acfutils/wav.h>
 
 #include "cfg.h"
@@ -60,6 +61,9 @@ static msg_info_t msgs[MSG_NUM_MSGS] = {
 static bool_t inited = B_FALSE;
 static dr_t sound_on;
 static message_t last_msg = 0;
+static uint64_t message_sequence = 0;
+static uint64_t caption_started_us = 0;
+static bool_t caption_issued = B_FALSE;
 static alc_t *alc = NULL;
 
 /*
@@ -300,24 +304,29 @@ msg_fini(void) {
         alc = NULL;
     }
     inited = B_FALSE;
+    caption_issued = B_FALSE;
 }
 
 void
 msg_play(message_t msg) {
     VERIFY3U(msg, <, MSG_NUM_MSGS);
     ASSERT(inited);
+    last_msg = msg;
+    message_sequence++;
+    caption_started_us = microclock();
+    caption_issued = B_TRUE;
     if (dr_geti(&sound_on) == 0)
         return;
     // log convertion, we are controling here audio volume
     wav_set_gain(msgs[msg].wav, (double) (bp_ground_crew_audio_volume * bp_ground_crew_audio_volume));
     wav_play(msgs[msg].wav);
-    last_msg = msg;
 }
 
 void
 msg_stop(void) {
     ASSERT(inited);
     wav_stop(msgs[last_msg].wav);
+    caption_issued = B_FALSE;
 }
 
 double
@@ -325,4 +334,24 @@ msg_dur(message_t msg) {
     VERIFY3U(msg, <, MSG_NUM_MSGS);
     ASSERT(inited);
     return (msgs[msg].wav->duration);
+}
+
+void
+msg_get_caption_state(msg_caption_state_t *state)
+{
+    uint64_t duration_us;
+
+    if (state == NULL)
+        return;
+    state->active = B_FALSE;
+    state->message = last_msg;
+    state->sequence = message_sequence;
+    if (!inited || !caption_issued)
+        return;
+
+    duration_us = (uint64_t)(msgs[last_msg].wav->duration * 1000000.0);
+    if (microclock() - caption_started_us <= duration_us)
+        state->active = B_TRUE;
+    else
+        caption_issued = B_FALSE;
 }

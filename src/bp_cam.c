@@ -48,6 +48,7 @@
 #include <acfutils/intl.h>
 #include <acfutils/math.h>
 #include <acfutils/list.h>
+#include <acfutils/safe_alloc.h>
 #include <acfutils/time.h>
 #include <acfutils/wav.h>
 
@@ -56,6 +57,9 @@
 #include "bp.h"
 #include "bp_cam.h"
 #include "driving.h"
+#include "planner_cache.h"
+#include "realism_config.h"
+#include "vehicle_physics.h"
 #include "xplane.h"
 #include "cfg.h"
 #include "msg.h"
@@ -63,7 +67,13 @@
 #define MAX_PRED_DISTANCE 10000 /* meters */
 #define ANGLE_DRAW_STEP 5
 #define ORIENTATION_LINE_LEN 200
-
+#define PREDICTION_DT 0.1
+#define PREDICTION_SAMPLE_DISTANCE 1.0
+#define MAX_PREDICTION_STEPS 120000
+#define MAX_PREDICTION_POINTS 20000
+#define DANGER_ZONE_CIRCLE_SEGMENTS 24
+#define PREDICTION_KEY_POSITION_EPSILON 0.01
+#define PREDICTION_KEY_HEADING_EPSILON 0.01
 #define INCR_SMALL 5
 #define INCR_MED 25
 #define INCR_BIG 125
@@ -118,6 +128,29 @@ static vect2_t cursor_world_pos;
 static bool_t force_root_win_focus = B_TRUE;
 static float saved_visibility;
 static int saved_cloud_types[3];
+
+typedef struct {
+    vect2_t pos;
+    double hdg;
+} planner_path_point_t;
+
+typedef struct {
+    bool_t turn_active;
+    double turn_distance;
+    double turn_end_hdg;
+    double steer;
+} planner_prediction_state_t;
+
+static planner_path_point_t planner_path[MAX_PREDICTION_POINTS];
+static float planner_path_height[MAX_PREDICTION_POINTS];
+static size_t planner_path_count;
+static bool_t planner_prediction_announced;
+static bool_t planner_prediction_failure_announced;
+static bool_t planner_band_failure_announced;
+static planner_cache_state_t planner_path_cache;
+static planner_prediction_key_t planner_pred_key;
+static uint64_t planner_cursor_solve_count;
+static uint64_t planner_cursor_reuse_count;
 static float fsaved_cloud_types[3];
 static bool_t saved_real_wx;
 static XPLMObjectRef cam_lamp_obj = NULL;
@@ -133,7 +166,6 @@ float loop_nightlamp(float elapsed, float elapsed2, int counter, void *refcon);
 
 static struct
 {
-    dr_t lat, lon;
     dr_t local_x, local_y, local_z;
     dr_t local_vx, local_vy, local_vz;
     dr_t cam_x, cam_y, cam_z;
@@ -447,6 +479,92 @@ vp_unproject(double x, double y, double *x_phys, double *y_phys)
     *y_phys = out_pt[1];
 }
 
+static bool_t
+planner_clear_segments(list_t *segments)
+{
+    seg_t *seg;
+    bool_t changed = B_FALSE;
+
+    while ((seg = list_remove_head(segments)) != NULL) {
+        free(seg);
+        changed = B_TRUE;
+    }
+    return (changed);
+}
+
+static bool_t
+planner_clear_predicted_segments(void)
+{
+    return (planner_clear_segments(&pred_segs));
+}
+
+static uint64_t
+planner_hash_segments(uint64_t hash, const list_t *segments, uint64_t tag)
+{
+    uint64_t count = 0;
+
+    hash = planner_hash_u64(hash, tag);
+    for (const seg_t *seg = list_head(segments); seg != NULL;
+        seg = list_next(segments, seg)) {
+        count++;
+        hash = planner_hash_u64(hash, (uint64_t)seg->type);
+        hash = planner_hash_u64(hash, (uint64_t)seg->have_local_coords);
+        hash = planner_hash_double(hash, seg->start_pos.x);
+        hash = planner_hash_double(hash, seg->start_pos.y);
+        hash = planner_hash_double(hash, seg->start_hdg);
+        hash = planner_hash_double(hash, seg->end_pos.x);
+        hash = planner_hash_double(hash, seg->end_pos.y);
+        hash = planner_hash_double(hash, seg->end_hdg);
+        hash = planner_hash_u64(hash, (uint64_t)seg->backward);
+        if (seg->type == SEG_TYPE_TURN) {
+            hash = planner_hash_double(hash, seg->turn.r);
+            hash = planner_hash_u64(hash, (uint64_t)seg->turn.right);
+        } else {
+            hash = planner_hash_double(hash, seg->len);
+        }
+        hash = planner_hash_u64(hash, (uint64_t)seg->user_placed);
+    }
+    return (planner_hash_u64(hash, count));
+}
+
+static uint64_t
+planner_committed_signature(void)
+{
+    return (planner_hash_segments(planner_hash_init(), &bp.segs,
+        UINT64_C(0x434f4d4d49545445)));
+}
+
+static uint64_t
+planner_prediction_signature(void)
+{
+    uint64_t hash = planner_committed_signature();
+
+    hash = planner_hash_segments(hash, &pred_segs,
+        UINT64_C(0x5052454449435444));
+    hash = planner_hash_double(hash, bp.veh.wheelbase);
+    hash = planner_hash_double(hash, bp.veh.fixed_z_off);
+    hash = planner_hash_double(hash, bp.veh.max_steer);
+    hash = planner_hash_double(hash, bp.veh.max_fwd_spd);
+    hash = planner_hash_double(hash, bp.veh.max_rev_spd);
+    hash = planner_hash_double(hash, bp.veh.max_fwd_ang_vel);
+    hash = planner_hash_double(hash, bp.veh.max_rev_ang_vel);
+    hash = planner_hash_double(hash, bp.veh.max_centr_accel);
+    hash = planner_hash_double(hash, bp.veh.max_accel);
+    hash = planner_hash_double(hash, bp.veh.max_decel);
+    hash = planner_hash_u64(hash, (uint64_t)bp.veh.use_rear_pos);
+    hash = planner_hash_double(hash, bp.acf.main_z);
+    if (bp_ls.outline != NULL) {
+        hash = planner_hash_u64(hash, UINT64_C(1));
+        hash = planner_hash_double(hash, bp_ls.outline->semispan);
+        hash = planner_hash_double(hash, bp_ls.outline->length);
+        hash = planner_hash_u64(hash,
+            (uint64_t)bp_ls.outline->num_pts);
+    } else {
+        hash = planner_hash_u64(hash, UINT64_C(0));
+    }
+    return (hash);
+}
+
 static int
 cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
 {
@@ -478,11 +596,11 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
      * Don't make predictions if due to the camera FOV angle (>= 180 deg)
      * we could be placing the prediction object very far away.
      */
-    if (dx > MAX_PRED_DISTANCE || dy > MAX_PRED_DISTANCE)
+    if (fabs(dx) > MAX_PRED_DISTANCE || fabs(dy) > MAX_PRED_DISTANCE) {
+        planner_clear_predicted_segments();
+        planner_prediction_key_invalidate(&planner_pred_key);
         return (1);
-
-    while ((seg = list_remove_head(&pred_segs)) != NULL)
-        free(seg);
+    }
 
     seg = list_tail(&bp.segs);
     if (seg != NULL)
@@ -501,8 +619,27 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
                         vect2_rot(VECT2(dx, dy), pos->heading));
     cursor_world_pos = VECT2(end_pos.x, end_pos.y);
 
-    n = compute_segs(&bp.veh, start_pos, start_hdg, end_pos,
-                     cursor_hdg, &pred_segs);
+    {
+        uint64_t base_signature = planner_committed_signature();
+
+        if (planner_prediction_key_matches(&planner_pred_key,
+            base_signature, start_pos.x, start_pos.y, start_hdg,
+            end_pos.x, end_pos.y, cursor_hdg,
+            PREDICTION_KEY_POSITION_EPSILON,
+            PREDICTION_KEY_HEADING_EPSILON)) {
+            planner_cursor_reuse_count++;
+            return (1);
+        }
+
+        planner_clear_predicted_segments();
+        planner_cursor_solve_count++;
+        n = compute_segs(&bp.veh, start_pos, start_hdg, end_pos,
+            cursor_hdg, &pred_segs);
+        planner_prediction_key_set(&planner_pred_key, base_signature,
+            start_pos.x, start_pos.y, start_hdg, end_pos.x, end_pos.y,
+            cursor_hdg);
+    }
+
     if (n > 0)
     {
         seg = list_tail(&pred_segs);
@@ -510,6 +647,430 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
     }
 
     return (1);
+}
+
+static double
+planner_tail_arm(void)
+{
+    double aft_y = -HUGE_VAL;
+
+    if (bp_ls.outline != NULL) {
+        for (size_t i = 0; i < bp_ls.outline->num_pts; i++) {
+            vect2_t point = bp_ls.outline->pts[i];
+
+            if (!IS_NULL_VECT(point) && isfinite(point.y))
+                aft_y = MAX(aft_y, point.y);
+        }
+        if (isfinite(aft_y) && aft_y > bp.acf.main_z)
+            return (aft_y - bp.acf.main_z);
+        if (bp_ls.outline->length > 0)
+            return (MAX(bp_ls.outline->length * 0.4,
+                bp.veh.wheelbase / 2));
+    }
+
+    return (MAX(bp.veh.wheelbase, 1));
+}
+
+static double
+planner_deadband(double value, double deadband)
+{
+    if (fabs(value) <= deadband)
+        return (0);
+    return (value - copysign(deadband, value));
+}
+
+static const seg_t *
+planner_tail_target(const list_t *segs, const seg_t *current)
+{
+    const seg_t *target = current;
+
+    if (current->type == SEG_TYPE_STRAIGHT)
+        return (current);
+
+    for (const seg_t *candidate = current; candidate != NULL;
+        candidate = list_next(segs, candidate)) {
+        target = candidate;
+        if (candidate->user_placed)
+            break;
+    }
+    return (target);
+}
+
+/* Mirrors automatic_steer_target without touching live pushback state. */
+static double
+planner_steer_target(const list_t *segs, const seg_t *seg,
+    const vehicle_t *veh, const vehicle_pos_t *pose, double route_steer,
+    double tail_arm, planner_prediction_state_t *state)
+{
+    const seg_t *control_target = planner_tail_target(segs, seg);
+    double signed_turn = 0, total_distance = 0, direction = 0;
+    double profile_target = 0, capture_fraction = 1;
+    double cross_track, along_remaining, heading_error, feedback;
+    double path_weight, path_correction;
+    vect2_t aircraft_dir = hdg2dir(pose->hdg);
+    vect2_t target_dir = hdg2dir(control_target->end_hdg);
+    vect2_t target_right = vect2_norm(target_dir, B_TRUE);
+    vect2_t travel_dir = (control_target->backward ?
+        vect2_neg(target_dir) : target_dir);
+    vect2_t tail_pos = vect2_add(pose->pos,
+        vect2_scmul(aircraft_dir, -tail_arm));
+    vect2_t target_tail_pos = vect2_add(control_target->end_pos,
+        vect2_scmul(target_dir, -tail_arm));
+
+    if (seg->type == SEG_TYPE_TURN) {
+        signed_turn = rel_hdg(seg->start_hdg, seg->end_hdg);
+        total_distance = DEG2RAD(fabs(signed_turn)) * seg->turn.r;
+        if (!state->turn_active ||
+            fabs(rel_hdg(state->turn_end_hdg, seg->end_hdg)) > 1e-6) {
+            state->turn_active = B_TRUE;
+            state->turn_distance = 0;
+            state->turn_end_hdg = seg->end_hdg;
+        }
+        state->turn_distance = MIN(state->turn_distance +
+            fabs(pose->spd) * PREDICTION_DT, total_distance);
+        direction = (signed_turn >= 0 ? 1 : -1) *
+            (seg->backward ? -1 : 1);
+        profile_target = vehicle_turn_profile_steer(veh->wheelbase,
+            seg->turn.r, total_distance, state->turn_distance,
+            TURN_PROFILE_TRANSITION_DIST, direction, veh->max_steer);
+        capture_fraction = (total_distance > 0 ?
+            2 * (state->turn_distance / total_distance - 0.5) : 1);
+        capture_fraction = MIN(MAX(capture_fraction, 0), 1);
+    } else {
+        state->turn_active = B_FALSE;
+        state->turn_distance = 0;
+    }
+
+    cross_track = vect2_dotprod(vect2_sub(tail_pos, target_tail_pos),
+        target_right);
+    along_remaining = vect2_dotprod(vect2_sub(target_tail_pos, tail_pos),
+        travel_dir);
+    heading_error = rel_hdg(pose->hdg, control_target->end_hdg);
+    feedback = vehicle_tail_steer_correction(
+        planner_deadband(cross_track, TAIL_CROSS_TRACK_DEADBAND),
+        planner_deadband(heading_error, TAIL_HEADING_DEADBAND),
+        capture_fraction, TAIL_CROSS_TRACK_GAIN, TAIL_HEADING_GAIN,
+        TAIL_MAX_STEER_CORRECTION, seg->backward);
+    path_weight = vehicle_path_terminal_weight(along_remaining,
+        ROUTE_PATH_TERMINAL_FADE_DIST, list_next(segs, seg) == NULL);
+    path_correction = vehicle_path_steer_correction(route_steer,
+        profile_target, ROUTE_PATH_STEER_DEADBAND,
+        ROUTE_PATH_MAX_CORRECTION, path_weight);
+
+    return (MIN(MAX(profile_target + path_correction + feedback,
+        -veh->max_steer), veh->max_steer));
+}
+
+static void
+planner_copy_segments(const list_t *source, list_t *destination)
+{
+    for (const seg_t *seg = list_head(source); seg != NULL;
+        seg = list_next(source, seg)) {
+        seg_t *copy = safe_calloc(1, sizeof(*copy));
+
+        *copy = *seg;
+        memset(&copy->node, 0, sizeof(copy->node));
+        list_insert_tail(destination, copy);
+    }
+}
+
+static void
+planner_path_append(const vehicle_pos_t *pose)
+{
+    if (planner_path_count >= MAX_PREDICTION_POINTS)
+        return;
+    planner_path[planner_path_count++] = (planner_path_point_t) {
+        pose->pos, pose->hdg
+    };
+}
+
+/*
+ * Simulate the planned route through the same steering target and rate limits
+ * used during pushback. The rear-axle pose is the aircraft main-gear point,
+ * which is also the route reference drawn by the planner.
+ */
+static bool_t
+planner_build_controller_path(void)
+{
+    list_t work;
+    vehicle_t veh = bp.veh;
+    vehicle_pos_t pose;
+    planner_prediction_state_t state = {0};
+    seg_t *seg;
+    double last_mis_hdg = 0, sample_distance = 0;
+    double tail_arm = planner_tail_arm();
+    bool_t complete = B_FALSE;
+
+    planner_path_count = 0;
+    list_create(&work, sizeof(seg_t), offsetof(seg_t, node));
+    planner_copy_segments(&bp.segs, &work);
+    planner_copy_segments(&pred_segs, &work);
+    seg = list_head(&work);
+    if (seg == NULL) {
+        list_destroy(&work);
+        return (B_FALSE);
+    }
+
+    veh.fixed_z_off = 0;
+    veh.use_rear_pos = B_FALSE;
+    pose = (vehicle_pos_t) {seg->start_pos, seg->start_hdg, 0};
+    planner_path_append(&pose);
+
+    for (unsigned step = 0; step < MAX_PREDICTION_STEPS; step++) {
+        double route_steer, target_speed, target_steer;
+        double next_speed, next_steer, distance;
+        bool_t decelerating = B_FALSE;
+
+        seg = list_head(&work);
+        if (seg == NULL) {
+            complete = B_TRUE;
+            break;
+        }
+        if (!drive_segs(&pose, &veh, &work, &last_mis_hdg,
+            PREDICTION_DT, &route_steer, &target_speed, &decelerating))
+            continue;
+
+        target_steer = planner_steer_target(&work, seg, &veh, &pose,
+            route_steer, tail_arm, &state);
+        next_steer = vehicle_steering_step(state.steer, target_steer,
+            TURN_PROFILE_STEER_RATE, PREDICTION_DT);
+        next_speed = vehicle_speed_step(pose.spd, target_speed,
+            veh.max_accel, veh.max_decel, PREDICTION_DT);
+        distance = (pose.spd + next_speed) / 2 * PREDICTION_DT;
+        vehicle_bicycle_step(veh.wheelbase,
+            (pose.spd + next_speed) / 2,
+            (state.steer + next_steer) / 2, PREDICTION_DT,
+            &pose.pos.x, &pose.pos.y, &pose.hdg);
+        pose.spd = next_speed;
+        state.steer = next_steer;
+        sample_distance += fabs(distance);
+        if (sample_distance >= PREDICTION_SAMPLE_DISTANCE) {
+            planner_path_append(&pose);
+            sample_distance = 0;
+        }
+        if (planner_path_count >= MAX_PREDICTION_POINTS)
+            break;
+    }
+
+    if (planner_path_count < MAX_PREDICTION_POINTS)
+        planner_path_append(&pose);
+    while ((seg = list_remove_head(&work)) != NULL)
+        free(seg);
+    list_destroy(&work);
+
+    return (complete && planner_path_count > 1);
+}
+
+static bool_t
+planner_draw_danger_zone_geometry(void)
+{
+    const double radius = bp_ls.outline->semispan;
+
+    glBegin(GL_QUADS);
+    for (size_t i = 1; i < planner_path_count; i++) {
+        vect2_t p1 = planner_path[i - 1].pos;
+        vect2_t p2 = planner_path[i].pos;
+        vect2_t tangent = vect2_sub(p2, p1);
+        double length = vect2_abs(tangent);
+        vect2_t normal;
+
+        if (length < 1e-6)
+            continue;
+        normal = VECT2(-tangent.y / length * radius,
+            tangent.x / length * radius);
+        glVertex3f(p1.x + normal.x, planner_path_height[i - 1],
+            -(p1.y + normal.y));
+        glVertex3f(p1.x - normal.x, planner_path_height[i - 1],
+            -(p1.y - normal.y));
+        glVertex3f(p2.x - normal.x, planner_path_height[i],
+            -(p2.y - normal.y));
+        glVertex3f(p2.x + normal.x, planner_path_height[i],
+            -(p2.y + normal.y));
+    }
+    glEnd();
+
+    /* Round joins union neighboring segment rectangles into one smooth band. */
+    glBegin(GL_TRIANGLES);
+    for (size_t i = 1; i + 1 < planner_path_count; i++) {
+        vect2_t center = planner_path[i].pos;
+        vect2_t incoming = vect2_sub(center, planner_path[i - 1].pos);
+        vect2_t outgoing = vect2_sub(planner_path[i + 1].pos, center);
+        double incoming_len = vect2_abs(incoming);
+        double outgoing_len = vect2_abs(outgoing);
+        double turn_sine;
+
+        if (incoming_len < 1e-6 || outgoing_len < 1e-6)
+            continue;
+        turn_sine = (incoming.x * outgoing.y - incoming.y * outgoing.x) /
+            (incoming_len * outgoing_len);
+        if (fabs(turn_sine) < 0.001)
+            continue;
+
+        for (unsigned j = 0; j < DANGER_ZONE_CIRCLE_SEGMENTS; j++) {
+            double a1 = 2 * M_PI * j / DANGER_ZONE_CIRCLE_SEGMENTS;
+            double a2 = 2 * M_PI * (j + 1) /
+                DANGER_ZONE_CIRCLE_SEGMENTS;
+
+            glVertex3f(center.x, planner_path_height[i], -center.y);
+            glVertex3f(center.x + cos(a1) * radius,
+                planner_path_height[i], -(center.y + sin(a1) * radius));
+            glVertex3f(center.x + cos(a2) * radius,
+                planner_path_height[i], -(center.y + sin(a2) * radius));
+        }
+    }
+    glEnd();
+    return (B_TRUE);
+}
+
+static bool_t
+planner_draw_danger_zone(void)
+{
+    GLint stencil_bits = 0;
+
+    glGetIntegerv(GL_STENCIL_BITS, &stencil_bits);
+    if (stencil_bits <= 0)
+        return (B_FALSE);
+
+    /*
+     * First build the union in the stencil buffer. The color pass clears a
+     * stencil pixel as it shades it, so overlapping rectangles and round
+     * joins can never accumulate alpha or expose their individual triangles.
+     */
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_ALPHA_TEST);
+    glEnable(GL_STENCIL_TEST);
+    glStencilMask(0xff);
+    glClearStencil(0);
+    glClear(GL_STENCIL_BUFFER_BIT);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glStencilFunc(GL_ALWAYS, 1, 0xff);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    planner_draw_danger_zone_geometry();
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glStencilFunc(GL_EQUAL, 1, 0xff);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
+    glColor4f(1, 0.05, 1, 0.22);
+    planner_draw_danger_zone_geometry();
+
+    glClear(GL_STENCIL_BUFFER_BIT);
+    glPopAttrib();
+    return (B_TRUE);
+}
+
+static bool_t
+planner_build_terrain_heights(uint64_t *probe_count)
+{
+    XPLMProbeRef probe;
+
+    ASSERT(probe_count != NULL);
+    *probe_count = 0;
+    probe = XPLMCreateProbe(xplm_ProbeY);
+    if (probe == NULL)
+        return (B_FALSE);
+    for (size_t i = 0; i < planner_path_count; i++) {
+        XPLMProbeInfo_t info = {.structSize = sizeof(info)};
+
+        (*probe_count)++;
+        if (XPLMProbeTerrainXYZ(probe, planner_path[i].pos.x, 0,
+            -planner_path[i].pos.y,
+            &info) == xplm_ProbeHitTerrain) {
+            planner_path_height[i] = info.locationY + 0.05f;
+        } else if (i > 0) {
+            planner_path_height[i] = planner_path_height[i - 1];
+        } else {
+            XPLMDestroyProbe(probe);
+            return (B_FALSE);
+        }
+    }
+    XPLMDestroyProbe(probe);
+    return (B_TRUE);
+}
+
+static bool_t
+draw_controller_path(void)
+{
+    uint64_t signature, build_start, build_us, terrain_probes = 0;
+
+    if (bp_ls.outline == NULL)
+        return (B_FALSE);
+
+    signature = planner_prediction_signature();
+    planner_cache_observe(&planner_path_cache, signature);
+    if (planner_cache_needs_rebuild(&planner_path_cache)) {
+        bool_t success;
+
+        build_start = microclock();
+        success = planner_build_controller_path();
+        if (success)
+            success = planner_build_terrain_heights(&terrain_probes);
+        build_us = microclock() - build_start;
+        planner_cache_commit(&planner_path_cache, success != B_FALSE,
+            planner_path_count, build_us, terrain_probes);
+
+        if (!success) {
+            if (!planner_prediction_failure_announced &&
+                (list_head(&bp.segs) != NULL ||
+                list_head(&pred_segs) != NULL)) {
+                logMsg(BP_WARN_LOG "Controller-matched planner preview "
+                    "could not complete; cached geometric fallback for "
+                    "route revision %llu",
+                    (unsigned long long)planner_path_cache.revision);
+                planner_prediction_failure_announced = B_TRUE;
+            }
+        } else {
+            planner_prediction_failure_announced = B_FALSE;
+            if (!planner_prediction_announced) {
+                const seg_t *last = list_tail(&pred_segs);
+
+                if (last == NULL)
+                    last = list_tail(&bp.segs);
+                logMsg(BP_INFO_LOG "Controller-matched cached planner "
+                    "preview active (%u path points, endpoint offset "
+                    "%.2f m, first build %.2f ms)",
+                    (unsigned)planner_path_count,
+                    last != NULL ? vect2_dist(
+                    planner_path[planner_path_count - 1].pos,
+                    last->end_pos) : 0, build_us / 1000.0);
+                planner_prediction_announced = B_TRUE;
+            }
+        }
+    } else {
+        planner_cache_note_hit(&planner_path_cache);
+    }
+
+    if (!planner_path_cache.have_result ||
+        !planner_path_cache.result_success)
+        return (B_FALSE);
+
+    if (!planner_draw_danger_zone()) {
+        if (!planner_band_failure_announced) {
+            logMsg(BP_WARN_LOG "Planner danger-zone fill unavailable; "
+                "drawing controller path without the band");
+            planner_band_failure_announced = B_TRUE;
+        }
+    } else {
+        planner_band_failure_announced = B_FALSE;
+    }
+
+    /* Keep the controller-matched blue trajectory clear above the band. */
+    XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
+    glColor3f(0, 0, 1);
+    glLineWidth(3);
+    glBegin(GL_LINE_STRIP);
+    for (size_t i = 0; i < planner_path_count; i++) {
+        glVertex3f(planner_path[i].pos.x, planner_path_height[i],
+            -planner_path[i].pos.y);
+    }
+    glEnd();
+    return (B_TRUE);
 }
 
 static void
@@ -737,13 +1298,21 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon)
 
     XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
 
-    for (seg = list_head(&bp.segs); seg != NULL;
-         seg = list_next(&bp.segs, seg))
-        draw_segment(seg);
+    /*
+     * The blue centerline and magenta danger-zone band now come from the same
+     * controller model used during pushback. Retain the geometric segment
+     * renderer as a safe fallback if a very long or invalid route cannot be
+     * predicted completely.
+     */
+    if (!draw_controller_path()) {
+        for (seg = list_head(&bp.segs); seg != NULL;
+             seg = list_next(&bp.segs, seg))
+            draw_segment(seg);
 
-    for (seg = list_head(&pred_segs); seg != NULL;
-         seg = list_next(&pred_segs, seg))
-        draw_segment(seg);
+        for (seg = list_head(&pred_segs); seg != NULL;
+             seg = list_next(&pred_segs, seg))
+            draw_segment(seg);
+    }
 
     if ((seg = list_tail(&pred_segs)) != NULL)
     {
@@ -1275,8 +1844,6 @@ key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon)
 static void
 find_drs(void)
 {
-    fdr_find(&drs.lat, "sim/flightmodel/position/latitude");
-    fdr_find(&drs.lon, "sim/flightmodel/position/longitude");
     fdr_find(&drs.local_vx, "sim/flightmodel/position/local_vx");
     fdr_find(&drs.local_vy, "sim/flightmodel/position/local_vy");
     fdr_find(&drs.local_vz, "sim/flightmodel/position/local_vz");
@@ -1385,7 +1952,7 @@ bp_cam_start(void)
     char icao[8] = {0};
     char *cam_obj_path;
     char airline[1024] = {0};
-    char bottom_msg[256] = {0};
+    char update_message[256] = {0};
     char *updateAvailable;
 
     if (cam_inited || !bp_init())
@@ -1460,6 +2027,14 @@ bp_cam_start(void)
     XPLMTakeKeyboardFocus(fake_win);
 
     list_create(&pred_segs, sizeof(seg_t), offsetof(seg_t, node));
+    planner_cache_init(&planner_path_cache);
+    planner_prediction_key_init(&planner_pred_key);
+    planner_prediction_announced = B_FALSE;
+    planner_prediction_failure_announced = B_FALSE;
+    planner_band_failure_announced = B_FALSE;
+    planner_cursor_solve_count = 0;
+    planner_cursor_reuse_count = 0;
+    logMsg(BP_INFO_LOG "Planner trajectory cache initialized");
     force_root_win_focus = B_TRUE;
     cam_height = 15 * bp.veh.wheelbase;
     /* We keep the camera position in our coordinates for ease of manip */
@@ -1480,11 +2055,11 @@ bp_cam_start(void)
     }
     XPLMRegisterKeySniffer(key_sniffer, 1, NULL);
 
-    /* If the list of segs is empty, try to reload the saved state */
-    if (list_head(&bp.segs) == NULL)
-    {
-        route_load(GEO_POS2(dr_getf(&drs.lat), dr_getf(&drs.lon)),
-                   dr_getf(&drs.hdg), &bp.segs);
+    if (list_head(&bp.segs) == NULL) {
+        logMsg(BP_INFO_LOG "Planner opened for manual route placement");
+    } else {
+        logMsg(BP_INFO_LOG "Planner retained the pilot's current in-session "
+            "route; no persistent cache was auto-selected");
     }
 
     /*
@@ -1524,8 +2099,8 @@ bp_cam_start(void)
     updateAvailable = getPluginUpdateStatus();
     if (updateAvailable != NULL)
     {
-        snprintf(bottom_msg, sizeof(bottom_msg), "New version of BetterPushBack available: %s (Use SkunkCrafts Updater to update)", updateAvailable);
-        init_bottom_msg(bottom_msg);
+        snprintf(update_message, sizeof(update_message), "New version of BetterPushBack available: %s (Use SkunkCrafts Updater to update)", updateAvailable);
+        init_bottom_msg(update_message);
     }
 
     if (bp_floop_nightlamp == NULL)
@@ -1538,7 +2113,6 @@ bp_cam_start(void)
 bool_t
 bp_cam_stop(void)
 {
-    seg_t *seg;
     XPLMCommandRef cockpit_view_cmd;
 
     if (!cam_inited)
@@ -1556,8 +2130,24 @@ bp_cam_stop(void)
         XPLMUnloadObject(cam_lamp_obj);
     cam_lamp_obj = NULL;
 
-    while ((seg = list_remove_head(&pred_segs)) != NULL)
-        free(seg);
+    logMsg(BP_INFO_LOG "Planner cache summary: route revisions %llu, path "
+        "builds %llu, path cache hits %llu, cursor solves %llu, cursor reuse "
+        "%llu, failures %llu, terrain probes %llu, average build %.2f ms, "
+        "maximum build %.2f ms, last path points %u",
+        (unsigned long long)planner_path_cache.revision,
+        (unsigned long long)planner_path_cache.build_count,
+        (unsigned long long)planner_path_cache.cache_hit_count,
+        (unsigned long long)planner_cursor_solve_count,
+        (unsigned long long)planner_cursor_reuse_count,
+        (unsigned long long)planner_path_cache.failure_count,
+        (unsigned long long)planner_path_cache.terrain_probe_count,
+        planner_path_cache.build_count != 0 ?
+        (double)planner_path_cache.total_build_us /
+        planner_path_cache.build_count / 1000.0 : 0,
+        planner_path_cache.max_build_us / 1000.0,
+        (unsigned)planner_path_cache.point_count);
+    planner_clear_predicted_segments();
+    planner_prediction_key_invalidate(&planner_pred_key);
     list_destroy(&pred_segs);
 
     XPLMDestroyWindow(fake_win);

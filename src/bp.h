@@ -27,38 +27,12 @@
 
 #include "acf_outline.h"
 #include "driving.h"
+#include "pushback_step.h"
 #include "tug.h"
 
 #ifdef    __cplusplus
 extern "C" {
 #endif
-
-typedef enum {
-    PB_STEP_OFF,
-    PB_STEP_TUG_LOAD,
-    PB_STEP_START,
-    PB_STEP_DRIVING_UP_CLOSE,
-    PB_STEP_WAITING_FOR_DOORS,
-    PB_STEP_OPENING_CRADLE,
-    PB_STEP_WAITING_FOR_PBRAKE,
-    PB_STEP_DRIVING_UP_CONNECT,
-    PB_STEP_GRABBING,
-    PB_STEP_LIFTING,
-    PB_STEP_CONNECTED,
-    PB_STEP_STARTING,
-    PB_STEP_PUSHING,
-    PB_STEP_STOPPING,
-    PB_STEP_STOPPED,
-    PB_STEP_LOWERING,
-    PB_STEP_UNGRABBING,
-    PB_STEP_WAITING4OK2DISCO,
-    PB_STEP_MOVING_AWAY,
-    PB_STEP_CLOSING_CRADLE,
-    PB_STEP_STARTING2CLEAR,
-    PB_STEP_MOVING2CLEAR,
-    PB_STEP_CLEAR_SIGNAL,
-    PB_STEP_DRIVING_AWAY
-} pushback_step_t;
 
 typedef struct {
     int nw_i;        /* nose gear index the gear tables */
@@ -120,6 +94,15 @@ typedef struct {
 
     double last_steer;
     double last_force;
+    double push_accel_limit;
+    double turn_profile_distance;
+    double turn_profile_end_hdg;
+    double smooth_steer_cmd;
+    bool_t turn_profile_active;
+    bool_t pause_requested;
+    bool_t pause_hold;
+    bool_t stop_from_pause_hold;
+    bool_t awaiting_plan;
     double tug_weight_force;
 
     pushback_step_t step;        /* current PB step */
@@ -187,6 +170,19 @@ bool_t bp_start(void);
 
 bool_t bp_stop(void);
 
+bool_t bp_request_pause(void);
+
+bool_t bp_request_resume(void);
+
+bool_t bp_pause_is_requested(void);
+
+bool_t bp_pause_is_held(void);
+
+bool_t bp_is_awaiting_plan(void);
+
+void bp_get_ground_ops_metrics(double *speed_mps, bool_t *speed_valid,
+    double *distance_remaining_m, bool_t *distance_valid);
+
 bool_t bp_can_start(const char **reason);
 
 unsigned bp_num_segs(void);
@@ -202,6 +198,8 @@ bool_t acf_is_airliner(void);
 void read_acf_airline(char airline[1024]);
 
 bool_t find_nearest_airport(char icao[8]);
+bool_t find_nearest_airport_at(double latitude, double longitude,
+    char icao[8]);
 
 bool_t audio_sys_init(void);
 

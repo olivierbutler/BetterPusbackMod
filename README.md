@@ -9,6 +9,31 @@ pushback operation. To increase immersion, it speaks to you in a variety
 of languages and accents, simulating ground staff at various places
 around the world.
 
+In this realism fork, the planner's blue line is a controller-matched preview
+of the expected main-gear trajectory rather than an ideal circular arc. A
+smooth, uniformly shaded magenta band marks the continuous, wingspan-wide
+danger zone around that trajectory. It supports visual clearance planning but
+does not perform automatic collision detection.
+
+Development of the compact ground-operations experience is governed by the
+tracked [UI design](GROUND_OPS_UI_DESIGN.md) and the fork's complete
+[implementation roadmap](ROADMAP.md). These documents define the approved
+five-stage compact rail, live workflow panel, performance guardrails,
+phased delivery, and acceptance gates. Active crew audio prompts can be mirrored
+as optional panel captions. Build and simulator evidence for every phase is retained in the
+[verification record](PHASE_TESTING.md).
+
+The Ground Operations workflow first displays the parsed departure-airport
+identifier and an amber **Call tug** action. There is no artificial timer or
+automatic dispatch: connection begins only when the pilot presses the button.
+The ground crew then performs approach and nose-gear capture automatically.
+Capture ends at an amber **Plan push** gate with no lift performed; lift starts
+only after the pilot opens the planner and accepts the push route.
+
+The planner opens for manual route placement and does not generate a route from
+wind or runway data. Persistent saved-route reuse is currently disabled pending
+a separate alignment correction.
+
 ### About this Fork and Copyright
 
 Better Pushback is developed by "Saso Kiselkov". So if you see this project or else, just contact me.
@@ -75,10 +100,16 @@ To add a voice set, see `data/msgs/README.txt` for the information.
 BetterPushback registers these X-Plane commands:
 
 - `BetterPushback/start`: Start pushback (or connect-first if configured).
-- `BetterPushback/stop`: Stop pushback.
+- `BetterPushback/pause_resume`: Smoothly pause or resume automatic pushback
+  without discarding the accepted route.
+- `BetterPushback/stop`: End pushback and disconnect. This retains the legacy
+  command path for compatibility but is presented distinctly from Pause.
 - `BetterPushback/start_planner`: Open the pushback planner.
 - `BetterPushback/stop_planner`: Close the pushback planner.
 - `BetterPushback/connect_first`: Connect the tug before planning/pushback.
+- `BetterPushback/ground_ops_show_hide`: Show or hide Ground Operations.
+- `BetterPushback/ground_ops_expand_collapse`: Expand or collapse Ground
+  Operations.
 - `BetterPushback/cab_camera`: View from the tug cab.
 - `BetterPushback/recreate_scenery_routes`: Recreate scenery routes from WED files.
 - `BetterPushback/preference`: Open the preference window.
@@ -93,6 +124,9 @@ BetterPushback registers these X-Plane commands:
 
 Note: For coupling add-ons, only `BetterPushback/start` is intended to be
 mirrored to the slave. Other commands remain local.
+
+The Ground Operations **Call tug** button dispatches
+`BetterPushback/connect_first` through the normal command handler.
 
 ### libacfutils Library Required
 

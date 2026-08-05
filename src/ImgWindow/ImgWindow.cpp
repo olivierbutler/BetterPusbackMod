@@ -356,9 +356,20 @@ ImgWindow::updateImgui()
 {
 	ImGui::SetCurrentContext(mImGuiContext);
 	auto &io = ImGui::GetIO();
+	int mouseX, mouseY;
 
 	// transfer the window geometry to ImGui
 	XPLMGetWindowGeometry(mWindowID, &mLeft, &mTop, &mRight, &mBottom);
+
+	/*
+	 * X-Plane stops sending cursor callbacks to a window as soon as the
+	 * pointer leaves it.  Without an explicit refresh, ImGui keeps the last
+	 * in-window MousePos and can leave a delayed tooltip open indefinitely.
+	 * Poll the global pointer every frame so hover state is cleared even when
+	 * the mouse is over the simulator or another window.
+	 */
+	XPLMGetMouseLocationGlobal(&mouseX, &mouseY);
+	translateToImguiSpace(mouseX, mouseY, io.MousePos.x, io.MousePos.y);
 
 	float win_width = static_cast<float>(mRight - mLeft);
 	float win_height = static_cast<float>(mTop - mBottom);

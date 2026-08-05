@@ -51,7 +51,7 @@ extern airportdb_t *airportdb;
 extern int bp_xp_ver, bp_xplm_ver;
 extern XPLMHostApplicationID bp_host_id;
 
-extern XPLMCommandRef start_pb,  start_cam, conn_first, stop_pb;
+extern XPLMCommandRef start_pb, start_cam, conn_first, stop_pb, pause_pb;
 extern bool_t  start_pb_plan_enable, start_pb_enable;
 
 #define BP_PLUGIN_NAME          "BetterPushback-" BP_PLUGIN_VERSION

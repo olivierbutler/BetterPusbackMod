@@ -36,6 +36,8 @@
 #include <XPLMUtilities.h>
 
 #include "driving.h"
+#include "route_realign.h"
+#include "vehicle_physics.h"
 #include "xplane.h"
 
 #define    SEG_TURN_MULT        0.9    /* leave 10% for oversteer */
@@ -49,8 +51,6 @@
 
 #define    STEER_GATE(x, g)    MIN(MAX((x), -g), g)
 
-#define    ROUTE_DIST_LIM        30    /* meters */
-#define    ROUTE_HDG_LIM        10    /* degrees */
 #define    ROUTE_TABLE_DIRS    bp_xpdir, "Output", "caches"
 #define    ROUTE_TABLE_FILENAME    "BetterPushback_routes.dat"
 
@@ -189,8 +189,8 @@ compute_segs_impl(const vehicle_t *veh, vect2_t start_pos, double start_hdg,
      * SEG_TURN_MULT), to allow for some oversteering correction.
      * Also limit the radius to something sensible (MIN_TURN_RADIUS).
      */
-    min_radius = MAX(tan(DEG2RAD(90 - (veh->max_steer * SEG_TURN_MULT))) *
-                     veh->wheelbase, MIN_TURN_RADIUS);
+    min_radius = MAX(fabs(vehicle_turn_radius(veh->wheelbase,
+        veh->max_steer * SEG_TURN_MULT)), MIN_TURN_RADIUS);
 
     /*
      * If the amount of heading change is tiny, just project the desired
@@ -505,8 +505,12 @@ straight_run_speed(const vehicle_t *veh, list_t *segs, double rmng_d,
     cruise_spd = (backward ? veh->max_rev_spd : veh->max_fwd_spd);
     crawl_spd = CRAWL_SPEED(bp_xp_ver, veh);
 
-    if (rmng_d < crawl_spd)
-        return (MAX(next_spd, crawl_spd));
+    if (rmng_d < crawl_spd) {
+        spd = MAX(next_spd, crawl_spd);
+        if (out_decelerating != NULL)
+            *out_decelerating = (spd < cruise_spd);
+        return (spd);
+    }
 
     /*
      * Pretend we have less distance left so as to reach our target speed
@@ -681,7 +685,9 @@ ang_vel_speed_limit(const vehicle_t *veh, double steer, double speed) {
 
     if (speed == 0)
         return (0);
-    turn_radius = tan(DEG2RAD(90 - ABS(steer))) * veh->wheelbase;
+    if (ABS(steer) < 1e-6)
+        return (speed);
+    turn_radius = fabs(vehicle_turn_radius(veh->wheelbase, steer));
     ang_vel = RAD2DEG(ABS(speed) / turn_radius);
     if (speed >= 0)
         speed *= MIN(veh->max_fwd_ang_vel / ang_vel, 1);
@@ -813,24 +819,59 @@ route_alloc(avl_tree_t *route_table, const list_t *segs) {
 static int
 route_table_compar(const void *a, const void *b) {
     const route_t *r1 = a, *r2 = b;
-    double dist, rhdg;
 
     ASSERT(!IS_NULL_VECT(r1->pos_ecef));
     ASSERT(!IS_NULL_VECT(r2->pos_ecef));
     ASSERT(!isnan(r1->hdg));
     ASSERT(!isnan(r2->hdg));
 
-    dist = vect3_dist(r1->pos_ecef, r2->pos_ecef);
-    rhdg = fabs(rel_hdg(r1->hdg, r2->hdg));
-
-    if (dist <= ROUTE_DIST_LIM && rhdg <= ROUTE_HDG_LIM) {
-        return (0);
-    } else if ((r1->pos.lat * 1000 + r1->pos.lon) * 1000 + r1->hdg <
-               (r2->pos.lat * 1000 + r2->pos.lon) * 1000 + r2->hdg) {
+    if (r1->pos.lat < r2->pos.lat)
         return (-1);
-    } else {
+    if (r1->pos.lat > r2->pos.lat)
         return (1);
+    if (r1->pos.lon < r2->pos.lon)
+        return (-1);
+    if (r1->pos.lon > r2->pos.lon)
+        return (1);
+    if (r1->hdg < r2->hdg)
+        return (-1);
+    if (r1->hdg > r2->hdg)
+        return (1);
+    return (0);
+}
+
+static route_t *
+route_find_nearest(avl_tree_t *routes, const route_t *search,
+    double *match_distance, double *match_heading)
+{
+    route_t *best = NULL;
+    double best_distance = HUGE_VAL;
+    double best_heading = HUGE_VAL;
+
+    for (route_t *route = avl_first(routes); route != NULL;
+        route = AVL_NEXT(routes, route)) {
+        double distance = vect3_dist(route->pos_ecef, search->pos_ecef);
+        double heading = route_realign_heading_delta(route->hdg,
+            search->hdg);
+
+        if (!route_cache_pose_matches(distance, heading))
+            continue;
+        if (distance < best_distance ||
+            (distance == best_distance && fabs(heading) <
+            fabs(best_heading))) {
+            best = route;
+            best_distance = distance;
+            best_heading = heading;
+        }
     }
+
+    if (best != NULL) {
+        if (match_distance != NULL)
+            *match_distance = best_distance;
+        if (match_heading != NULL)
+            *match_heading = best_heading;
+    }
+    return (best);
 }
 
 static avl_tree_t *
@@ -1032,6 +1073,7 @@ void
 route_load(geo_pos2_t start_pos, double start_hdg, list_t *segs) {
     avl_tree_t *t;
     route_t srch, *r;
+    double match_distance = NAN, heading_delta = NAN;
 
     ASSERT3P(list_head(segs), ==, NULL);
 
@@ -1042,15 +1084,45 @@ route_load(geo_pos2_t start_pos, double start_hdg, list_t *segs) {
                                  &wgs84);
     srch.hdg = start_hdg;
 
-    r = avl_find(t, &srch, NULL);
+    r = route_find_nearest(t, &srch, &match_distance, &heading_delta);
     if (r != NULL) {
+        seg_t *first = list_head(&r->segs);
+        vect2_t saved_origin, current_origin;
+        double unused;
+
+        ASSERT(first != NULL);
+        seg_world2local(first);
+        saved_origin = first->start_pos;
+        XPLMWorldToLocal(start_pos.lat, start_pos.lon, 0,
+            &current_origin.x, &unused, &current_origin.y);
+        current_origin.y = -current_origin.y;
+
         for (seg_t *seg = list_head(&r->segs); seg != NULL;
              seg = list_next(&r->segs, seg)) {
             seg_t *seg2 = safe_calloc(1, sizeof(*seg2));
+            double start_x, start_y, end_x, end_y;
+
             memcpy(seg2, seg, sizeof(*seg2));
             seg_world2local(seg2);
+            route_realign_point(seg2->start_pos.x, seg2->start_pos.y,
+                saved_origin.x, saved_origin.y, current_origin.x,
+                current_origin.y, heading_delta, &start_x, &start_y);
+            route_realign_point(seg2->end_pos.x, seg2->end_pos.y,
+                saved_origin.x, saved_origin.y, current_origin.x,
+                current_origin.y, heading_delta, &end_x, &end_y);
+            seg2->start_pos = VECT2(start_x, start_y);
+            seg2->end_pos = VECT2(end_x, end_y);
+            seg2->start_hdg = route_realign_heading(seg2->start_hdg,
+                heading_delta);
+            seg2->end_hdg = route_realign_heading(seg2->end_hdg,
+                heading_delta);
+            /* Force any later save to persist the corrected coordinates. */
+            seg2->have_world_coords = B_FALSE;
             list_insert_tail(segs, seg2);
         }
+        logMsg(BP_INFO_LOG "Saved route available: matched current gate "
+            "within %.2f m and %.1f degrees; preview re-anchored to the "
+            "current aircraft pose", match_distance, heading_delta);
     }
 
     routes_free(t);
