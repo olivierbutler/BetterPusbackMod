@@ -22,16 +22,21 @@ test_unavailable_defaults_are_explicit(void)
 }
 
 static void
-test_aircraft_type_is_not_presented_as_a_flight_number(void)
+test_aircraft_type_is_the_flight_identity_fallback(void)
 {
     ground_ops_data_snapshot_t snapshot;
     ground_ops_data_presentation_t presentation;
 
     ground_ops_data_init(&snapshot);
-    assert(!ground_ops_data_publish_simulator_flight_identity(&snapshot,
+    assert(ground_ops_data_publish_simulator_flight_identity(&snapshot,
+        NULL, 0, "b737", 4, 10, 12.5));
+    ground_ops_data_format(&snapshot, 11, &presentation);
+    assert(strcmp(presentation.flight, "Flight B737") == 0);
+
+    assert(ground_ops_data_publish_simulator_flight_identity(&snapshot,
         "B737", 4, "b737", 4, 10, 12.5));
     ground_ops_data_format(&snapshot, 11, &presentation);
-    assert(strcmp(presentation.flight, "Flight --") == 0);
+    assert(strcmp(presentation.flight, "Flight B737") == 0);
 
     assert(ground_ops_data_publish_simulator_flight_identity(&snapshot,
         "KLM511", 6, "B737", 4, 10, 12.5));
@@ -156,7 +161,7 @@ main(void)
 {
     test_unavailable_defaults_are_explicit();
     test_simulator_flight_id_is_bounded_and_normalized();
-    test_aircraft_type_is_not_presented_as_a_flight_number();
+    test_aircraft_type_is_the_flight_identity_fallback();
     test_simulator_weather_format_and_staleness();
     test_invalid_weather_is_not_published();
     test_optional_provider_metadata_and_mixed_sources();

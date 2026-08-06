@@ -1669,6 +1669,52 @@ Simulator validation completed on 2026-08-05:
 
 Commit criterion: **Passed**.
 
+## UI cleanup
+
+### Pass 1 - briefing strip and flight identity
+
+Date prepared: 2026-08-06
+Status: **Accepted after simulator visual validation**
+
+Product decisions implemented:
+
+- The expanded Ground Operations panel no longer draws EOBT, METAR, or ATIS.
+- Airport, simulator wind/temperature, and QNH remain in the briefing strip.
+- The header prefers X-Plane's assigned Flight ID. When the Flight ID is blank
+  or contains the aircraft type placeholder, the aircraft ICAO type is shown as
+  the fallback identity.
+- The change is isolated from the manual planner, saved gate routes, tug
+  physics, and wing-walker behavior and assets.
+
+Verification completed:
+
+| Check | Result |
+| --- | --- |
+| Flight-ID precedence and aircraft-type fallback test | Passed |
+| Ground Operations state and window-state suites | Passed |
+| Windows warnings-as-errors release build | Passed |
+| Linux warnings-as-errors release build | Passed |
+| `git diff --check` | Passed |
+
+Installed and accepted SHA-256 values:
+
+- Windows: `17E7FB7E447019844F0758F51304C6002931C2A1B24E0ED3CAA0FE70431CC885`
+- Linux: `016A4B7C5C96852F3D4884EB51423D1771E490151F5208172708B6A759F7768E`
+
+Simulator validation completed on 2026-08-06:
+
+- The 737-700NG was loaded at KCOS with no assigned flight number.
+- The header displayed `Flight B737`, proving the aircraft-type fallback.
+- EOBT, METAR, and ATIS were absent. Airport KCOS, simulator wind/temperature,
+  and QNH remained visible with the existing panel layout intact.
+- The user accepted the visual result from screenshot
+  `737_70NG - 2026-08-06 09.28.20.png` (SHA-256
+  `552EA2EA24A114FB53890881F6AB3778B458B486A59410CF412CB082A700FBE8`).
+- The accepted screenshot and exact binaries are preserved at
+  `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\ui-cleanup-pass1-accepted-20260806`.
+
+Commit criterion: **Passed**.
+
 ## Open release-engineering requirements
 
 ### RE-001 — Reproducible dependency bootstrap

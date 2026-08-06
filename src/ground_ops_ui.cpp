@@ -793,11 +793,7 @@ private:
             queue_action(UiAction::Hide);
 
         draw_text(draw, 13.0f, 11, 56, primary, snapshot->airport);
-        draw_text_right(draw, 10.0f, 280, 56, secondary,
-            snapshot->schedule);
         draw_text(draw, 10.5f, 11, 70, secondary, snapshot->weather);
-        draw_text_right(draw, 10.0f, 280, 70, secondary,
-            snapshot->advisory);
         draw_text(draw, 10.5f, 11, 84, secondary, snapshot->pressure);
 
         for (int index = 0; index < 5; index++) {

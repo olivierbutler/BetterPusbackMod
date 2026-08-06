@@ -41,8 +41,8 @@ cockpit.
   planning decision.
 - **Safety before convenience:** pause, safety hold, cancel, and abort are
   distinct operations.
-- **Offline first:** missing ATIS, METAR, or network connectivity must
-  never prevent an ordinary manual pushback.
+- **Offline first:** network connectivity must never prevent an ordinary
+  manual pushback.
 - **No physics regression:** the tested push controller remains separate from
   the UI and ground-operations workflow.
 
@@ -89,9 +89,8 @@ cockpit.
 
 The panel is divided into:
 
-1. **Title:** Ground operations, flight number, and current status.
-2. **Briefing strip:** airport, ATIS identifier, compact METAR, EOBT, and
-   countdown when available.
+1. **Title:** Ground operations, flight identity, and current status.
+2. **Briefing strip:** airport, simulator wind and temperature, and QNH.
 3. **Stage rail:** Tug, Connect, Comms, Push, Clear.
 4. **Current-task area:** status, explanation, and valid actions.
 5. **Source footer:** data provenance and offline state.
@@ -183,33 +182,32 @@ belong to the new ground-operations controller and must not be forced into
 
 ### Airport context and automatic connection
 
-Displays only available, sourced information:
+Displays only active, simulator-local information:
 
-- Flight number.
+- Assigned flight number, falling back to aircraft type.
 - Departure airport.
-- EOBT and countdown.
-- METAR summary.
-- ATIS identifier and runway when available.
+- Simulator wind and temperature.
+- QNH in hPa and inHg.
 
 The Phase 5 local-provider slice parses and displays the nearest airport,
 standard simulator Flight ID when available, and current simulator wind,
-temperature, and QNH. It labels the source and freshness explicitly. External
-METAR and ATIS remain `--` until their optional providers are configured; they
-are no longer presented as indefinitely pending. The UI immediately turns
-amber for the pilot's **Call tug** action. After that call, approach and capture
-proceed with no second pilot gate until the controller is holding before lift.
+temperature, and QNH. It labels the source and freshness explicitly. EOBT,
+METAR, and ATIS are not part of the active Ground Operations presentation. The
+UI immediately turns amber for the pilot's **Call tug** action. After that call,
+approach and capture proceed with no second pilot gate until the controller is
+holding before lift.
 
-The standard Flight ID is treated as unavailable when it is identical to the
-aircraft ICAO code (for example, `B737`). This prevents an aircraft type copied
-into the simulator field from being presented as a flight number. Simulator
-weather uses a fixed, non-rotating three-line briefing layout: airport/EOBT,
-wind-temperature/METAR-ATIS, and QNH in both hPa and inHg. The panel uses
-ASCII-safe control and stage labels so it does not depend on an icon font.
-Helper text requires a stationary delayed hover, uses no shared hover delay,
-and is removed on the first frame after the pointer leaves the control.
+The standard Flight ID is preferred when it contains a valid assigned value.
+When it is blank or identical to the aircraft ICAO code, the aircraft ICAO type
+(for example, `B737`) is displayed as the fallback identity. Simulator weather
+uses a fixed, non-rotating three-line briefing layout: airport,
+wind-temperature, and QNH in both hPa and inHg. The panel uses ASCII-safe
+control and stage labels so it does not depend on an icon font. Helper text
+requires a stationary delayed hover, uses no shared hover delay, and is removed
+on the first frame after the pointer leaves the control.
 
-Unavailable data uses an em dash or an explicit "Unavailable" label. The UI
-must not fabricate a runway, flight time, or ATIS.
+Unavailable active data uses an em dash or an explicit "Unavailable" label.
+The UI must not fabricate a flight identity or weather value.
 
 ### Tug staged
 
@@ -271,16 +269,16 @@ then the rail hides by default.
 
 Each external value carries source, fetched time, and expiry time.
 
-### Flight identity and schedule
+### Flight identity
 
 1. Simulator/aircraft flight-number datarefs when available.
-2. Unavailable.
+2. Aircraft ICAO type.
+3. Unavailable.
 
 ### Weather
 
 1. Simulator weather for operational calculations.
-2. Cached METAR text for display.
-3. Unavailable display, while manual planning remains usable.
+2. Unavailable display, while manual planning remains usable.
 
 ### Departure-flow context
 
@@ -291,9 +289,7 @@ Each external value carries source, fetched time, and expiry time.
 
 Parallel runways are grouped by direction, so the inference can say NORTH or
 SOUTH without choosing a runway. Calm wind, crossing-runway ties, unsupported
-geometry, or an unreachable planner endpoint produce no suggestion. ATIS and
-METAR remain truthful display fields (`--` when unavailable) and are not
-required for this initial inference.
+geometry, or an unreachable planner endpoint produce no suggestion.
 
 ## UI architecture
 

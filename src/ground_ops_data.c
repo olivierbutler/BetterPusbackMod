@@ -220,19 +220,24 @@ ground_ops_data_publish_simulator_flight_identity(
 {
     char normalized_flight[GROUND_OPS_DATA_FLIGHT_NUMBER_LEN] = {0};
     char normalized_icao[GROUND_OPS_DATA_AIRPORT_LEN] = {0};
+    const char *identity;
+    bool have_flight, have_icao;
 
-    if (!normalize_token(flight_number, flight_number_len,
-        normalized_flight, sizeof(normalized_flight), 7)) {
-        return (false);
-    }
-    if (normalize_token(aircraft_icao, aircraft_icao_len, normalized_icao,
-        sizeof(normalized_icao), 7) &&
-        strcmp(normalized_flight, normalized_icao) == 0) {
+    have_flight = normalize_token(flight_number, flight_number_len,
+        normalized_flight, sizeof(normalized_flight), 7);
+    have_icao = normalize_token(aircraft_icao, aircraft_icao_len,
+        normalized_icao, sizeof(normalized_icao), 7);
+    if (have_flight && (!have_icao ||
+        strcmp(normalized_flight, normalized_icao) != 0)) {
+        identity = normalized_flight;
+    } else if (have_icao) {
+        identity = normalized_icao;
+    } else {
         return (false);
     }
     return (ground_ops_data_publish_flight_identity(snapshot,
-        GROUND_OPS_DATA_SOURCE_SIMULATOR, normalized_flight,
-        strlen(normalized_flight), NULL, fetched_at_s, expires_at_s));
+        GROUND_OPS_DATA_SOURCE_SIMULATOR, identity, strlen(identity), NULL,
+        fetched_at_s, expires_at_s));
 }
 
 bool

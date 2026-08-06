@@ -236,18 +236,18 @@ per frame, so this must be eliminated before adding another UI surface.
 - [x] Define fixed-size provider interfaces for flight identity, schedule,
       weather, METAR, and ATIS.
 - [x] Add simulator-local Flight ID and weather fallbacks first.
-      Aircraft-type placeholders matching the aircraft ICAO are filtered,
-      QNH is shown in hPa and inHg, and the fixed briefing layout does not
-      rotate or depend on icon-font glyphs.
+      An assigned Flight ID is preferred and aircraft ICAO is the display
+      fallback. QNH is shown in hPa and inHg, and the fixed briefing layout
+      does not rotate or depend on icon-font glyphs.
 - [x] Keep the operational plugin independent of SimBrief. A pushback does not
       require an OFP, schedule download, account token, or flight-plan parser.
-- [x] Leave METAR and ATIS unavailable rather than starting a network worker.
-      They can be reconsidered later as display-only providers without changing
-      the manual or weather-inferred planning path.
+- [x] Do not start a METAR or ATIS network worker. EOBT, METAR, and ATIS are no
+      longer displayed in the active Ground Operations panel.
 - [x] Keep simulator reads on the main thread and at the accepted one-hertz UI
       manager rate. No network or parsing worker exists in this phase.
 - [x] Publish only validated fixed-size results to the UI state mapper.
-- [x] Display source and staleness; never fabricate missing data.
+- [x] Display source and staleness for active simulator-local data; never
+      fabricate missing data.
 
 ### Refresh policy
 
@@ -259,7 +259,7 @@ per frame, so this must be eliminated before adding another UI surface.
 ### Failure tests
 
 - Offline from startup.
-- Missing or malformed simulator Flight ID.
+- Missing or malformed simulator Flight ID with aircraft-ICAO fallback.
 - Changing airport, aircraft reload, and plugin disable/stop.
 - Stale local snapshot and unavailable weather datarefs.
 
@@ -276,11 +276,11 @@ per frame, so this must be eliminated before adding another UI surface.
 ### Implementation
 
 - Add a ground-operations controller separate from the motion controller.
-- Load the flight brief and EOBT when available.
+- Load aircraft and airport context locally.
 - Represent tug unavailable, scheduled, approaching, staged, connecting,
   connected, ready for comms, disconnecting, and clear.
 - Retain the explicit pilot **Call tug** action established in Phase 3 and
-  enrich the surrounding workflow with sourced scheduling context.
+  enrich the surrounding workflow with sourced simulator context.
 - Keep connection automatic only after that call. The next pilot interaction
   is the connected pre-lift planning/communications gate.
 - Validate parking-brake release/set against simulator datarefs.
@@ -416,7 +416,7 @@ dedicated implementation were removed on 2026-08-05.
 | Pop out and move to another monitor | 2 | Multi-monitor geometry test |
 | Remember position and monitor safely | 2 | Restart and missing-monitor recovery test |
 | Flight identity and simulator weather | 5 | Provider and fallback tests |
-| Truthful unavailable METAR and ATIS fields | 5 | Offline presentation tests |
+| EOBT, METAR, and ATIS omitted from active UI | 5 | UI source and simulator screenshot |
 | Tug approaching/staged/connected progression | 3, 6 | State-transition log and UI test |
 | Airport context and explicit pilot Call tug action | 3 | Button dispatch and simulator workflow test |
 | Hold after nose-gear capture and before lift | 3 | Amber Plan push screenshot and no-lift simulator observation |

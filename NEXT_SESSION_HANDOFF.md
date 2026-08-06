@@ -13,9 +13,110 @@ profile, stored as separate files under
 manual planner and does not restore any automatic wind/runway proposal
 behavior.
 
-The accepted implementation is committed on `feature/realistic-tug-physics`.
+The accepted implementation is recorded in commit
+`84e40ca9d4e39c2a8f47752eb66f0f428fcd79ed` (`Add two saved routes per gate
+and aircraft`) on `feature/realistic-tug-physics`. Both author and committer are
+`EZSIMULATIONS <ezsimulations@localhost>`.
+
+The accepted wing-walker phase is recorded in commit
+`50b994b76660f8462bedb0ecfdf56f579f93dfd4` (`Add final pushback wing
+walker`) on the same branch, also authored and committed by
+`EZSIMULATIONS <ezsimulations@localhost>`.
 Preserve the user's accumulated fork. Do not reset, clean, revert, or replace
 unrelated work.
+
+## Wing-walker phase accepted and committed
+
+The user approved a first prototype using Jungle Jim's downloadable
+"Low-Poly Construction workers (animated)" model. The source is licensed under
+CC BY 4.0 and is retained with attribution and a reproducible Blender 5.1
+generator under `objects/src/Wing Walker`. The unrelated downloaded people
+library was not used.
+
+The candidate adds one held-pose wing walker approximately 30 yards ahead of
+the aircraft nose and 1.5 m toward the captain's side. The worker faces the
+cockpit and follows terrain slope. It is isolated from the accepted planner,
+gate-route cache, and tug physics.
+
+Candidate 1 was rejected because all three pose meshes rendered together and
+the worker was therefore visible while the runtime signal was hidden. Candidate
+2 added an always-hidden baseline to each pose, but the worker then never
+rendered. Its simulator log proved that the controller emitted the exact desired
+hidden, STOP, STANDBY, CLEAR, hidden sequence at steps 3, 14, 17, 22, and 23.
+
+The isolated Candidate 2 rendering defect was a missing X-Plane custom-dataref
+registration. `bp/anim/wing_walker_signal` was passed to
+`XPLMCreateInstance`, but X-Plane requires custom datarefs referenced by an OBJ
+to be registered before the OBJ is loaded. Candidate 3 registers the dataref in
+`XPluginStart`, before any push can load the worker, and removes it in
+`XPluginStop`. The OBJ pose gating and state mapping are otherwise unchanged.
+Runtime signal transitions remain logged for simulator verification.
+
+Candidate 3 passed complete daytime and nighttime pushbacks. The user confirmed
+that STOP, STANDBY, CLEAR, disappearance timing, and the LIT texture all worked.
+The worker was slightly too close to the aircraft nose for reliable visibility
+from larger-aircraft cockpits. Candidate 4 changes only the nose clearance from
+20 yards (18.288 m) to 30 yards (27.432 m); all validated behavior and assets
+are unchanged.
+
+Candidate 4 passed its final simulator acceptance pushback on 2026-08-05. The
+user confirmed that the 30-yard placement is perfect. Four left-captain-seat
+screenshots show STOP, STANDBY, CLEAR, and disappearance at tug departure. The
+log records hidden, STOP, STANDBY, CLEAR, hidden at steps 3, 14, 17, 22, and 23
+and then a clean plugin unload. The matching telemetry contains a complete
+departure sequence and no NaN/Inf values.
+
+Signal mapping:
+
+- STOP: crossed hands and orange wands above the head from `stopped`, when the
+  parking-brake instruction begins, through `ungrabbing`, including the safe
+  portion of a reconnect sequence.
+- STANDBY: both arms and wands down at approximately 45 degrees from
+  `waiting4ok2disco`, after the equipment is physically released, through the
+  tug's move to its clearance position.
+- CLEAR: the right arm raises a green lit wand during `clear_signal`.
+- The worker is hidden when the tug enters `driving_away`, and on all earlier
+  push states where aircraft motion can resume.
+
+Automated checks passed:
+
+- `tests/run_wing_walker_logic_tests.sh`
+- `tests/wing_walker_asset_test.py`
+- Windows and Linux warnings-as-errors release builds
+- `git diff --check`
+
+Accepted Candidate 4 hashes installed on 2026-08-05:
+
+- Windows: `7B06CEE3DFD902BF77ABEF73D950A6AB8C17761A92F80D517CE1D22A46388AFF`
+- Linux: `EACBB630CA78D86C787CD199B0D2C957BA9AA054CFEA84D76EF93F5A31BB4C26`
+- OBJ: `ADE970250611AB228AA62C6041D01899C587AEA0EFD9CC9C480DB1DC256F4B7E`
+
+The previously accepted binaries were archived before installation at:
+
+`C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\wing-walker-candidate1-preinstall-20260805`
+
+Candidate 1's rejected binaries, exact OBJ/textures, `Log.txt`, three
+screenshots, and result notes are preserved at:
+
+`C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\wing-walker-candidate1-rejected-20260805`
+
+Candidate 2's rejected binaries, exact OBJ/textures, `Log.txt`, and result notes
+are preserved at:
+
+`C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\wing-walker-candidate2-rejected-20260805`
+
+The four Candidate 2 screenshots remain attached to the Codex task; they were
+no longer present at their reported simulator paths when the archive was made.
+
+Candidate 3's behaviorally accepted day/night binaries, runtime assets,
+`Log.txt`, and result notes are preserved at:
+
+`C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\wing-walker-candidate3-accepted-20260805`
+
+Candidate 4's final accepted binaries, runtime assets, `Log.txt`, telemetry,
+four acceptance screenshots, and result notes are preserved at:
+
+`C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\wing-walker-candidate4-accepted-20260805`
 
 ## Fixed product decisions
 
@@ -53,7 +154,7 @@ dedicated `src/airport_flow.c`, `src/airport_flow.h`, unit test, and runner were
 deleted. Source and binary-string audits found no remaining operational proposal
 references.
 
-## Currently installed accepted baseline
+## Preserved accepted baseline
 
 - Windows SHA-256:
   `67C6A63380A6AFE9140A84F596CF93C30A8F3442AC068224A65555CC92A708E3`
@@ -109,10 +210,40 @@ Corrective Slice 6 passed the full two-aircraft slot matrix at KCOS Gate 8 on
 The old root-level `BetterPushback_gate_routes_v1.dat` remains ignored by the
 accepted implementation.
 
-## Next work
+## UI cleanup pass 1 accepted
 
-Await the user's next requested phase. Do not change the accepted manual planner
-or gate-route behavior without a new explicit requirement.
+The first UI cleanup pass was simulator-accepted on 2026-08-06. The expanded
+panel no longer displays EOBT, METAR, or ATIS. The header reads X-Plane's
+assigned Flight ID when available and falls back to the aircraft ICAO type when
+the field is blank or contains the aircraft-type placeholder. Airport,
+simulator wind/temperature, and QNH remain visible.
+
+The 737-700NG acceptance screenshot at KCOS shows `Flight B737` and the cleaned
+briefing strip. The exact screenshot and Windows/Linux candidate binaries are
+preserved at:
+
+`C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\ui-cleanup-pass1-accepted-20260806`
+
+Accepted candidate hashes:
+
+- Windows: `17E7FB7E447019844F0758F51304C6002931C2A1B24E0ED3CAA0FE70431CC885`
+- Linux: `016A4B7C5C96852F3D4884EB51423D1771E490151F5208172708B6A759F7768E`
+- Screenshot: `552EA2EA24A114FB53890881F6AB3778B458B486A59410CF412CB082A700FBE8`
+
+## Next work — final UI cleanup
+
+One final UI cleanup item remains before beta testing. Await the user's exact
+requirement, keep the change narrowly scoped, and simulator-validate it before
+commit.
+
+Treat commits `84e40ca9d4e39c2a8f47752eb66f0f428fcd79ed` and
+`50b994b76660f8462bedb0ecfdf56f579f93dfd4` as accepted baselines. Do not alter
+the manual planner, two-slot gate-route cache, tug physics, wing-walker timing,
+poses, placement, lighting, or licensed assets while cleaning up the UI.
+
+After the remaining cleanup is accepted, the user intends to push the branch
+back to Git for upstream review/approval. Do not push, open a pull request, or
+contact upstream maintainers until the user explicitly requests that action.
 
 ## Verification completed
 
@@ -125,6 +256,14 @@ or gate-route behavior without a new explicit requirement.
 - The full five-operation, two-aircraft Corrective Slice 6 simulator matrix
   passed, including two slots per aircraft, recalled-route editing, cache
   isolation, clean push/clear completion, and final per-aircraft chooser reloads.
+- Wing-walker logic and asset tests passed, as did fresh Windows and Linux
+  warnings-as-errors release builds.
+- Candidate 3 passed daytime/nighttime lighting and signal tests. Candidate 4
+  passed final 30-yard placement and full STOP/STANDBY/CLEAR/disappearance
+  validation from the left captain seat, with a clean log and finite telemetry.
+- UI cleanup pass 1 passed flight-identity fallback tests, three focused Ground
+  Operations suites, Windows/Linux warnings-as-errors builds, and simulator
+  visual acceptance at KCOS.
 
 ## Relevant files
 
@@ -139,6 +278,13 @@ or gate-route behavior without a new explicit requirement.
   active planner does not call its old persistent load/save interface.
 - `src/planner_cache.c` and `src/planner_cache.h`: trajectory-render cache, not
   the persistent saved gate-route workflow.
+- `src/wing_walker.c` and `.h`: asynchronous OBJ lifecycle, terrain placement,
+  30-yard nose clearance, captain-side offset, and per-instance signal updates.
+- `src/wing_walker_logic.c` and `.h`: isolated pushback-step-to-signal mapping.
+- `objects/wing_walker`: committed OBJ8 runtime mesh, diffuse/LIT textures, and
+  CC BY 4.0 attribution.
+- `objects/src/Wing Walker`: original licensed source asset plus the
+  reproducible Blender generator.
 - `PHASE_TESTING.md`: full history and accepted Corrective Slice 6 evidence.
 - `GROUND_OPS_UI_DESIGN.md` and `ROADMAP.md`: automatic proposal removed from
   the active product design.
