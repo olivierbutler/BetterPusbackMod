@@ -1594,6 +1594,81 @@ Focused simulator validation completed on 2026-08-05:
   files are preserved at
   `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\phase7-slice5-validation1-accepted-20260805`.
 
+### Corrective Slice 6 - two selectable routes per gate and aircraft
+
+Date prepared: 2026-08-05
+Status: **Confirmed**
+
+Product decisions implemented:
+
+- Persistent routes now live exclusively under
+  `Output/caches/BetterPushback_Gate_Routes`.
+- The folder hierarchy separates airport, published gate identity, and aircraft
+  filename/landing-gear profile. Each compatible profile contains exactly
+  `slot_1.route` and `slot_2.route` initially.
+- The accepted root-level `BetterPushback_gate_routes_v1.dat` is not read,
+  migrated, modified, or deleted by the candidate.
+- With one or two compatible slots, the overhead planner displays a modal route
+  chooser before loading any route. The pilot may select Route 1, Route 2, or a
+  new manual plan.
+- A new route fills the first empty slot. If both slots are occupied, Enter
+  requires an explicit choice to replace Route 1, replace Route 2, use the route
+  once without saving, or return to planning.
+- An unchanged recalled route is not rewritten. Editing a recalled route saves
+  back to that selected slot.
+- Slot files retain the accepted published nosewheel anchor, aircraft-relative
+  metre geometry, exact aircraft/gear validation, first-pose validation, and
+  automatically calculated tail-direction/final-heading metadata.
+- Each slot is written to a temporary file and atomically replaces only its own
+  destination after a complete successful write.
+
+Verification completed:
+
+| Check | Result |
+| --- | --- |
+| Strict anchor/transform/tail-direction math | Passed |
+| Empty, one-slot, full, unchanged, edited, replacement and use-once policy | Passed |
+| Five existing ground-ops, planner-cache, and vehicle-physics suites | Passed |
+| Windows warnings-as-errors release build | Passed |
+| Linux warnings-as-errors release build | Passed |
+| `git diff --check` | Passed |
+
+Installed and accepted SHA-256 values:
+
+- Windows: `67C6A63380A6AFE9140A84F596CF93C30A8F3442AC068224A65555CC92A708E3`
+- Linux: `A81481AC9042AD3B75463550783C7ED134842DD998E740B7F815AB1414CB4673`
+
+Simulator validation completed on 2026-08-05:
+
+- Log 1 recognized the published KCOS Gate 8 start with no compatible slots and
+  saved 737-700NG Slot 1 as `Tail S`, final aircraft heading 359.20 degrees.
+- Log 2 found one compatible 737 slot, selected a new manual route, and saved
+  Slot 2 as `Tail N`, final aircraft heading 180.70 degrees.
+- Log 3 found both 737 slots, recalled Slot 1, edited it, and saved only Slot 1
+  with the updated final heading 359.70 degrees. The final 737 chooser displayed
+  Route 1 at 360 degrees and Route 2 at 181 degrees.
+- Log 4 loaded the Felis B742 at the same published gate and found no compatible
+  slots, demonstrating aircraft-profile isolation. It saved B742 Slot 1 as
+  `Tail S`, final aircraft heading 0.70 degrees.
+- Log 5 found only the B742 Slot 1, selected a new manual route, and saved B742
+  Slot 2 as `Tail E`, final aircraft heading 268.20 degrees. The final B742
+  chooser displayed both aircraft-specific routes while the final 737 chooser
+  still displayed only the 737 pair.
+- The final cache tree contains exactly four route files: two under the
+  `737_70NG.acf` profile and two under the `B742_Cargo_Felis_XP12.acf` profile.
+  All four use the same published anchor `38.79933100, -104.70027200` at 269.20
+  degrees, and no temporary files remain.
+- Every planner cache summary reports zero failures. Every Ground Ops session
+  reached controller `off`, preparation `complete`, and clean plugin unload.
+- The five telemetry recordings contain 3,340, 3,489, 3,404, 4,137, and 4,392
+  samples respectively. Each contains the complete operational state sequence
+  through `driving_away`, and none contains NaN or infinity values.
+- Accepted binaries, five logs, five telemetry files, three chooser screenshots,
+  and the complete four-file cache tree are preserved at
+  `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\phase7-slice6-validation1-accepted-20260805`.
+
+Commit criterion: **Passed**.
+
 ## Open release-engineering requirements
 
 ### RE-001 — Reproducible dependency bootstrap

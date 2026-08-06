@@ -2,6 +2,7 @@
 #define GATE_ROUTE_MATH_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,6 +27,9 @@ void gate_route_point_to_relative(double point_x, double point_y,
 void gate_route_point_from_relative(double relative_x, double relative_y,
     double anchor_x, double anchor_y, double frame_heading_deg,
     double *point_x, double *point_y);
+
+void gate_route_tail_direction(double final_aircraft_heading_deg,
+    char *direction, size_t capacity);
 
 #ifdef __cplusplus
 }

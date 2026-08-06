@@ -1,10 +1,15 @@
 #include "gate_route_cache.h"
 
-#include <errno.h>
+#include <ctype.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if IBM
+#include <windows.h>
+#endif
 
 #include <acfutils/helpers.h>
 #include <acfutils/safe_alloc.h>
@@ -12,22 +17,28 @@
 #include "gate_route_math.h"
 #include "xplane.h"
 
-#define GATE_ROUTE_CACHE_HEADER "### BetterPushback gate route cache v1 ###"
+#define GATE_ROUTE_CACHE_HEADER "### BetterPushback gate route slot v2 ###"
 #define GATE_ROUTE_CACHE_MAX_SEGS 4096
 #define GATE_ROUTE_ANCHOR_COORD_EPSILON 0.00000005
 #define GATE_ROUTE_ANCHOR_HEADING_EPSILON 0.01
 #define GATE_ROUTE_GEOMETRY_EPSILON 0.01
 #define GATE_ROUTE_INITIAL_POSE_EPSILON 0.25
+#define GATE_ROUTE_FINAL_HEADING_EPSILON 0.01
+#define GATE_ROUTE_COMPONENT_LEN 80
 
 typedef struct {
     bool_t active;
     bool_t valid;
+    bool_t have_slot;
     bool_t have_airport;
     bool_t have_ramp;
     bool_t have_anchor;
     bool_t have_aircraft;
     bool_t have_geometry;
+    bool_t have_label;
+    bool_t have_final;
     bool_t have_count;
+    unsigned slot;
     char airport[AIRPORTDB_IDENT_LEN];
     char ramp[32];
     geo_pos2_t anchor_geo;
@@ -36,6 +47,9 @@ typedef struct {
     double wheelbase;
     double nw_z;
     double main_z;
+    char label[16];
+    double final_aircraft_hdg;
+    double final_tail_hdg;
     unsigned expected_count;
     unsigned actual_count;
     list_t segs;
@@ -56,15 +70,6 @@ parsed_route_init(parsed_route_t *route)
     memset(route, 0, sizeof(*route));
     route->valid = B_TRUE;
     list_create(&route->segs, sizeof(seg_t), offsetof(seg_t, node));
-}
-
-static void
-parsed_route_reset(parsed_route_t *route)
-{
-    segment_list_clear(&route->segs);
-    list_destroy(&route->segs);
-    parsed_route_init(route);
-    route->active = B_TRUE;
 }
 
 static void
@@ -201,14 +206,132 @@ gate_route_find_published_start(airportdb_t *db,
     return B_TRUE;
 }
 
+static uint32_t
+hash_string(uint32_t hash, const char *text)
+{
+    for (const unsigned char *p = (const unsigned char *)text; *p != '\0';
+         p++) {
+        hash ^= *p;
+        hash *= 16777619U;
+    }
+    hash ^= 0xffU;
+    return hash * 16777619U;
+}
+
+static uint32_t
+gate_identity_hash(const gate_route_context_t *context)
+{
+    char values[160];
+    uint32_t hash = 2166136261U;
+
+    hash = hash_string(hash, context->airport);
+    hash = hash_string(hash, context->ramp);
+    (void)snprintf(values, sizeof(values), "%lld|%lld|%lld",
+        (long long)llround(context->anchor_geo.lat * 100000000.0),
+        (long long)llround(context->anchor_geo.lon * 100000000.0),
+        (long long)llround(context->anchor_hdg * 100.0));
+    return hash_string(hash, values);
+}
+
+static uint32_t
+aircraft_identity_hash(const gate_route_context_t *context)
+{
+    char values[160];
+    uint32_t hash = hash_string(2166136261U, context->aircraft);
+
+    (void)snprintf(values, sizeof(values), "%lld|%lld|%lld",
+        (long long)llround(context->wheelbase * 1000.0),
+        (long long)llround(context->nw_z * 1000.0),
+        (long long)llround(context->main_z * 1000.0));
+    return hash_string(hash, values);
+}
+
+static void
+sanitize_component(const char *source, char *destination, size_t capacity)
+{
+    size_t output = 0;
+    bool_t underscore = B_FALSE;
+
+    ASSERT(source != NULL);
+    ASSERT(destination != NULL);
+    ASSERT(capacity != 0);
+    for (const unsigned char *p = (const unsigned char *)source;
+         *p != '\0' && output + 1 < capacity; p++) {
+        if (isalnum(*p)) {
+            destination[output++] = (char)*p;
+            underscore = B_FALSE;
+        } else if (!underscore && output != 0) {
+            destination[output++] = '_';
+            underscore = B_TRUE;
+        }
+    }
+    while (output != 0 && destination[output - 1] == '_')
+        output--;
+    if (output == 0) {
+        strlcpy(destination, "Unknown", capacity);
+        return;
+    }
+    destination[output] = '\0';
+}
+
+static char *
+gate_route_profile_directory(const gate_route_context_t *context)
+{
+    char airport[GATE_ROUTE_COMPONENT_LEN];
+    char ramp[GATE_ROUTE_COMPONENT_LEN];
+    char aircraft[GATE_ROUTE_COMPONENT_LEN];
+    char gate_directory[GATE_ROUTE_COMPONENT_LEN + 16];
+    char aircraft_directory[GATE_ROUTE_COMPONENT_LEN + 16];
+
+    sanitize_component(context->airport, airport, sizeof(airport));
+    sanitize_component(context->ramp, ramp, sizeof(ramp));
+    sanitize_component(context->aircraft, aircraft, sizeof(aircraft));
+    (void)snprintf(gate_directory, sizeof(gate_directory), "%s_%08X", ramp,
+        gate_identity_hash(context));
+    (void)snprintf(aircraft_directory, sizeof(aircraft_directory), "%s_%08X",
+        aircraft, aircraft_identity_hash(context));
+    return mkpathname(bp_xpdir, "Output", "caches",
+        GATE_ROUTE_CACHE_DIRECTORY, airport, gate_directory,
+        aircraft_directory, NULL);
+}
+
+static char *
+gate_route_slot_path(const gate_route_context_t *context, unsigned slot,
+    bool_t create_directory)
+{
+    char filename[32];
+    char *directory, *path;
+    bool_t is_directory = B_FALSE;
+
+    if (!context->recognized || slot >= GATE_ROUTE_CACHE_SLOT_COUNT)
+        return NULL;
+    directory = gate_route_profile_directory(context);
+    if (create_directory) {
+        if (file_exists(directory, &is_directory)) {
+            if (!is_directory) {
+                free(directory);
+                return NULL;
+            }
+        } else if (!create_directory_recursive(directory)) {
+            free(directory);
+            return NULL;
+        }
+    }
+    (void)snprintf(filename, sizeof(filename), "slot_%u.route", slot + 1);
+    path = mkpathname(directory, filename, NULL);
+    free(directory);
+    return path;
+}
+
 static bool_t
 route_metadata_matches(const parsed_route_t *route,
-    const gate_route_context_t *context)
+    const gate_route_context_t *context, unsigned slot)
 {
-    return route->valid && route->have_airport && route->have_ramp &&
+    return route->valid && route->have_slot && route->slot == slot &&
+        route->have_airport && route->have_ramp &&
         route->have_anchor && route->have_aircraft && route->have_geometry &&
-        route->have_count && route->expected_count == route->actual_count &&
-        route->actual_count != 0 &&
+        route->have_label && route->have_final && route->have_count &&
+        route->expected_count == route->actual_count && route->actual_count != 0 &&
         strcmp(route->airport, context->airport) == 0 &&
         strcmp(route->ramp, context->ramp) == 0 &&
         strcmp(route->aircraft, context->aircraft) == 0 &&
@@ -224,6 +347,30 @@ route_metadata_matches(const parsed_route_t *route,
         GATE_ROUTE_GEOMETRY_EPSILON &&
         fabs(route->main_z - context->main_z) <=
         GATE_ROUTE_GEOMETRY_EPSILON;
+}
+
+static bool_t
+route_final_metadata_matches(const parsed_route_t *route,
+    const gate_route_context_t *context)
+{
+    const seg_t *last = list_tail(&route->segs);
+    char direction[GATE_ROUTE_DIRECTION_LEN];
+    char expected_label[16];
+    double aircraft_heading, tail_heading;
+
+    if (last == NULL)
+        return B_FALSE;
+    aircraft_heading = gate_route_heading_from_delta(context->anchor_hdg,
+        last->end_hdg);
+    tail_heading = gate_route_heading_from_delta(aircraft_heading, 180.0);
+    gate_route_tail_direction(aircraft_heading, direction, sizeof(direction));
+    (void)snprintf(expected_label, sizeof(expected_label), "Tail %s",
+        direction);
+    return fabs(gate_route_heading_delta(aircraft_heading,
+        route->final_aircraft_hdg)) <= GATE_ROUTE_FINAL_HEADING_EPSILON &&
+        fabs(gate_route_heading_delta(tail_heading,
+        route->final_tail_hdg)) <= GATE_ROUTE_FINAL_HEADING_EPSILON &&
+        strcmp(route->label, expected_label) == 0;
 }
 
 static void
@@ -313,31 +460,19 @@ parse_segment_line(const char *line, parsed_route_t *route)
     return B_TRUE;
 }
 
-bool_t
-gate_route_cache_load(const gate_route_context_t *context, list_t *segs)
+static bool_t
+read_route_file(const char *filename, parsed_route_t *route)
 {
-    char *filename, *line = NULL;
+    char *line = NULL;
     size_t line_capacity = 0;
     FILE *fp;
-    parsed_route_t route;
-    list_t best;
-    bool_t header_ok = B_FALSE, found = B_FALSE;
+    bool_t header_ok = B_FALSE, ended = B_FALSE;
 
-    ASSERT(context != NULL);
-    ASSERT(segs != NULL);
-    ASSERT(list_head(segs) == NULL);
-    if (!context->recognized)
-        return B_FALSE;
-
-    filename = mkpathname(bp_xpdir, "Output", "caches",
-        GATE_ROUTE_CACHE_FILENAME, NULL);
+    parsed_route_init(route);
+    route->active = B_TRUE;
     fp = fopen(filename, "r");
-    free(filename);
     if (fp == NULL)
         return B_FALSE;
-
-    parsed_route_init(&route);
-    list_create(&best, sizeof(seg_t), offsetof(seg_t, node));
     while (getline(&line, &line_capacity, fp) > 0) {
         strip_line_end(line);
         if (!header_ok) {
@@ -346,138 +481,231 @@ gate_route_cache_load(const gate_route_context_t *context, list_t *segs)
                 break;
             continue;
         }
-        if (strcmp(line, "route") == 0) {
-            parsed_route_reset(&route);
-        } else if (!route.active || line[0] == '\0' || line[0] == '#') {
+        if (line[0] == '\0' || line[0] == '#')
             continue;
+        if (ended) {
+            route->valid = B_FALSE;
+        } else if (strncmp(line, "slot ", 5) == 0) {
+            unsigned stored_slot;
+
+            route->have_slot = (sscanf(line, "slot %u", &stored_slot) == 1 &&
+                stored_slot >= 1 && stored_slot <= GATE_ROUTE_CACHE_SLOT_COUNT);
+            if (route->have_slot)
+                route->slot = stored_slot - 1;
+            route->valid = route->valid && route->have_slot;
         } else if (strncmp(line, "airport ", 8) == 0) {
-            route.have_airport = copy_line_value(route.airport,
-                sizeof(route.airport), line, "airport ");
-            route.valid = route.valid && route.have_airport;
+            route->have_airport = copy_line_value(route->airport,
+                sizeof(route->airport), line, "airport ");
+            route->valid = route->valid && route->have_airport;
         } else if (strncmp(line, "ramp ", 5) == 0) {
-            route.have_ramp = copy_line_value(route.ramp, sizeof(route.ramp),
-                line, "ramp ");
-            route.valid = route.valid && route.have_ramp;
+            route->have_ramp = copy_line_value(route->ramp,
+                sizeof(route->ramp), line, "ramp ");
+            route->valid = route->valid && route->have_ramp;
         } else if (strncmp(line, "anchor ", 7) == 0) {
-            route.have_anchor = (sscanf(line, "anchor %lf %lf %lf",
-                &route.anchor_geo.lat, &route.anchor_geo.lon,
-                &route.anchor_hdg) == 3 &&
-                is_valid_lat(route.anchor_geo.lat) &&
-                is_valid_lon(route.anchor_geo.lon) &&
-                isfinite(route.anchor_hdg));
-            route.valid = route.valid && route.have_anchor;
+            route->have_anchor = (sscanf(line, "anchor %lf %lf %lf",
+                &route->anchor_geo.lat, &route->anchor_geo.lon,
+                &route->anchor_hdg) == 3 &&
+                is_valid_lat(route->anchor_geo.lat) &&
+                is_valid_lon(route->anchor_geo.lon) &&
+                isfinite(route->anchor_hdg));
+            route->valid = route->valid && route->have_anchor;
         } else if (strncmp(line, "aircraft ", 9) == 0) {
-            route.have_aircraft = copy_line_value(route.aircraft,
-                sizeof(route.aircraft), line, "aircraft ");
-            route.valid = route.valid && route.have_aircraft;
+            route->have_aircraft = copy_line_value(route->aircraft,
+                sizeof(route->aircraft), line, "aircraft ");
+            route->valid = route->valid && route->have_aircraft;
         } else if (strncmp(line, "geometry ", 9) == 0) {
-            route.have_geometry = (sscanf(line, "geometry %lf %lf %lf",
-                &route.wheelbase, &route.nw_z, &route.main_z) == 3 &&
-                isfinite(route.wheelbase) && route.wheelbase > 0 &&
-                isfinite(route.nw_z) && isfinite(route.main_z));
-            route.valid = route.valid && route.have_geometry;
+            route->have_geometry = (sscanf(line, "geometry %lf %lf %lf",
+                &route->wheelbase, &route->nw_z, &route->main_z) == 3 &&
+                isfinite(route->wheelbase) && route->wheelbase > 0 &&
+                isfinite(route->nw_z) && isfinite(route->main_z));
+            route->valid = route->valid && route->have_geometry;
+        } else if (strncmp(line, "label ", 6) == 0) {
+            route->have_label = copy_line_value(route->label,
+                sizeof(route->label), line, "label ");
+            route->valid = route->valid && route->have_label;
+        } else if (strncmp(line, "final ", 6) == 0) {
+            route->have_final = (sscanf(line, "final %lf %lf",
+                &route->final_aircraft_hdg, &route->final_tail_hdg) == 2 &&
+                isfinite(route->final_aircraft_hdg) &&
+                isfinite(route->final_tail_hdg));
+            route->valid = route->valid && route->have_final;
         } else if (strncmp(line, "segments ", 9) == 0) {
-            route.have_count = (sscanf(line, "segments %u",
-                &route.expected_count) == 1 && route.expected_count > 0 &&
-                route.expected_count <= GATE_ROUTE_CACHE_MAX_SEGS);
-            route.valid = route.valid && route.have_count;
+            route->have_count = (sscanf(line, "segments %u",
+                &route->expected_count) == 1 && route->expected_count > 0 &&
+                route->expected_count <= GATE_ROUTE_CACHE_MAX_SEGS);
+            route->valid = route->valid && route->have_count;
         } else if (strncmp(line, "seg ", 4) == 0) {
-            route.valid = route.valid && parse_segment_line(line, &route);
+            route->valid = route->valid && parse_segment_line(line, route);
         } else if (strcmp(line, "endroute") == 0) {
-            if (route_metadata_matches(&route, context)) {
-                copy_route_to_local(&route, context, &best);
-                found = route_initial_pose_matches(context, &best);
-                if (!found)
-                    segment_list_clear(&best);
-            }
-            route.active = B_FALSE;
+            ended = B_TRUE;
+            route->active = B_FALSE;
         } else {
-            route.valid = B_FALSE;
+            route->valid = B_FALSE;
         }
     }
-
     free(line);
-    fclose(fp);
-    parsed_route_fini(&route);
-    if (header_ok && found)
-        list_move_tail(segs, &best);
-    segment_list_clear(&best);
-    list_destroy(&best);
-    return (header_ok && found);
+    if (fclose(fp) != 0)
+        route->valid = B_FALSE;
+    return (header_ok && ended && route->valid);
+}
+
+static void
+slot_info_from_route(const parsed_route_t *route, gate_route_slot_info_t *info)
+{
+    ASSERT(route != NULL);
+    ASSERT(info != NULL);
+    memset(info, 0, sizeof(*info));
+    info->valid = B_TRUE;
+    info->slot = route->slot;
+    info->segment_count = route->actual_count;
+    info->final_aircraft_hdg = route->final_aircraft_hdg;
+    info->final_tail_hdg = route->final_tail_hdg;
+    gate_route_tail_direction(info->final_aircraft_hdg,
+        info->tail_direction, sizeof(info->tail_direction));
 }
 
 static bool_t
-ensure_cache_directory(const char *filename)
+read_valid_slot(const gate_route_context_t *context, unsigned slot,
+    parsed_route_t *route, list_t *local)
 {
-    char *directory = strdup(filename);
-    char *separator = strrchr(directory, DIRSEP);
-    bool_t result = B_TRUE;
+    char *filename;
+    list_t temporary;
+    list_t *validation = local;
+    bool_t result;
 
-    if (separator != NULL) {
-        *separator = '\0';
-        if (!file_exists(directory, NULL) &&
-            !create_directory_recursive(directory)) {
-            result = B_FALSE;
-        }
+    filename = gate_route_slot_path(context, slot, B_FALSE);
+    if (filename == NULL) {
+        parsed_route_init(route);
+        return B_FALSE;
     }
-    free(directory);
+    result = read_route_file(filename, route);
+    free(filename);
+    if (!result || !route_metadata_matches(route, context, slot) ||
+        !route_final_metadata_matches(route, context)) {
+        return B_FALSE;
+    }
+    if (validation == NULL) {
+        list_create(&temporary, sizeof(seg_t), offsetof(seg_t, node));
+        validation = &temporary;
+    }
+    copy_route_to_local(route, context, validation);
+    result = route_initial_pose_matches(context, validation);
+    if (!result || local == NULL)
+        segment_list_clear(validation);
+    if (local == NULL)
+        list_destroy(&temporary);
+    return result;
+}
+
+unsigned
+gate_route_cache_list(const gate_route_context_t *context,
+    gate_route_slot_info_t slots[GATE_ROUTE_CACHE_SLOT_COUNT])
+{
+    unsigned count = 0;
+
+    ASSERT(context != NULL);
+    ASSERT(slots != NULL);
+    memset(slots, 0, sizeof(*slots) * GATE_ROUTE_CACHE_SLOT_COUNT);
+    if (!context->recognized)
+        return 0;
+    for (unsigned slot = 0; slot < GATE_ROUTE_CACHE_SLOT_COUNT; slot++) {
+        parsed_route_t route;
+
+        if (read_valid_slot(context, slot, &route, NULL)) {
+            slot_info_from_route(&route, &slots[slot]);
+            count++;
+        }
+        parsed_route_fini(&route);
+    }
+    return count;
+}
+
+bool_t
+gate_route_cache_load(const gate_route_context_t *context, unsigned slot,
+    list_t *segs, gate_route_slot_info_t *info)
+{
+    parsed_route_t route;
+    bool_t result;
+
+    ASSERT(context != NULL);
+    ASSERT(segs != NULL);
+    ASSERT(list_head(segs) == NULL);
+    if (!context->recognized || slot >= GATE_ROUTE_CACHE_SLOT_COUNT)
+        return B_FALSE;
+    result = read_valid_slot(context, slot, &route, segs);
+    if (result && info != NULL)
+        slot_info_from_route(&route, info);
+    parsed_route_fini(&route);
     return result;
 }
 
 static bool_t
-existing_cache_has_valid_header(const char *filename)
+replace_route_file(const char *filename, const char *temporary)
 {
-    char header[128];
-    FILE *fp = fopen(filename, "r");
-    bool_t valid;
+    bool_t result;
 
-    if (fp == NULL)
-        return B_FALSE;
-    valid = (fgets(header, sizeof(header), fp) != NULL);
-    fclose(fp);
-    if (!valid)
-        return B_FALSE;
-    strip_line_end(header);
-    return (strcmp(header, GATE_ROUTE_CACHE_HEADER) == 0);
+#if IBM
+    if (file_exists(filename, NULL)) {
+        result = ReplaceFileA(filename, temporary, NULL,
+            REPLACEFILE_IGNORE_MERGE_ERRORS | REPLACEFILE_IGNORE_ACL_ERRORS,
+            NULL, NULL) != 0;
+    } else {
+        result = (rename(temporary, filename) == 0);
+    }
+#else
+    result = (rename(temporary, filename) == 0);
+#endif
+    if (!result)
+        (void)remove(temporary);
+    return result;
 }
 
 bool_t
-gate_route_cache_save(const gate_route_context_t *context, const list_t *segs)
+gate_route_cache_save(const gate_route_context_t *context, unsigned slot,
+    const list_t *segs, gate_route_slot_info_t *info)
 {
-    char *filename;
+    char *filename, *temporary;
     FILE *fp;
-    bool_t exists, result = B_TRUE;
+    bool_t result = B_TRUE;
     unsigned count;
+    const seg_t *last;
+    gate_route_slot_info_t saved;
 
     ASSERT(context != NULL);
     ASSERT(segs != NULL);
-    if (!context->recognized || list_head(segs) == NULL ||
+    if (!context->recognized || slot >= GATE_ROUTE_CACHE_SLOT_COUNT ||
+        list_head(segs) == NULL ||
         !route_initial_pose_matches(context, segs)) {
         return B_FALSE;
     }
 
-    filename = mkpathname(bp_xpdir, "Output", "caches",
-        GATE_ROUTE_CACHE_FILENAME, NULL);
-    if (!ensure_cache_directory(filename)) {
-        free(filename);
+    filename = gate_route_slot_path(context, slot, B_TRUE);
+    if (filename == NULL)
         return B_FALSE;
-    }
-    exists = file_exists(filename, NULL);
-    if (exists && !existing_cache_has_valid_header(filename)) {
-        free(filename);
-        return B_FALSE;
-    }
-
-    fp = fopen(filename, exists ? "a" : "w");
+    temporary = sprintf_alloc("%s.tmp", filename);
+    fp = fopen(temporary, "w");
     if (fp == NULL) {
+        free(temporary);
         free(filename);
         return B_FALSE;
     }
-    if (!exists)
-        fprintf(fp, "%s\n", GATE_ROUTE_CACHE_HEADER);
 
     count = segment_list_count(segs);
-    fprintf(fp, "\nroute\n");
+    last = list_tail(segs);
+    memset(&saved, 0, sizeof(saved));
+    saved.valid = B_TRUE;
+    saved.slot = slot;
+    saved.segment_count = count;
+    saved.final_aircraft_hdg = gate_route_heading_from_delta(
+        context->anchor_hdg, gate_route_heading_delta(context->frame_hdg,
+        last->end_hdg));
+    saved.final_tail_hdg = gate_route_heading_from_delta(
+        saved.final_aircraft_hdg, 180.0);
+    gate_route_tail_direction(saved.final_aircraft_hdg,
+        saved.tail_direction, sizeof(saved.tail_direction));
+
+    fprintf(fp, "%s\n", GATE_ROUTE_CACHE_HEADER);
+    fprintf(fp, "slot %u\n", slot + 1);
     fprintf(fp, "airport %s\n", context->airport);
     fprintf(fp, "ramp %s\n", context->ramp);
     fprintf(fp, "anchor %.17f %.17f %.9f\n", context->anchor_geo.lat,
@@ -485,6 +713,9 @@ gate_route_cache_save(const gate_route_context_t *context, const list_t *segs)
     fprintf(fp, "aircraft %s\n", context->aircraft);
     fprintf(fp, "geometry %.9f %.9f %.9f\n", context->wheelbase,
         context->nw_z, context->main_z);
+    fprintf(fp, "label Tail %s\n", saved.tail_direction);
+    fprintf(fp, "final %.9f %.9f\n", saved.final_aircraft_hdg,
+        saved.final_tail_hdg);
     fprintf(fp, "segments %u\n", count);
     for (const seg_t *seg = list_head(segs); seg != NULL;
          seg = list_next(segs, seg)) {
@@ -513,6 +744,13 @@ gate_route_cache_save(const gate_route_context_t *context, const list_t *segs)
         result = B_FALSE;
     if (fclose(fp) != 0)
         result = B_FALSE;
+    if (result)
+        result = replace_route_file(filename, temporary);
+    else
+        (void)remove(temporary);
+    if (result && info != NULL)
+        *info = saved;
+    free(temporary);
     free(filename);
     return result;
 }

@@ -26,6 +26,8 @@
 #include <string.h>
 #include <stddef.h>
 #include <errno.h>
+#include <ctype.h>
+#include <stdarg.h>
 
 #include <png.h>
 
@@ -58,6 +60,7 @@
 #include "bp_cam.h"
 #include "driving.h"
 #include "gate_route_cache.h"
+#include "gate_route_slots.h"
 #include "planner_cache.h"
 #include "realism_config.h"
 #include "vehicle_physics.h"
@@ -102,6 +105,12 @@
 #define COMPASS_ROSE_ARROW_DEPTH 10
 #define COMPASS_ROSE_SEGMENTS 48
 #define COMPASS_ROSE_RIGHT_CLEARANCE 64
+
+#define ROUTE_PROMPT_WIDTH 640
+#define ROUTE_PROMPT_OPTION_HEIGHT 46
+#define ROUTE_PROMPT_OPTION_GAP 10
+#define ROUTE_PROMPT_HEADER_HEIGHT 82
+#define ROUTE_PROMPT_SIDE_PADDING 24
 
 #define PREDICTION_DRAWING_PHASE xplm_Phase_Window
 #define PREDICTION_DRAWING_PHASE_BEFORE 1
@@ -151,6 +160,34 @@ static bool_t planner_band_failure_announced;
 static planner_cache_state_t planner_path_cache;
 static planner_prediction_key_t planner_pred_key;
 static gate_route_context_t planner_gate_context;
+
+typedef enum {
+    PLANNER_ROUTE_PROMPT_NONE,
+    PLANNER_ROUTE_PROMPT_SELECT,
+    PLANNER_ROUTE_PROMPT_REPLACE
+} planner_route_prompt_t;
+
+typedef struct {
+    int left;
+    int bottom;
+    int right;
+    int top;
+} planner_route_prompt_rect_t;
+
+typedef struct {
+    planner_route_prompt_t prompt;
+    gate_route_slot_info_t slots[GATE_ROUTE_CACHE_SLOT_COUNT];
+    unsigned slot_count;
+    int loaded_slot;
+    int save_slot;
+    int hover_choice;
+    int mouse_down_choice;
+    bool_t dirty;
+    bool_t new_route;
+    bool_t suppress_save;
+} planner_gate_route_state_t;
+
+static planner_gate_route_state_t planner_gate_routes;
 static uint64_t planner_cursor_solve_count;
 static uint64_t planner_cursor_reuse_count;
 static float fsaved_cloud_types[3];
@@ -1640,6 +1677,326 @@ draw_compass_rose(void)
     }
 }
 
+static char planner_route_message[256];
+
+static void
+planner_gate_route_state_reset(void)
+{
+    memset(&planner_gate_routes, 0, sizeof(planner_gate_routes));
+    planner_gate_routes.loaded_slot = -1;
+    planner_gate_routes.save_slot = -1;
+    planner_gate_routes.hover_choice = -1;
+    planner_gate_routes.mouse_down_choice = -1;
+}
+
+static int
+planner_first_empty_route_slot(void)
+{
+    bool occupied[GATE_ROUTE_CACHE_SLOT_COUNT];
+
+    for (unsigned slot = 0; slot < GATE_ROUTE_CACHE_SLOT_COUNT; slot++) {
+        occupied[slot] = planner_gate_routes.slots[slot].valid != B_FALSE;
+    }
+    return gate_route_first_empty_slot(occupied,
+        GATE_ROUTE_CACHE_SLOT_COUNT);
+}
+
+static unsigned
+planner_route_prompt_option_count(void)
+{
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT)
+        return 3;
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_REPLACE)
+        return 4;
+    return 0;
+}
+
+static planner_route_prompt_rect_t
+planner_route_prompt_panel_rect(void)
+{
+    unsigned options = planner_route_prompt_option_count();
+    int width = MIN(ROUTE_PROMPT_WIDTH, monitor_def.w - 80);
+    int height = ROUTE_PROMPT_HEADER_HEIGHT + ROUTE_PROMPT_SIDE_PADDING +
+        (int)options * ROUTE_PROMPT_OPTION_HEIGHT +
+        (int)(options - 1) * ROUTE_PROMPT_OPTION_GAP;
+    int center_x = monitor_def.x_origin + monitor_def.w / 2;
+    int center_y = monitor_def.y_origin + monitor_def.h / 2;
+
+    return (planner_route_prompt_rect_t){
+        .left = center_x - width / 2,
+        .bottom = center_y - height / 2,
+        .right = center_x + width / 2,
+        .top = center_y + height / 2
+    };
+}
+
+static planner_route_prompt_rect_t
+planner_route_prompt_option_rect(unsigned choice)
+{
+    planner_route_prompt_rect_t panel = planner_route_prompt_panel_rect();
+    int top = panel.top - ROUTE_PROMPT_HEADER_HEIGHT -
+        (int)choice * (ROUTE_PROMPT_OPTION_HEIGHT + ROUTE_PROMPT_OPTION_GAP);
+
+    return (planner_route_prompt_rect_t){
+        .left = panel.left + ROUTE_PROMPT_SIDE_PADDING,
+        .bottom = top - ROUTE_PROMPT_OPTION_HEIGHT,
+        .right = panel.right - ROUTE_PROMPT_SIDE_PADDING,
+        .top = top
+    };
+}
+
+static bool_t
+planner_route_prompt_choice_enabled(unsigned choice)
+{
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT &&
+        choice < GATE_ROUTE_CACHE_SLOT_COUNT) {
+        return planner_gate_routes.slots[choice].valid;
+    }
+    return (choice < planner_route_prompt_option_count());
+}
+
+static int
+planner_route_prompt_hit_check(int x, int y)
+{
+    for (unsigned choice = 0; choice < planner_route_prompt_option_count();
+         choice++) {
+        planner_route_prompt_rect_t rect =
+            planner_route_prompt_option_rect(choice);
+
+        if (planner_route_prompt_choice_enabled(choice) && x >= rect.left &&
+            x <= rect.right && y >= rect.bottom && y <= rect.top) {
+            return (int)choice;
+        }
+    }
+    return -1;
+}
+
+static void
+planner_route_prompt_option_text(unsigned choice, char *text,
+    size_t capacity)
+{
+    ASSERT(text != NULL);
+    ASSERT(capacity != 0);
+    text[0] = '\0';
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT) {
+        if (choice < GATE_ROUTE_CACHE_SLOT_COUNT) {
+            const gate_route_slot_info_t *slot =
+                &planner_gate_routes.slots[choice];
+
+            if (slot->valid) {
+                (void)snprintf(text, capacity,
+                    "%u  Use Route %u - Tail %s - aircraft heading %03.0f deg",
+                    choice + 1, choice + 1, slot->tail_direction,
+                    slot->final_aircraft_hdg);
+            } else {
+                (void)snprintf(text, capacity, "Route %u - not saved",
+                    choice + 1);
+            }
+        } else {
+            (void)snprintf(text, capacity, "N  Plan a new manual route");
+        }
+    } else if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_REPLACE) {
+        if (choice < GATE_ROUTE_CACHE_SLOT_COUNT) {
+            const gate_route_slot_info_t *slot =
+                &planner_gate_routes.slots[choice];
+
+            (void)snprintf(text, capacity,
+                "%u  Replace Route %u - Tail %s - aircraft heading %03.0f deg",
+                choice + 1, choice + 1, slot->tail_direction,
+                slot->final_aircraft_hdg);
+        } else if (choice == GATE_ROUTE_CACHE_SLOT_COUNT) {
+            (void)snprintf(text, capacity, "U  Use once without saving");
+        } else {
+            (void)snprintf(text, capacity, "B  Back to the planner");
+        }
+    }
+}
+
+static void
+draw_planner_route_prompt(void)
+{
+    planner_route_prompt_rect_t panel;
+    float title_color[3] = {1.0f, 1.0f, 1.0f};
+    float text_color[3] = {0.88f, 0.90f, 0.94f};
+    char title[160];
+    char instruction[200];
+
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_NONE)
+        return;
+    panel = planner_route_prompt_panel_rect();
+    XPLMDrawTranslucentDarkBox(panel.left, panel.top, panel.right,
+        panel.bottom);
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT) {
+        (void)snprintf(title, sizeof(title), "Saved routes for %s %s",
+            planner_gate_context.airport, planner_gate_context.ramp);
+        (void)snprintf(instruction, sizeof(instruction),
+            "Choose a saved route or begin a new manual plan.");
+    } else {
+        (void)snprintf(title, sizeof(title),
+            "Both saved-route slots are occupied");
+        (void)snprintf(instruction, sizeof(instruction),
+            "Choose which route to replace, use this plan once, or go back.");
+    }
+    XPLMDrawString(title_color, panel.left + ROUTE_PROMPT_SIDE_PADDING,
+        panel.top - 30, title, NULL, xplmFont_Proportional);
+    XPLMDrawString(text_color, panel.left + ROUTE_PROMPT_SIDE_PADDING,
+        panel.top - 56, instruction, NULL, xplmFont_Proportional);
+
+    for (unsigned choice = 0; choice < planner_route_prompt_option_count();
+         choice++) {
+        planner_route_prompt_rect_t rect =
+            planner_route_prompt_option_rect(choice);
+        bool_t enabled = planner_route_prompt_choice_enabled(choice);
+        char label[192];
+        float label_color[3] = {enabled ? 1.0f : 0.52f,
+            enabled ? 1.0f : 0.54f, enabled ? 1.0f : 0.58f};
+
+        XPLMSetGraphicsState(0, 0, 0, 0, 1, 0, 0);
+        glColor4f(choice == (unsigned)planner_gate_routes.hover_choice ?
+            0.18f : 0.08f, choice ==
+            (unsigned)planner_gate_routes.hover_choice ? 0.48f : 0.20f,
+            choice == (unsigned)planner_gate_routes.hover_choice ?
+            0.62f : 0.28f, enabled ? 0.92f : 0.55f);
+        glBegin(GL_QUADS);
+        glVertex2i(rect.left, rect.bottom);
+        glVertex2i(rect.right, rect.bottom);
+        glVertex2i(rect.right, rect.top);
+        glVertex2i(rect.left, rect.top);
+        glEnd();
+        planner_route_prompt_option_text(choice, label, sizeof(label));
+        XPLMDrawString(label_color, rect.left + 16, rect.bottom + 16, label,
+            NULL, xplmFont_Proportional);
+    }
+}
+
+static void
+planner_route_show_message(const char *format, ...)
+{
+    va_list args;
+
+    va_start(args, format);
+    (void)vsnprintf(planner_route_message, sizeof(planner_route_message),
+        format, args);
+    va_end(args);
+    init_bottom_msg(planner_route_message);
+}
+
+static void
+planner_route_select_saved(unsigned slot)
+{
+    gate_route_slot_info_t info;
+
+    ASSERT(slot < GATE_ROUTE_CACHE_SLOT_COUNT);
+    bp_delete_all_segs();
+    planner_clear_predicted_segments();
+    planner_prediction_key_invalidate(&planner_pred_key);
+    if (!gate_route_cache_load(&planner_gate_context, slot, &bp.segs, &info)) {
+        planner_gate_routes.slots[slot].valid = B_FALSE;
+        planner_gate_routes.slot_count = gate_route_cache_list(
+            &planner_gate_context, planner_gate_routes.slots);
+        planner_gate_routes.prompt = planner_gate_routes.slot_count != 0 ?
+            PLANNER_ROUTE_PROMPT_SELECT : PLANNER_ROUTE_PROMPT_NONE;
+        planner_gate_routes.save_slot = planner_first_empty_route_slot();
+        planner_gate_routes.new_route = B_TRUE;
+        logMsg(BP_WARN_LOG "Gate route slot %u could not be loaded for %s "
+            "%s; planner remains in manual mode", slot + 1,
+            planner_gate_context.airport, planner_gate_context.ramp);
+        return;
+    }
+    planner_gate_routes.slots[slot] = info;
+    planner_gate_routes.loaded_slot = (int)slot;
+    planner_gate_routes.save_slot = (int)slot;
+    planner_gate_routes.dirty = B_FALSE;
+    planner_gate_routes.new_route = B_FALSE;
+    planner_gate_routes.suppress_save = B_FALSE;
+    planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+    planner_route_show_message("Loaded Route %u - Tail %s - aircraft heading "
+        "%03.0f deg", slot + 1, info.tail_direction,
+        info.final_aircraft_hdg);
+    logMsg(BP_INFO_LOG "Gate route slot %u recalled for %s %s; Tail %s, "
+        "final aircraft heading %.2f degrees", slot + 1,
+        planner_gate_context.airport, planner_gate_context.ramp,
+        info.tail_direction, info.final_aircraft_hdg);
+}
+
+static void
+planner_route_begin_new(void)
+{
+    bp_delete_all_segs();
+    planner_clear_predicted_segments();
+    planner_prediction_key_invalidate(&planner_pred_key);
+    planner_gate_routes.loaded_slot = -1;
+    planner_gate_routes.save_slot = planner_first_empty_route_slot();
+    planner_gate_routes.dirty = B_FALSE;
+    planner_gate_routes.new_route = B_TRUE;
+    planner_gate_routes.suppress_save = B_FALSE;
+    planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+    if (planner_gate_routes.save_slot >= 0) {
+        planner_route_show_message("New manual route will be saved as Route "
+            "%u", planner_gate_routes.save_slot + 1);
+    } else {
+        planner_route_show_message("Plan a new manual route; Enter will ask "
+            "which saved route to replace");
+    }
+    logMsg(BP_INFO_LOG "New manual route selected for %s %s; save slot %d",
+        planner_gate_context.airport, planner_gate_context.ramp,
+        planner_gate_routes.save_slot + 1);
+}
+
+static void
+planner_route_accept_and_close(void)
+{
+    gate_route_save_policy_t policy;
+
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT)
+        return;
+    policy = gate_route_slot_save_policy(
+        planner_gate_context.recognized != B_FALSE,
+        list_head(&bp.segs) != NULL,
+        planner_gate_routes.suppress_save != B_FALSE,
+        planner_gate_routes.loaded_slot, planner_gate_routes.save_slot,
+        planner_gate_routes.dirty != B_FALSE,
+        planner_gate_routes.new_route != B_FALSE);
+    if (policy == GATE_ROUTE_SAVE_NEEDS_REPLACEMENT) {
+        planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_REPLACE;
+        planner_gate_routes.hover_choice = -1;
+        planner_gate_routes.mouse_down_choice = -1;
+        return;
+    }
+    XPLMCommandOnce(XPLMFindCommand("BetterPushback/stop_planner"));
+}
+
+static void
+planner_route_prompt_choose(unsigned choice)
+{
+    if (!planner_route_prompt_choice_enabled(choice))
+        return;
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT) {
+        if (choice < GATE_ROUTE_CACHE_SLOT_COUNT)
+            planner_route_select_saved(choice);
+        else
+            planner_route_begin_new();
+        return;
+    }
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_REPLACE)
+        return;
+    if (choice < GATE_ROUTE_CACHE_SLOT_COUNT) {
+        planner_gate_routes.save_slot = (int)choice;
+        planner_gate_routes.suppress_save = B_FALSE;
+        planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+        planner_route_accept_and_close();
+    } else if (choice == GATE_ROUTE_CACHE_SLOT_COUNT) {
+        planner_gate_routes.save_slot = -1;
+        planner_gate_routes.suppress_save = B_TRUE;
+        planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+        planner_route_accept_and_close();
+    } else {
+        planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+        planner_gate_routes.hover_choice = -1;
+        planner_gate_routes.mouse_down_choice = -1;
+    }
+}
+
 static void
 fake_win_draw(XPLMWindowID inWindowID, void *inRefcon)
 {
@@ -1674,8 +2031,10 @@ if (bp_plan_callback_is_alive == 0) {
     scale = (double)h / h_buttons;
     scale = MIN(scale, 1);
     /* don't draw the buttons if we don't have enough space for them */
-    if (scale < MIN_BUTTON_SCALE)
+    if (scale < MIN_BUTTON_SCALE) {
+        draw_planner_route_prompt();
         return;
+    }
 
     h_off = (h + (h_buttons * scale)) / 2;
     for (int i = 0; buttons[i].filename != NULL;
@@ -1695,8 +2054,10 @@ if (bp_plan_callback_is_alive == 0) {
         draw_bottom_msg(w, h);
     }
 
-    draw_prediction(0, 0, NULL);
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_SELECT)
+        draw_prediction(0, 0, NULL);
     draw_compass_rose();
+    draw_planner_route_prompt();
 }
 
 static int
@@ -1747,9 +2108,14 @@ fake_win_cursor(XPLMWindowID inWindowID, int x, int y, void *inRefcon)
     int lit;
 
     UNUSED(inWindowID);
-    UNUSED(x);
-    UNUSED(y);
     UNUSED(inRefcon);
+
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_NONE) {
+        planner_gate_routes.hover_choice =
+            planner_route_prompt_hit_check(x, y);
+        button_lit = -1;
+        return (xplm_CursorDefault);
+    }
 
     if ((lit = button_hit_check(x, y)) != -1 && buttons[lit].vk != -1)
         button_lit = lit;
@@ -1769,6 +2135,25 @@ fake_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
 
     UNUSED(inWindowID);
     UNUSED(inRefcon);
+
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_NONE) {
+        int choice = planner_route_prompt_hit_check(x, y);
+
+        if (inMouse == xplm_MouseDown) {
+            planner_gate_routes.mouse_down_choice = choice;
+            force_root_win_focus = B_FALSE;
+        } else if (inMouse == xplm_MouseDrag) {
+            planner_gate_routes.hover_choice = choice;
+        } else {
+            if (choice != -1 &&
+                choice == planner_gate_routes.mouse_down_choice) {
+                planner_route_prompt_choose((unsigned)choice);
+            }
+            planner_gate_routes.mouse_down_choice = -1;
+            force_root_win_focus = B_TRUE;
+        }
+        return (1);
+    }
 
     /*
      * The mouse handling logic is as follows:
@@ -1837,6 +2222,8 @@ fake_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
                  * Transfer whatever is in pred_segs to
                  * the normal segments and clear pred_segs.
                  */
+                if (list_head(&pred_segs) != NULL)
+                    planner_gate_routes.dirty = B_TRUE;
                 list_move_tail(&bp.segs, &pred_segs);
             }
         }
@@ -1857,6 +2244,9 @@ fake_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
     UNUSED(wheel);
     UNUSED(clicks);
     UNUSED(inRefcon);
+
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_NONE)
+        return (1);
 
     if (wheel == 0 && clicks != 0)
     {
@@ -1881,19 +2271,48 @@ fake_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
 static int
 key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon)
 {
-    UNUSED(inChar);
     UNUSED(refcon);
 
     /* Only allow the plain key to be pressed, no modifiers */
     if (inFlags != xplm_DownFlag)
         return (1);
 
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_NONE) {
+        unsigned char key = (unsigned char)toupper((unsigned char)inChar);
+
+        if (key == '1') {
+            planner_route_prompt_choose(0);
+            return (0);
+        }
+        if (key == '2') {
+            planner_route_prompt_choose(1);
+            return (0);
+        }
+        if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT &&
+            key == 'N') {
+            planner_route_prompt_choose(GATE_ROUTE_CACHE_SLOT_COUNT);
+            return (0);
+        }
+        if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_REPLACE) {
+            if (key == 'U') {
+                planner_route_prompt_choose(GATE_ROUTE_CACHE_SLOT_COUNT);
+                return (0);
+            }
+            if (key == 'B' || inVirtualKey == XPLM_VK_ESCAPE) {
+                planner_route_prompt_choose(GATE_ROUTE_CACHE_SLOT_COUNT + 1);
+                return (0);
+            }
+        }
+        if (inVirtualKey != XPLM_VK_ESCAPE)
+            return (0);
+    }
+
     switch ((unsigned char)inVirtualKey)
     {
     case XPLM_VK_RETURN:
     case XPLM_VK_ENTER:
     case XPLM_VK_NUMPAD_ENT:
-        XPLMCommandOnce(XPLMFindCommand("BetterPushback/stop_planner"));
+        planner_route_accept_and_close();
         return (0);
     case XPLM_VK_ESCAPE:
         bp_delete_all_segs();
@@ -1903,6 +2322,8 @@ key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon)
     case XPLM_VK_BACK:
     case XPLM_VK_DELETE:
         /* Delete the segments up to the next user-placed segment */
+        if (list_tail(&bp.segs) != NULL)
+            planner_gate_routes.dirty = B_TRUE;
         free(list_remove_tail(&bp.segs));
         for (seg_t *seg = list_tail(&bp.segs); seg != NULL &&
                                                !seg->user_placed;
@@ -2117,6 +2538,7 @@ bp_cam_start(void)
     planner_band_failure_announced = B_FALSE;
     planner_cursor_solve_count = 0;
     planner_cursor_reuse_count = 0;
+    planner_gate_route_state_reset();
     logMsg(BP_INFO_LOG "Planner trajectory cache initialized");
     force_root_win_focus = B_TRUE;
     cam_height = 15 * bp.veh.wheelbase;
@@ -2141,30 +2563,44 @@ bp_cam_start(void)
     at_published_start = planner_prepare_gate_context(
         &gate_match_distance, &gate_match_heading);
     if (list_head(&bp.segs) == NULL) {
-        if (at_published_start &&
-            gate_route_cache_load(&planner_gate_context, &bp.segs)) {
-            logMsg(BP_INFO_LOG "Gate route cache recalled for %s %s; "
-                "published anchor %.8f, %.8f at %.2f degrees",
-                planner_gate_context.airport, planner_gate_context.ramp,
-                planner_gate_context.anchor_geo.lat,
-                planner_gate_context.anchor_geo.lon,
-                planner_gate_context.anchor_hdg);
-        } else if (at_published_start) {
-            logMsg(BP_INFO_LOG "Published start recognized: %s %s "
-                "(nosewheel match %.2f m, %.2f degrees); no compatible "
-                "saved route, planner opened for manual placement",
-                planner_gate_context.airport, planner_gate_context.ramp,
-                gate_match_distance, gate_match_heading);
+        if (at_published_start) {
+            planner_gate_routes.slot_count = gate_route_cache_list(
+                &planner_gate_context, planner_gate_routes.slots);
+            if (planner_gate_routes.slot_count != 0) {
+                planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_SELECT;
+                logMsg(BP_INFO_LOG "Published start recognized: %s %s "
+                    "(nosewheel match %.2f m, %.2f degrees); %u compatible "
+                    "saved route slot%s available for pilot selection",
+                    planner_gate_context.airport,
+                    planner_gate_context.ramp, gate_match_distance,
+                    gate_match_heading, planner_gate_routes.slot_count,
+                    planner_gate_routes.slot_count == 1 ? "" : "s");
+            } else {
+                planner_gate_routes.save_slot = 0;
+                planner_gate_routes.new_route = B_TRUE;
+                logMsg(BP_INFO_LOG "Published start recognized: %s %s "
+                    "(nosewheel match %.2f m, %.2f degrees); no compatible "
+                    "saved route slots, planner opened for manual placement",
+                    planner_gate_context.airport,
+                    planner_gate_context.ramp, gate_match_distance,
+                    gate_match_heading);
+            }
         } else {
+            planner_gate_routes.new_route = B_TRUE;
+            planner_gate_routes.suppress_save = B_TRUE;
             logMsg(BP_INFO_LOG "No unique published apt.dat start matched; "
                 "planner begins at the live nosewheel and this route will "
                 "not be saved persistently");
         }
     } else if (at_published_start) {
+        planner_gate_routes.slot_count = gate_route_cache_list(
+            &planner_gate_context, planner_gate_routes.slots);
+        planner_gate_routes.suppress_save = B_TRUE;
         logMsg(BP_INFO_LOG "Planner retained the pilot's current in-session "
-            "route at published start %s %s",
+            "route at published start %s %s; no saved slot will be changed",
             planner_gate_context.airport, planner_gate_context.ramp);
     } else {
+        planner_gate_routes.suppress_save = B_TRUE;
         logMsg(BP_INFO_LOG "Planner retained the pilot's current in-session "
             "route; current position is not a unique published apt.dat "
             "start, so persistent saving is disabled");
@@ -2259,16 +2695,42 @@ bp_cam_stop(void)
             logMsg(BP_INFO_LOG "Route remains available for this pushback "
                 "session but was not saved: aircraft did not start at a "
                 "unique published apt.dat location");
-        } else if (gate_route_cache_save(&planner_gate_context, &bp.segs)) {
-            logMsg(BP_INFO_LOG "Gate route cache saved for %s %s; anchor "
-                "%.8f, %.8f at %.2f degrees",
-                planner_gate_context.airport, planner_gate_context.ramp,
-                planner_gate_context.anchor_geo.lat,
-                planner_gate_context.anchor_geo.lon,
-                planner_gate_context.anchor_hdg);
+        } else if (planner_gate_routes.suppress_save) {
+            logMsg(BP_INFO_LOG "Route accepted for this pushback without "
+                "changing either saved route slot for %s %s",
+                planner_gate_context.airport, planner_gate_context.ramp);
+        } else if (planner_gate_routes.loaded_slot >= 0 &&
+            !planner_gate_routes.dirty) {
+            logMsg(BP_INFO_LOG "Gate route slot %u accepted unchanged for "
+                "%s %s; cache file was not rewritten",
+                planner_gate_routes.loaded_slot + 1,
+                planner_gate_context.airport, planner_gate_context.ramp);
+        } else if (planner_gate_routes.save_slot >= 0) {
+            gate_route_slot_info_t saved;
+
+            if (gate_route_cache_save(&planner_gate_context,
+                (unsigned)planner_gate_routes.save_slot, &bp.segs, &saved)) {
+                planner_gate_routes.slots[saved.slot] = saved;
+                logMsg(BP_INFO_LOG "Gate route slot %u saved for %s %s; "
+                    "Tail %s, final aircraft heading %.2f degrees, anchor "
+                    "%.8f, %.8f at %.2f degrees",
+                    saved.slot + 1, planner_gate_context.airport,
+                    planner_gate_context.ramp, saved.tail_direction,
+                    saved.final_aircraft_hdg,
+                    planner_gate_context.anchor_geo.lat,
+                    planner_gate_context.anchor_geo.lon,
+                    planner_gate_context.anchor_hdg);
+            } else {
+                logMsg(BP_WARN_LOG "Gate route slot %u was not saved for "
+                    "%s %s: route start or slot file validation failed",
+                    planner_gate_routes.save_slot + 1,
+                    planner_gate_context.airport,
+                    planner_gate_context.ramp);
+            }
         } else {
-            logMsg(BP_WARN_LOG "Gate route cache was not saved for %s %s: "
-                "route start or cache file validation failed",
+            logMsg(BP_INFO_LOG "Route accepted for this pushback without "
+                "changing either saved route slot for %s %s because no "
+                "replacement slot was selected",
                 planner_gate_context.airport, planner_gate_context.ramp);
         }
     }

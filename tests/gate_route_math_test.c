@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "gate_route_math.h"
 
@@ -73,6 +74,23 @@ test_same_offsets_rebuild_at_new_local_origin(void)
     assert(near(rebuilt_y, -3030.0));
 }
 
+static void
+test_tail_direction_labels(void)
+{
+    char direction[4];
+
+    gate_route_tail_direction(180.0, direction, sizeof(direction));
+    assert(strcmp(direction, "N") == 0);
+    gate_route_tail_direction(0.0, direction, sizeof(direction));
+    assert(strcmp(direction, "S") == 0);
+    gate_route_tail_direction(225.0, direction, sizeof(direction));
+    assert(strcmp(direction, "NE") == 0);
+    gate_route_tail_direction(135.0, direction, sizeof(direction));
+    assert(strcmp(direction, "NW") == 0);
+    gate_route_tail_direction(NAN, direction, sizeof(direction));
+    assert(direction[0] == '\0');
+}
+
 int
 main(void)
 {
@@ -81,6 +99,7 @@ main(void)
     test_anchor_relative_round_trip();
     test_nosewheel_anchor_reconstructs_main_gear();
     test_same_offsets_rebuild_at_new_local_origin();
+    test_tail_direction_labels();
     puts("gate route math tests passed");
     return 0;
 }

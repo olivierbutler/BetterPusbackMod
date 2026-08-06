@@ -1,6 +1,7 @@
 #include "gate_route_math.h"
 
 #include <math.h>
+#include <stdio.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -70,4 +71,24 @@ gate_route_point_from_relative(double relative_x, double relative_y,
 
     *point_x = anchor_x + relative_x * cosine + relative_y * sine;
     *point_y = anchor_y - relative_x * sine + relative_y * cosine;
+}
+
+void
+gate_route_tail_direction(double final_aircraft_heading_deg, char *direction,
+    size_t capacity)
+{
+    static const char *const compass[] = {
+        "N", "NE", "E", "SE", "S", "SW", "W", "NW"
+    };
+    double tail_heading;
+    unsigned index;
+
+    if (direction == NULL || capacity == 0)
+        return;
+    direction[0] = '\0';
+    if (!isfinite(final_aircraft_heading_deg))
+        return;
+    tail_heading = normalize_heading(final_aircraft_heading_deg + 180.0);
+    index = (unsigned)floor((tail_heading + 22.5) / 45.0) % 8;
+    (void)snprintf(direction, capacity, "%s", compass[index]);
 }

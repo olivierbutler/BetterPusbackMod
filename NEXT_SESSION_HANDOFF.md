@@ -6,10 +6,12 @@ Branch: `feature/realistic-tug-physics`
 
 ## Start here
 
-Phase 7 Corrective Slice 5 is the **simulator-accepted baseline**. The
-gate-anchored persistent-cache rewrite is built, installed, and validated. It
-preserves the manual planner and does not restore any automatic wind/runway
-proposal behavior.
+Phase 7 Corrective Slice 6 is the **simulator-accepted baseline**. It adds two
+pilot-selectable saved routes per published gate and compatible aircraft
+profile, stored as separate files under
+`Output/caches/BetterPushback_Gate_Routes`. The implementation preserves the
+manual planner and does not restore any automatic wind/runway proposal
+behavior.
 
 The accepted implementation is committed on `feature/realistic-tug-physics`.
 Preserve the user's accumulated fork. Do not reset, clean, revert, or replace
@@ -34,6 +36,9 @@ unrelated work.
 - The internal controller continues to use the main-gear path. The pilot-facing
   blue trajectory is the corresponding nosewheel path, so its first point is
   the published start without changing accepted steering physics.
+- Each gate/aircraft profile has two persistent route slots. Existing slots are
+  selected explicitly before the planner loads a route; a third plan requires
+  explicit replacement or **Use once without saving**.
 
 ## Rejected automatic proposal
 
@@ -48,12 +53,12 @@ dedicated `src/airport_flow.c`, `src/airport_flow.h`, unit test, and runner were
 deleted. Source and binary-string audits found no remaining operational proposal
 references.
 
-## Currently installed and accepted gate-cache rewrite
+## Currently installed accepted baseline
 
 - Windows SHA-256:
-  `13BA30F5BCFA759B0B1BBE8FFB4BA0295819BEC0F203E8C19801BC3B796D3725`
+  `67C6A63380A6AFE9140A84F596CF93C30A8F3442AC068224A65555CC92A708E3`
 - Linux SHA-256:
-  `D9D98FF7C593E818B4E8850D77A38EC08B8643F4BBAB1E520EDA3A98768DC089`
+  `A81481AC9042AD3B75463550783C7ED134842DD998E740B7F815AB1414CB4673`
 
 Installed at:
 
@@ -77,37 +82,64 @@ Installed at:
 - Exact evidence is preserved at
   `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\phase7-slice5-validation1-accepted-20260805`.
 
+Corrective Slice 6 passed the full two-aircraft slot matrix at KCOS Gate 8 on
+2026-08-05:
+
+1. The 737-700NG created Route 1 (`Tail S`, 359.20 degrees) from an empty
+   compatible profile, then created Route 2 (`Tail N`, 180.70 degrees) without
+   changing Route 1.
+2. A third 737 session offered both saved routes. Route 1 was recalled, edited,
+   and saved back to Slot 1 at 359.70 degrees. The final chooser showed the
+   edited Route 1 at 360 degrees and unchanged Route 2 at 181 degrees.
+3. The Felis B742 at the same gate found no compatible 737 slots, proving
+   aircraft-profile isolation. It created its own Route 1 (`Tail S`, 0.70
+   degrees) and Route 2 (`Tail E`, 268.20 degrees).
+4. Final chooser screenshots showed exactly the correct two routes for each
+   aircraft. The cache tree contains four version-2 route files in two aircraft
+   profile directories, all anchored to `38.79933100, -104.70027200` at 269.20
+   degrees, with no temporary files left behind.
+5. All five planner summaries reported zero failures. All five telemetry files
+   contain the complete sequence through `driving_away` with no NaN or infinity
+   values, and all five Ground Ops sessions ended at controller `off`, prep
+   `complete`, followed by clean plugin unload.
+6. The accepted logs, telemetry, screenshots, complete cache directory, and
+   exact installed binaries are preserved at
+   `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\phase7-slice6-validation1-accepted-20260805`.
+
+The old root-level `BetterPushback_gate_routes_v1.dat` remains ignored by the
+accepted implementation.
+
 ## Next work
 
-The published-start cache-route problem is resolved and accepted. Await the
-user's next requested diagnostic or implementation scope. Do not alter the
-manual planner or gate-anchor cache contract without new simulator evidence and
-explicit direction.
+Await the user's next requested phase. Do not change the accepted manual planner
+or gate-route behavior without a new explicit requirement.
 
 ## Verification completed
 
-- Six current automated regression scripts passed, including the new strict
-  gate-anchor and relative-coordinate math test.
+- Seven current automated regression scripts passed, including strict
+  gate-anchor math and the new two-slot save-policy test.
 - Windows and Linux warnings-as-errors release builds passed.
 - Source audit found no automatic proposal implementation references.
 - Windows and Linux binary-string audits found no proposal messages.
 - Planner-source `git diff --check` passed.
-- Two-stage simulator validation passed from a clean cache slate: initial save,
-  exact Gate 8 recall, successful pushback, and successful ground-operations
-  completion in both runs.
+- The full five-operation, two-aircraft Corrective Slice 6 simulator matrix
+  passed, including two slots per aircraft, recalled-route editing, cache
+  isolation, clean push/clear completion, and final per-aircraft chooser reloads.
 
 ## Relevant files
 
 - `src/bp_cam.c`: restored manual planner startup and interaction.
-- `src/gate_route_cache.c` and `.h`: active published-start recognition and the
-  new append-only, versioned persistent cache.
+- `src/gate_route_cache.c` and `.h`: published-start recognition plus isolated,
+  atomic version-2 slot files in the dedicated gate-route folder.
 - `src/gate_route_math.c` and `.h`: strict start-pose guard and reversible
-  anchor-relative transforms.
+  anchor-relative transforms plus tail-direction labels.
+- `src/gate_route_slots.c` and `.h`: deterministic empty-slot and save-policy
+  decisions shared by the planner and focused tests.
 - `src/driving.c` and `src/driving.h`: dormant legacy route-table tooling; the
   active planner does not call its old persistent load/save interface.
 - `src/planner_cache.c` and `src/planner_cache.h`: trajectory-render cache, not
   the persistent saved gate-route workflow.
-- `PHASE_TESTING.md`: full history and accepted Corrective Slice 5 test.
+- `PHASE_TESTING.md`: full history and accepted Corrective Slice 6 evidence.
 - `GROUND_OPS_UI_DESIGN.md` and `ROADMAP.md`: automatic proposal removed from
   the active product design.
 
