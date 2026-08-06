@@ -425,6 +425,7 @@ dedicated implementation were removed on 2026-08-05.
 | Remember position and monitor safely | 2 | Restart and missing-monitor recovery test |
 | Flight identity and simulator weather | 5 | Provider and fallback tests |
 | EOBT, METAR, and ATIS omitted from active UI | 5 | UI source and simulator screenshot |
+| One default operational UI, with legacy UI recoverable | 2, 9 | OFF/ON builds and simulator visual/operation test |
 | Tug approaching/staged/connected progression | 3, 6 | State-transition log and UI test |
 | Airport context and explicit pilot Call tug action | 3 | Button dispatch and simulator workflow test |
 | Hold after nose-gear capture and before lift | 3 | Amber Plan push screenshot and no-lift simulator observation |

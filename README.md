@@ -68,6 +68,22 @@ or later).
 
 For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 
+### Legacy operational UI compatibility
+
+This fork uses the Ground Operations panel as its operational interface. The
+original BetterPushback "magic squares" windows remain in the source tree but
+are disabled by default so both interfaces are not displayed together. An
+upstream maintainer can restore the original windows without reverting source
+by configuring the build with:
+
+```
+cmake -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON ...
+```
+
+This switch controls presentation only. Existing commands, preferences,
+automatic tug-start behavior, the overhead planner, and disconnect/reconnect
+interfaces remain available in either setting.
+
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:
 ***

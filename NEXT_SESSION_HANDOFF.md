@@ -6,10 +6,10 @@ Branch: `feature/realistic-tug-physics`
 
 ## Start here
 
-The Emergency Tow Module is the **simulator-accepted baseline** at current
-`HEAD`. It adds a guarded post-completion tow-back workflow while preserving the
-accepted manual planner, two-slot published-gate cache, tug physics, and normal
-wing-walker behavior.
+The completed Ground Operations UI and Emergency Tow workflow are the
+**simulator-accepted baseline** at current `HEAD`. The fork now presents only
+the Ground Operations panel by default while preserving the original
+operational UI behind a reversible build option.
 
 Emergency Tow is recorded by the commit titled `Add guarded Emergency Tow
 workflow` on `feature/realistic-tug-physics`. It is layered on accepted UI
@@ -265,25 +265,56 @@ Exact accepted evidence is preserved at:
 
 `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\emergency-tow-accepted-20260806`
 
-## Next work — final UI cleanup
+## Final UI cleanup accepted
 
-One final UI cleanup item remains before beta testing. Await the user's exact
-requirement, keep the change narrowly scoped, and simulator-validate it before
-commit.
+The original four BetterPushback "magic squares" operational windows no longer
+render by default, eliminating the duplicate UI. Their complete source remains
+in `bp.c`. CMake option `BP_ENABLE_LEGACY_MAGIC_SQUARES` defaults to `OFF` and
+can be configured `ON` by an upstream maintainer to restore the original
+presentation without a source revert.
 
-Treat current `HEAD`, including the Emergency Tow commit, as the accepted
-baseline. Do not alter the manual planner, two-slot gate-route cache, Emergency
-Tow policy guards, tug physics, wing-walker timing, poses, placement, lighting,
-or licensed assets while cleaning up the UI.
+The beacon-triggered tug-start check was separated from legacy window creation,
+so the switch affects presentation only. The Ground Operations panel, planner,
+preferences, commands, disconnect/reconnect prompts, cache, tug physics,
+Emergency Tow, and wing walker remain active.
 
-After the remaining cleanup is accepted, the user intends to push the branch
-back to Git for upstream review/approval. Do not push, open a pull request, or
-contact upstream maintainers until the user explicitly requests that action.
+The user visually confirmed in X-Plane that only the Ground Operations panel
+rendered and that normal operations remained functional. All ten regression
+suites, an explicit legacy-UI-enabled Linux build, and default-off Windows/Linux
+warnings-as-errors builds passed. The simulator log contains no BetterPushback
+errors or assertions, and the five-file gate-route cache remained byte-for-byte
+unchanged.
+
+Accepted candidate hashes:
+
+- Windows: `6D4E3A2ED9F6FACCAF88DE0B684414B835FD68AEF913CA5BFDE52A1252DE78F5`
+- Linux: `22623D004DE21AA44CF4A059C612E4939FE681A9562D19AA7265FF2BA0F3F897`
+
+Exact accepted evidence is preserved at:
+
+`C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\ui-cleanup-pass2-accepted-20260806`
+
+## Next work - beta package preparation
+
+The implementation phase is complete. Await the user's beta-distribution
+requirements, then assemble a tester package from the accepted binaries and
+create a PDF explaining the changed Ground Operations workflow, manual/saved
+route behavior, wing-walker signals, Emergency Tow, test scenarios, telemetry,
+known limitations, and feedback/reporting instructions.
+
+Treat current `HEAD`, including Emergency Tow and the final UI cleanup, as the
+accepted baseline. Do not alter the manual planner, two-slot gate-route cache,
+Emergency Tow policy guards, tug physics, wing-walker timing, poses, placement,
+lighting, or licensed assets while preparing and running the beta.
+
+After beta testing is complete, the user intends to finalize the repository and
+push the branch for upstream review/approval. Do not push, open a pull request,
+or contact upstream maintainers until the user explicitly requests that action.
 
 ## Verification completed
 
-- Seven current automated regression scripts passed, including strict
-  gate-anchor math and the new two-slot save-policy test.
+- All ten current automated regression suites passed, including strict
+  gate-anchor math, two-slot save policy, Emergency Tow, and wing-walker tests.
 - Windows and Linux warnings-as-errors release builds passed.
 - Source audit found no automatic proposal implementation references.
 - Windows and Linux binary-string audits found no proposal messages.
@@ -302,6 +333,9 @@ contact upstream maintainers until the user explicitly requests that action.
 - Emergency Tow passed all ten regression suites, Windows/Linux
   warnings-as-errors builds, the complete normal/emergency/normal simulator
   sequence, and a byte-for-byte five-file cache audit.
+- Final UI cleanup passed all ten regression suites, both default-off release
+  builds, an explicit legacy-UI-enabled build, simulator visual/operation
+  validation, and another byte-for-byte cache audit.
 
 ## Relevant files
 
@@ -323,6 +357,8 @@ contact upstream maintainers until the user explicitly requests that action.
   policy gates for the one-time post-completion tow.
 - `src/xplane.c`, `src/bp.c`, and `src/bp_cam.c`: minimal Emergency Tow command,
   planner handoff, lifecycle reset, and double cache-write guard integrations.
+- `src/CMakeLists.txt` and `src/bp.c`: reversible default-off legacy operational
+  UI gate with beacon automation preserved outside rendering.
 - `objects/wing_walker`: committed OBJ8 runtime mesh, diffuse/LIT textures, and
   CC BY 4.0 attribution.
 - `objects/src/Wing Walker`: original licensed source asset plus the

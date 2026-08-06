@@ -66,6 +66,10 @@
 #include "vehicle_physics.h"
 #include "xplane.h"
 
+#ifndef BP_ENABLE_LEGACY_MAGIC_SQUARES
+#define BP_ENABLE_LEGACY_MAGIC_SQUARES 0
+#endif
+
 #define    MIN_XPLANE_VERSION    11550    /* X-Plane 11.55 */
 #define    MIN_XPLANE_VERSION_STR    "11.55"    /* X-Plane 11.55 */
 
@@ -3789,8 +3793,14 @@ main_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
     }
 }
 
+/*
+ * The legacy magic-squares UI historically owned this automation check.
+ * Keep it active even when that UI is disabled so the compatibility switch
+ * changes presentation only, never tug behavior.
+ */
 static void
-main_intf_show(void) {
+main_intf_update_automation(void)
+{
     bool_t always_connect_tug_first = B_FALSE;
     (void) conf_get_b(bp_conf,"always_connect_tug_first", &always_connect_tug_first);
 
@@ -3803,6 +3813,12 @@ main_intf_show(void) {
         }
         previous_beacon = beacon_light; 
     }
+}
+
+static void
+main_intf_show(void) {
+    bool_t always_connect_tug_first = B_FALSE;
+    (void) conf_get_b(bp_conf,"always_connect_tug_first", &always_connect_tug_first);
 
     if ((bp_ls.planner_win == NULL) && (bp_ls.start_pb_win == NULL) && (bp_ls.conn_tug_first == NULL) && (bp_ls.pb_status_win == NULL) ) {
         initMonitorOrigin();
@@ -3906,6 +3922,20 @@ main_intf_hide(void) {
 
 void
 main_intf(bool_t force_hide) {
+    main_intf_update_automation();
+
+    /*
+     * Our Ground Operations panel replaces only the original operational
+     * magic-squares display. The complete legacy implementation remains above
+     * for upstream review and can be restored at configure time with:
+     *   -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON
+     */
+    if (!BP_ENABLE_LEGACY_MAGIC_SQUARES) {
+        main_intf_hide();
+        hide_bp_status();
+        return;
+    }
+
     if (get_pref_widget_status() // show also the magic button while in the pref window
      || (( bp_started || (acf_is_airliner() && acf_on_gnd_stopped(NULL))) && !force_hide) ) {
         main_intf_show();

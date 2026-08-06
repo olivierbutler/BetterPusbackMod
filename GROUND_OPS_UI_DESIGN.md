@@ -343,6 +343,14 @@ state. The stationary hold freezes steering and cannot resume through a set
 parking brake. End operation uses the compatible terminating stop path and
 discards the route only after confirmation.
 
+The Ground Operations panel is the fork's only default operational interface.
+The original four "magic squares" windows remain preserved in `bp.c`, but the
+build defaults `BP_ENABLE_LEGACY_MAGIC_SQUARES` to `OFF` so duplicate controls
+are not rendered. Configuring that CMake option `ON` restores the original
+windows for upstream compatibility. The switch affects presentation only:
+automatic beacon-triggered tug behavior is evaluated separately, and the
+planner, preferences, commands, and disconnect/reconnect prompts are unchanged.
+
 ## Performance contract
 
 - Hidden mode schedules no UI update loop and receives no draw calls.

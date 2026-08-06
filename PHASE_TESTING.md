@@ -1715,6 +1715,58 @@ Simulator validation completed on 2026-08-06:
 
 Commit criterion: **Passed**.
 
+### Pass 2 - disable duplicate legacy operational UI
+
+Date prepared: 2026-08-06
+Status: **Accepted after simulator visual and operational validation**
+
+Product decisions implemented:
+
+- The Ground Operations panel is the fork's only default operational UI.
+- The original four "magic squares" windows and their click handlers remain in
+  `bp.c`; no legacy implementation was deleted.
+- CMake option `BP_ENABLE_LEGACY_MAGIC_SQUARES` defaults to `OFF`. An upstream
+  maintainer can set it to `ON` to restore the original windows without
+  reverting source.
+- The historical beacon-triggered tug check was separated from legacy window
+  creation so the compatibility option changes presentation only.
+- The overhead planner, preferences UI, X-Plane commands, disconnect/reconnect
+  prompts, Ground Operations panel, cache, physics, Emergency Tow, and wing
+  walker remain unchanged.
+
+Verification completed:
+
+| Check | Result |
+| --- | --- |
+| Four focused Ground Operations/Emergency Tow suites | Passed |
+| Complete ten-suite regression matrix | Passed |
+| Linux build with legacy windows explicitly enabled | Passed |
+| Windows default-off warnings-as-errors release build | Passed |
+| Linux default-off warnings-as-errors release build | Passed |
+| `git diff --check` | Passed |
+
+Installed and accepted SHA-256 values:
+
+- Windows: `6D4E3A2ED9F6FACCAF88DE0B684414B835FD68AEF913CA5BFDE52A1252DE78F5`
+- Linux: `22623D004DE21AA44CF4A059C612E4939FE681A9562D19AA7265FF2BA0F3F897`
+
+Simulator validation completed on 2026-08-06:
+
+- The user confirmed that none of the original legacy windows rendered and the
+  Ground Operations panel remained present.
+- A normal KCOS operation used the Ground Operations controls, opened and
+  restored the accepted overhead planner, recalled an unchanged saved route,
+  progressed through normal push and disconnect stages, and retained the wing
+  walker behavior.
+- BetterPushback logged no errors or assertions. Panel rendering averaged
+  0.016 ms and peaked at 0.172 ms during the captured session.
+- The five saved gate-route files remained byte-for-byte unchanged.
+- Captured telemetry contains 1,556 lines and no NaN or infinity values.
+- Exact binaries, `Log.txt`, and telemetry are preserved at
+  `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\ui-cleanup-pass2-accepted-20260806`.
+
+Commit criterion: **Passed**.
+
 ## Emergency Tow Module
 
 Date prepared: 2026-08-06
