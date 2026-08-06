@@ -242,6 +242,8 @@ static void bp_complete(void);
 
 static void tug_pos_update(vect2_t my_pos, double my_hdg, bool_t pos_only);
 
+static double aircraft_nose_forward_offset(void);
+
 static void disco_intf_hide(void);
 
 static void main_intf_show(void);
@@ -2022,6 +2024,30 @@ draw_tugs(void) {
     }
 
     tug_draw(bp_ls.tug, bp.cur_t);
+    if (bp_ls.wing_walker != NULL) {
+        wing_walker_update(bp_ls.wing_walker, bp.cur_pos.pos,
+            bp.cur_pos.hdg, aircraft_nose_forward_offset(), bp.step,
+            bp.reconnect);
+    }
+}
+
+static double
+aircraft_nose_forward_offset(void)
+{
+    double nose_y = HUGE_VAL;
+    double nosewheel_forward = MAX(-bp.acf.nw_z, 0);
+
+    if (bp_ls.outline != NULL) {
+        for (size_t i = 0; i < bp_ls.outline->num_pts; i++) {
+            vect2_t point = bp_ls.outline->pts[i];
+
+            if (!IS_NULL_VECT(point) && isfinite(point.y))
+                nose_y = MIN(nose_y, point.y);
+        }
+    }
+    if (isfinite(nose_y))
+        return (MAX(-nose_y, nosewheel_forward));
+    return (nosewheel_forward);
 }
 
 bool_t
@@ -2636,6 +2662,10 @@ bp_complete(void) {
         tug_free(bp_ls.tug);
         bp_ls.tug = NULL;
     }
+    if (bp_ls.wing_walker != NULL) {
+        wing_walker_free(bp_ls.wing_walker);
+        bp_ls.wing_walker = NULL;
+    }
 
     disco_intf_hide();
 
@@ -2736,6 +2766,13 @@ pb_step_tug_load(void) {
         bp_ls.tug->info->max_tow_fwd_speed);
     bp.veh.max_rev_spd = MIN(bp.veh.max_rev_spd,
         bp_ls.tug->info->max_tow_rev_speed);
+    if (bp_ls.wing_walker == NULL) {
+        char *walker_path = mkpathname(bp_xpdir, bp_plugindir, "objects",
+            "wing_walker", "wing_walker.obj", NULL);
+
+        bp_ls.wing_walker = wing_walker_alloc(walker_path);
+        free(walker_path);
+    }
     telemetry_start();
     if (!bp_ls.tug->info->drive_debug) {
         vect2_t p_start, dir;

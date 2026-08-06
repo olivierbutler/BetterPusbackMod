@@ -187,7 +187,9 @@ static dr_t plan_complete_dr, planner_open_dr, bp_tug_name_dr;
 static dr_t pb_set_remote_dr, pb_set_override_dr;
 static dr_cfg_t pb_set_remote_dr_cfg, pb_set_override_dr_cfg;
 static dr_t bp_groud_crew_audio_volume_dr;
+static dr_t wing_walker_signal_dr;
 float bp_ground_crew_audio_volume ;
+static float wing_walker_signal_value;
 bool_t bp_started = B_FALSE;
 bool_t bp_connected = B_FALSE;
 bool_t slave_mode = B_FALSE;
@@ -1101,6 +1103,13 @@ XPluginStart(char *name, char *sig, char *desc)
     (void)conf_get_f(bp_conf, "ground_crew_audio_volume", &bp_ground_crew_audio_volume);            
     dr_create_f(&bp_groud_crew_audio_volume_dr, (float *)&bp_ground_crew_audio_volume, B_TRUE,
                 "bp/ground_crew_audio_volume");
+    /*
+     * X-Plane requires every custom dataref referenced by an instanced OBJ
+     * to exist before the object is loaded. The instance supplies its own
+     * per-worker value; this backing value only registers the dataref.
+     */
+    dr_create_f(&wing_walker_signal_dr, &wing_walker_signal_value, B_FALSE,
+                WING_WALKER_SIGNAL_DATAREF);
 
     slave_mode_dr_cfg.write_cb = slave_mode_cb;    
     slave_mode_dr_cfg.writable = B_TRUE;    
@@ -1152,6 +1161,7 @@ XPluginStop(void)
     dr_delete(&bp_tug_name_dr);
     dr_delete(&pb_set_remote_dr);
     dr_delete(&pb_set_override_dr);
+    dr_delete(&wing_walker_signal_dr);
     dcr_fini();
 
     if (reload_floop_ID != NULL)

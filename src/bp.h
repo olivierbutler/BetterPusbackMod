@@ -29,6 +29,7 @@
 #include "driving.h"
 #include "pushback_step.h"
 #include "tug.h"
+#include "wing_walker.h"
 
 #ifdef    __cplusplus
 extern "C" {
@@ -140,6 +141,7 @@ typedef struct {
     XPLMWindowID pb_status_win;
     XPLMWindowID conn_tug_first;
     tug_t *tug;
+    wing_walker_t *wing_walker;
     acf_outline_t *outline;    /* size & outline of aircraft shape */
 } bp_long_state_t;
 

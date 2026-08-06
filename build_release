@@ -40,6 +40,10 @@ DIST_FILES=(
     'objects/tugs/LIVERIES_HOWTO.txt'		''
 	'objects/tugs/readme.txt'		''
     'objects/night_lamp.obj'			''
+    'objects/wing_walker/ATTRIBUTION.txt'	''
+    'objects/wing_walker/wing_walker.obj'	''
+    'objects/wing_walker/wing_walker.png'	''
+    'objects/wing_walker/wing_walker_lit.png'	''
 )
 
 function install_xtra_file() {
