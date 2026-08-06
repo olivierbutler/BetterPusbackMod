@@ -1715,6 +1715,80 @@ Simulator validation completed on 2026-08-06:
 
 Commit criterion: **Passed**.
 
+## Emergency Tow Module
+
+Date prepared: 2026-08-06
+Status: **Accepted after complete simulator lifecycle validation**
+
+Product decisions implemented:
+
+- The normal completed Ground Operations view exposes an optional blue
+  **Call tow back** action after the tug has finished its departure.
+- `emergency_tow.[ch]` is a small session coordinator. It reuses the accepted
+  connect-first workflow, manual planner, route/controller geometry, tug
+  physics, and disconnect sequence instead of duplicating those modules.
+- Nose-gear capture opens the existing planner automatically at the live
+  aircraft position with a fresh one-time route.
+- Emergency Tow bypasses saved-route enumeration and loading at planner entry
+  and independently blocks every cache write at planner exit.
+- The wing-walker object is not allocated or rendered during the emergency
+  session.
+- Final tug drive-away ends the submodule and restores the normal cold-start
+  **Tug available / Call tug** state.
+- A following normal operation uses the existing unique published-start guard;
+  an aircraft returned off-anchor cannot load, save, or modify a cached route.
+
+Verification completed:
+
+| Check | Result |
+| --- | --- |
+| Emergency Tow lifecycle and hard policy tests | Passed |
+| Gate-route math and two-slot policy suites | Passed |
+| Ground Operations data, state, and window suites | Passed |
+| Planner-cache, vehicle-physics, wing-walker logic, and asset suites | Passed |
+| Windows warnings-as-errors release build | Passed |
+| Linux warnings-as-errors release build | Passed |
+| `git diff --check` | Passed |
+
+Installed and accepted SHA-256 values:
+
+- Windows: `6BD26A4225A81DB0DD1EA44879CFE0B8981BA25BBCA40BDE0538DCC6B9FAEEDE`
+- Linux: `FCD131A4F5FC5CF565AC06F548AD728CDDA6693488A6C19DCB3AE0336BA7CD87`
+
+Simulator validation completed on 2026-08-06 at KCOS with the 737-700NG and
+AST-3F tug:
+
+- A normal cached push completed first with the wing walker and the established
+  disconnect/clear sequence intact. The completed UI then displayed
+  **Call tow back**.
+- Emergency Tow dispatched at 10:27:04. The log confirms that persistent-route
+  access and wing-walker rendering were disabled before tug load.
+- After capture, the planner opened automatically at the live nosewheel. It
+  displayed `Emergency Tow - manual route only; saved routes are disabled` and
+  presented no saved-route chooser.
+- The return route was accepted once. The planner logged that its hard
+  persistence guard skipped every gate-route cache write.
+- The aircraft was towed back to the selected gate position, the tug completed
+  disconnect and drive-away, and the coordinator restored the cold-start Ground
+  Operations state at 10:31:44.
+- A second normal push immediately followed. Because the returned aircraft did
+  not uniquely match the published anchor, the planner listed no saved routes
+  and logged that the route would not be saved. The wing walker was restored
+  for this normal operation and completed its normal signal sequence.
+- All five pre-existing route files remained byte-for-byte identical to the
+  pre-test snapshot. No cache route was created, replaced, or rewritten.
+- Three telemetry files contain 3,336, 2,697, and 3,263 lines respectively,
+  cover the normal/emergency/normal sequence through final tug departure, and
+  contain no NaN or infinity values.
+- BetterPushback logged no errors or assertions. Two benign pre-existing
+  `stop_planner`-disabled warnings occurred while invoking the normal late-plan
+  workflow and did not affect either operation.
+- Accepted binaries, four screenshots, `Log.txt`, all three telemetry files,
+  and the complete unchanged cache tree are preserved at
+  `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\emergency-tow-accepted-20260806`.
+
+Commit criterion: **Passed**.
+
 ## Open release-engineering requirements
 
 ### RE-001 — Reproducible dependency bootstrap

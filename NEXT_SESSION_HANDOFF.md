@@ -1,17 +1,23 @@
 # BetterPushback next-session handoff
 
-Prepared: 2026-08-05  
+Prepared: 2026-08-06
 Workspace: `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\BetterPusbackMod`  
 Branch: `feature/realistic-tug-physics`
 
 ## Start here
 
-Phase 7 Corrective Slice 6 is the **simulator-accepted baseline**. It adds two
-pilot-selectable saved routes per published gate and compatible aircraft
-profile, stored as separate files under
-`Output/caches/BetterPushback_Gate_Routes`. The implementation preserves the
-manual planner and does not restore any automatic wind/runway proposal
-behavior.
+The Emergency Tow Module is the **simulator-accepted baseline** at current
+`HEAD`. It adds a guarded post-completion tow-back workflow while preserving the
+accepted manual planner, two-slot published-gate cache, tug physics, and normal
+wing-walker behavior.
+
+Emergency Tow is recorded by the commit titled `Add guarded Emergency Tow
+workflow` on `feature/realistic-tug-physics`. It is layered on accepted UI
+cleanup commit `7221afb2efc711bf5a35f252a10b60fb8354af15`.
+
+The exact pre-feature source state remains recoverable from branch
+`backup/pre-emergency-tow-20260806` and the verified full-history bundle under
+`C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\pre-emergency-tow-20260806`.
 
 The accepted implementation is recorded in commit
 `84e40ca9d4e39c2a8f47752eb66f0f428fcd79ed` (`Add two saved routes per gate
@@ -230,16 +236,45 @@ Accepted candidate hashes:
 - Linux: `016A4B7C5C96852F3D4884EB51423D1771E490151F5208172708B6A759F7768E`
 - Screenshot: `552EA2EA24A114FB53890881F6AB3778B458B486A59410CF412CB082A700FBE8`
 
+## Emergency Tow accepted
+
+The post-completion UI now offers **Call tow back**. That action starts an
+isolated Emergency Tow session using the existing connect-first tug workflow.
+After capture, the existing manual planner opens automatically at the live
+nosewheel with a fresh one-time route.
+
+Emergency Tow never lists, loads, replaces, or saves persistent gate routes and
+does not allocate or render the wing walker. After disconnect and final tug
+drive-away, the module clears itself and Ground Operations returns to the normal
+**Tug available / Call tug** state. The next normal operation restores the wing
+walker and normal cache policy; the existing strict published-start guard keeps
+an off-anchor returned aircraft session-only.
+
+The user completed a normal push, Emergency Tow back to the selected gate, and
+a second normal push on 2026-08-06. The live five-file gate-route cache remained
+byte-for-byte unchanged. The log confirms both hard cache guards, no emergency
+wing-walker allocation, the cold-start reset, the off-anchor no-save decision,
+and restoration of the wing walker on the next normal operation.
+
+Accepted candidate hashes:
+
+- Windows: `6BD26A4225A81DB0DD1EA44879CFE0B8981BA25BBCA40BDE0538DCC6B9FAEEDE`
+- Linux: `FCD131A4F5FC5CF565AC06F548AD728CDDA6693488A6C19DCB3AE0336BA7CD87`
+
+Exact accepted evidence is preserved at:
+
+`C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\emergency-tow-accepted-20260806`
+
 ## Next work — final UI cleanup
 
 One final UI cleanup item remains before beta testing. Await the user's exact
 requirement, keep the change narrowly scoped, and simulator-validate it before
 commit.
 
-Treat commits `84e40ca9d4e39c2a8f47752eb66f0f428fcd79ed` and
-`50b994b76660f8462bedb0ecfdf56f579f93dfd4` as accepted baselines. Do not alter
-the manual planner, two-slot gate-route cache, tug physics, wing-walker timing,
-poses, placement, lighting, or licensed assets while cleaning up the UI.
+Treat current `HEAD`, including the Emergency Tow commit, as the accepted
+baseline. Do not alter the manual planner, two-slot gate-route cache, Emergency
+Tow policy guards, tug physics, wing-walker timing, poses, placement, lighting,
+or licensed assets while cleaning up the UI.
 
 After the remaining cleanup is accepted, the user intends to push the branch
 back to Git for upstream review/approval. Do not push, open a pull request, or
@@ -264,6 +299,9 @@ contact upstream maintainers until the user explicitly requests that action.
 - UI cleanup pass 1 passed flight-identity fallback tests, three focused Ground
   Operations suites, Windows/Linux warnings-as-errors builds, and simulator
   visual acceptance at KCOS.
+- Emergency Tow passed all ten regression suites, Windows/Linux
+  warnings-as-errors builds, the complete normal/emergency/normal simulator
+  sequence, and a byte-for-byte five-file cache audit.
 
 ## Relevant files
 
@@ -281,6 +319,10 @@ contact upstream maintainers until the user explicitly requests that action.
 - `src/wing_walker.c` and `.h`: asynchronous OBJ lifecycle, terrain placement,
   30-yard nose clearance, captain-side offset, and per-instance signal updates.
 - `src/wing_walker_logic.c` and `.h`: isolated pushback-step-to-signal mapping.
+- `src/emergency_tow.c` and `.h`: isolated lifecycle and hard cache/walker
+  policy gates for the one-time post-completion tow.
+- `src/xplane.c`, `src/bp.c`, and `src/bp_cam.c`: minimal Emergency Tow command,
+  planner handoff, lifecycle reset, and double cache-write guard integrations.
 - `objects/wing_walker`: committed OBJ8 runtime mesh, diffuse/LIT textures, and
   CC BY 4.0 attribution.
 - `objects/src/Wing Walker`: original licensed source asset plus the

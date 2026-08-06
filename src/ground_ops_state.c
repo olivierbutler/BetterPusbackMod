@@ -103,6 +103,7 @@ raw_equal(const ground_ops_raw_state_t *left,
     const ground_ops_raw_state_t *right)
 {
     return (left->operation_active == right->operation_active &&
+        left->emergency_tow == right->emergency_tow &&
         left->step == right->step &&
         left->prep_state == right->prep_state &&
         left->prep_state_active == right->prep_state_active &&
@@ -135,6 +136,7 @@ semantic_equal(const ground_ops_raw_state_t *left,
     const ground_ops_raw_state_t *right)
 {
     return (left->operation_active == right->operation_active &&
+        left->emergency_tow == right->emergency_tow &&
         left->step == right->step &&
         left->prep_state == right->prep_state &&
         left->prep_state_active == right->prep_state_active &&
@@ -236,7 +238,9 @@ map_prep(const ground_ops_raw_state_t *raw,
         snapshot->operation_complete = true;
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "COMPLETE",
             "Ground operation complete", "Aircraft and equipment are clear",
-            "No pilot action required", false);
+            "Call tow assistance if the aircraft must return", false);
+        set_actions(snapshot, GROUND_OPS_ACTION_CALL_EMERGENCY_TOW,
+            "Call tow back", GROUND_OPS_ACTION_NONE, "");
         break;
     case GROUND_OPS_PREP_AIRPORT_DATA:
     default:
@@ -321,11 +325,16 @@ map_step(const ground_ops_raw_state_t *raw,
     case PB_STEP_LIFTING:
         if (raw->awaiting_plan) {
             set_view(snapshot, GROUND_OPS_STAGE_COMMS, "PILOT ACTION",
+                raw->emergency_tow ? "Tug connected; plan the tow" :
                 "Tug connected; plan the push",
+                raw->emergency_tow ?
+                "Nose gear captured; saved routes are disabled" :
                 "Nose gear captured; no lift has been performed",
+                raw->emergency_tow ? "Plan a one-time tow route" :
                 "Open the planner and accept a route", true);
             set_actions(snapshot, GROUND_OPS_ACTION_OPEN_PLANNER,
-                "Plan push", GROUND_OPS_ACTION_END_DISCONNECT,
+                raw->emergency_tow ? "Plan tow" : "Plan push",
+                GROUND_OPS_ACTION_END_DISCONNECT,
                 "End operation");
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_CONNECT, "ACTIVE",
@@ -336,10 +345,15 @@ map_step(const ground_ops_raw_state_t *raw,
     case PB_STEP_CONNECTED:
         if (raw->late_plan && !raw->plan_complete) {
             set_view(snapshot, GROUND_OPS_STAGE_COMMS, "ACTION",
-                "Tug connected; plan required", "Late-planning mode is active",
+                raw->emergency_tow ? "Tug connected; tow plan required" :
+                "Tug connected; plan required",
+                raw->emergency_tow ?
+                "Emergency Tow uses one-time manual routes only" :
+                "Late-planning mode is active",
                 "Open and complete the planner", true);
             set_actions(snapshot, GROUND_OPS_ACTION_OPEN_PLANNER,
-                "Plan push", GROUND_OPS_ACTION_END_DISCONNECT,
+                raw->emergency_tow ? "Plan tow" : "Plan push",
+                GROUND_OPS_ACTION_END_DISCONNECT,
                 "End operation");
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_COMMS, "ACTION",
@@ -349,30 +363,40 @@ map_step(const ground_ops_raw_state_t *raw,
         break;
     case PB_STEP_STARTING:
         set_view(snapshot, GROUND_OPS_STAGE_PUSH, "ACTIVE",
+            raw->emergency_tow ? "Starting emergency tow" :
             "Starting pushback", "Steering and motion are engaging",
             "Monitor initial movement", false);
         break;
     case PB_STEP_PUSHING:
         if (raw->pause_requested) {
             set_view(snapshot, GROUND_OPS_STAGE_PUSH, "HOLD",
-                raw->pause_held ? "Pushback paused" : "Pausing pushback",
+                raw->pause_held ?
+                (raw->emergency_tow ? "Emergency tow paused" :
+                "Pushback paused") :
+                (raw->emergency_tow ? "Pausing emergency tow" :
+                "Pausing pushback"),
                 "Accepted route and steering state are retained",
                 raw->pause_held ?
                 "Release parking brake if set, then resume" :
                 "Controlled deceleration in progress", raw->pause_held);
-            set_actions(snapshot, GROUND_OPS_ACTION_RESUME, "Resume push",
+            set_actions(snapshot, GROUND_OPS_ACTION_RESUME,
+                raw->emergency_tow ? "Resume tow" : "Resume push",
                 GROUND_OPS_ACTION_END_DISCONNECT, "End operation");
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_PUSH, "ACTIVE",
+                raw->emergency_tow ? "Emergency tow in progress" :
                 "Pushback in progress",
                 "Pause retains route; End disconnects",
+                raw->emergency_tow ? "Monitor tow progress" :
                 "Monitor pushback progress", false);
-            set_actions(snapshot, GROUND_OPS_ACTION_PAUSE, "Pause push",
+            set_actions(snapshot, GROUND_OPS_ACTION_PAUSE,
+                raw->emergency_tow ? "Pause tow" : "Pause push",
                 GROUND_OPS_ACTION_END_DISCONNECT, "End operation");
         }
         break;
     case PB_STEP_STOPPING:
         set_view(snapshot, GROUND_OPS_STAGE_PUSH, "ACTIVE",
+            raw->emergency_tow ? "Stopping emergency tow" :
             "Stopping the aircraft", "Decelerating to a controlled stop",
             "Wait for the aircraft to stop", false);
         break;
@@ -442,6 +466,7 @@ build_snapshot(const ground_ops_raw_state_t *raw,
     snapshot->revision = revision;
     snapshot->transition_sequence = transition_sequence;
     snapshot->operation_active = raw->operation_active;
+    snapshot->emergency_tow = raw->emergency_tow;
     snapshot->prep_state_active = raw->prep_state_active;
     snapshot->controller_step = raw->step;
     snapshot->prep_state = raw->prep_state;

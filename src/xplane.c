@@ -43,6 +43,7 @@
 #include "bp_cam.h"
 #include "cab_view.h"
 #include "cfg.h"
+#include "emergency_tow.h"
 #include "ff_a320_intf.h"
 #include "ground_ops_ui.h"
 #include "msg.h"
@@ -65,6 +66,7 @@ enum
 static bool_t inited = B_FALSE;
 
 XPLMCommandRef start_pb, start_cam, conn_first, stop_pb, pause_pb;
+XPLMCommandRef call_emergency_tow;
 static XPLMCommandRef stop_cam;
 static XPLMCommandRef cab_cam, recreate_routes;
 static XPLMCommandRef abort_push, pref_cmd, reload_cmd;
@@ -99,6 +101,8 @@ static int start_cam_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 static int stop_cam_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static int conn_first_handler(XPLMCommandRef, XPLMCommandPhase, void *);
+
+static int emergency_tow_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static int cab_cam_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
@@ -304,6 +308,7 @@ init_core_state(void)
     op_complete = B_FALSE;
     plan_complete = B_FALSE; /* BP_DATAREF plan_complete */
     planner_open = B_FALSE;  /* BP_DATAREF planner_open */
+    emergency_tow_reset();
     ground_ops_ui_reset_context();
     cab_view_init();
 }
@@ -640,53 +645,84 @@ stop_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
 }
 
 static int
-conn_first_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+connect_first_begin(bool_t emergency)
 {
-    UNUSED(cmd);
-    UNUSED(refcon);
-    if (phase != xplm_CommandEnd || !bp_init() || bp_started || slave_mode)
-        return (0);
+    bool_t completed_state = op_complete;
 
-    if (!conn_first_enable)
-    {
-        logMsg(BP_WARN_LOG "Command \"BetterPushback/connect_first\" is currently disabled");
+    if (!bp_init() || bp_started || slave_mode)
+        return (0);
+    if (!conn_first_enable) {
+        logMsg(BP_WARN_LOG "Command \"BetterPushback/connect_first\" is "
+            "currently disabled");
         return (0);
     }
-
     if (get_pref_widget_status())
-    { // do nothing if preference widget is active
         return (1);
+    if (emergency) {
+        if (!op_complete) {
+            logMsg(BP_WARN_LOG "Emergency Tow rejected: the previous ground "
+                "operation is not complete");
+            return (0);
+        }
+        if (!emergency_tow_begin()) {
+            logMsg(BP_WARN_LOG "Emergency Tow rejected: a session is already "
+                "active");
+            return (0);
+        }
+        op_complete = B_FALSE;
+        logMsg(BP_INFO_LOG "Emergency Tow requested; persistent route access "
+            "and wing-walker rendering are disabled for this session");
     }
 
     late_plan_requested = B_TRUE;
     (void)bp_cam_stop();
 
-    /*
-     * An active preplanned route interferes with the connection hold. Persistent
-     * route reuse is intentionally disabled: wind and operational flow can change
-     * between visits to the same stand, and legacy cached geometry is not anchored
-     * reliably. The pilot plans after connection in this workflow.
-     */
+    /* The connected workflow always begins with a fresh in-session route. */
     if (bp_num_segs())
         bp_delete_all_segs();
 
-    if (!bp_start())
-    {
+    if (!bp_start()) {
         late_plan_requested = B_FALSE;
+        if (emergency) {
+            (void)emergency_tow_finish();
+            op_complete = completed_state;
+            logMsg(BP_WARN_LOG "Emergency Tow dispatch failed; restored the "
+                "completed-operation state");
+        }
         return (1);
     }
 
-    if (!slave_mode)
-    {
-        start_pb_plan_enable = B_FALSE;
-        stop_pb_plan_enable = B_FALSE;
-        start_pb_enable = (bp_num_segs() == 0);
-        stop_pb_enable = B_TRUE;
-        conn_first_enable = B_FALSE;
-        prefs_enable = B_FALSE;
-        enable_menu_items();
-    }
+    start_pb_plan_enable = B_FALSE;
+    stop_pb_plan_enable = B_FALSE;
+    start_pb_enable = (bp_num_segs() == 0);
+    stop_pb_enable = B_TRUE;
+    conn_first_enable = B_FALSE;
+    prefs_enable = B_FALSE;
+    enable_menu_items();
     return (1);
+}
+
+static int
+conn_first_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
+    UNUSED(cmd);
+    UNUSED(refcon);
+
+    if (phase != xplm_CommandEnd)
+        return (1);
+    return (connect_first_begin(B_FALSE));
+}
+
+static int
+emergency_tow_handler(XPLMCommandRef cmd, XPLMCommandPhase phase,
+    void *refcon)
+{
+    UNUSED(cmd);
+    UNUSED(refcon);
+
+    if (phase != xplm_CommandEnd)
+        return (1);
+    return (connect_first_begin(B_TRUE));
 }
 
 static int
@@ -808,6 +844,47 @@ void bp_reconnect_notify(void)
     conn_first_enable = B_TRUE;
     stop_pb_enable = B_TRUE;
     enable_menu_items();
+}
+
+void
+bp_emergency_tow_planner_notify(void)
+{
+    if (slave_mode || !emergency_tow_claim_planner_launch())
+        return;
+    if (!bp_cam_start()) {
+        logMsg(BP_WARN_LOG "Emergency Tow could not open the planner "
+            "automatically; the Plan tow action remains available");
+        return;
+    }
+    ground_ops_ui_suspend_for_planner();
+    msg_play(MSG_PLAN_START);
+    prefs_enable = B_FALSE;
+    start_pb_plan_enable = B_FALSE;
+    stop_pb_plan_enable = B_TRUE;
+    start_pb_enable = B_FALSE;
+    conn_first_enable = B_FALSE;
+    stop_pb_enable = B_TRUE;
+    enable_menu_items();
+    logMsg(BP_INFO_LOG "Emergency Tow tug connected; opened the one-time "
+        "manual planner automatically");
+}
+
+void
+bp_emergency_tow_session_end_notify(bool_t completed)
+{
+    if (!emergency_tow_finish())
+        return;
+    start_after_cam = B_FALSE;
+    plan_complete = B_FALSE;
+    planner_open = B_FALSE;
+    op_complete = completed ? B_FALSE : B_TRUE;
+    if (completed) {
+        logMsg(BP_INFO_LOG "Emergency Tow complete; restored the normal "
+            "cold-start Ground Operations state");
+    } else {
+        logMsg(BP_INFO_LOG "Emergency Tow ended before final tug departure; "
+            "restored the previous completed-operation state");
+    }
 }
 
 const char *
@@ -1059,6 +1136,9 @@ XPluginStart(char *name, char *sig, char *desc)
                                  _("Stop pushback planner"));
     conn_first = XPLMCreateCommand("BetterPushback/connect_first",
                                    _("Connect tug before entering pushback plan"));
+    call_emergency_tow = XPLMCreateCommand(
+        "BetterPushback/call_emergency_tow",
+        _("Call tug for a one-time emergency tow"));
     cab_cam = XPLMCreateCommand("BetterPushback/cab_camera",
                                 _("View from tug's cab."));
     recreate_routes = XPLMCreateCommand(
@@ -1253,6 +1333,8 @@ bp_priv_enable(void)
     XPLMRegisterCommandHandler(start_cam, start_cam_handler, 1, NULL);
     XPLMRegisterCommandHandler(stop_cam, stop_cam_handler, 1, NULL);
     XPLMRegisterCommandHandler(conn_first, conn_first_handler, 1, NULL);
+    XPLMRegisterCommandHandler(call_emergency_tow, emergency_tow_handler, 1,
+        NULL);
     XPLMRegisterCommandHandler(cab_cam, cab_cam_handler, 1, NULL);
     XPLMRegisterCommandHandler(recreate_routes, recreate_routes_handler,
                                1, NULL);
@@ -1363,6 +1445,8 @@ bp_priv_disable(void)
     XPLMUnregisterCommandHandler(start_cam, start_cam_handler, 1, NULL);
     XPLMUnregisterCommandHandler(stop_cam, stop_cam_handler, 1, NULL);
     XPLMUnregisterCommandHandler(conn_first, conn_first_handler, 1, NULL);
+    XPLMUnregisterCommandHandler(call_emergency_tow, emergency_tow_handler, 1,
+        NULL);
     XPLMUnregisterCommandHandler(cab_cam, cab_cam_handler, 1, NULL);
     XPLMUnregisterCommandHandler(recreate_routes, recreate_routes_handler,
                                  1, NULL);

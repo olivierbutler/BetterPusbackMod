@@ -59,6 +59,7 @@
 #include "bp.h"
 #include "bp_cam.h"
 #include "cfg.h"
+#include "emergency_tow.h"
 #include "msg.h"
 #include "realism_config.h"
 #include "telemetry.h"
@@ -2642,6 +2643,10 @@ bool_t manual_bp_is_running(void) {
  */
 static void
 bp_complete(void) {
+    bool_t emergency_session = emergency_tow_is_active();
+    bool_t emergency_completed = emergency_session &&
+        bp.step == PB_STEP_DRIVING_AWAY;
+
     telemetry_stop();
     /*
      * Needs to go before the bp_started check in case the planner has
@@ -2681,6 +2686,8 @@ bp_complete(void) {
      * next time.
      */
     bp_state_init();
+    if (emergency_session)
+        bp_emergency_tow_session_end_notify(emergency_completed);
 }
 
 /*
@@ -2766,12 +2773,17 @@ pb_step_tug_load(void) {
         bp_ls.tug->info->max_tow_fwd_speed);
     bp.veh.max_rev_spd = MIN(bp.veh.max_rev_spd,
         bp_ls.tug->info->max_tow_rev_speed);
-    if (bp_ls.wing_walker == NULL) {
+    if (emergency_tow_allows_wing_walker() &&
+        bp_ls.wing_walker == NULL) {
         char *walker_path = mkpathname(bp_xpdir, bp_plugindir, "objects",
             "wing_walker", "wing_walker.obj", NULL);
 
         bp_ls.wing_walker = wing_walker_alloc(walker_path);
         free(walker_path);
+    } else if (!emergency_tow_allows_wing_walker()) {
+        ASSERT(bp_ls.wing_walker == NULL);
+        logMsg(BP_INFO_LOG "Emergency Tow wing-walker guard active; no "
+            "wing-walker object will be loaded or rendered");
     }
     telemetry_start();
     if (!bp_ls.tug->info->drive_debug) {
@@ -3054,8 +3066,12 @@ pb_step_lift(void) {
         tug_set_lift_in_transit(B_FALSE);
         tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
         tug_set_TE_override(bp_ls.tug, B_FALSE);
+        if (emergency_tow_is_active())
+            bp_emergency_tow_planner_notify();
         if (!late_plan_end_cond()) {
-            bp_hint_status_str = _("Tug connected, waiting for pushback plan");
+            bp_hint_status_str = emergency_tow_is_active() ?
+                _("Tug connected, waiting for emergency tow plan") :
+                _("Tug connected, waiting for pushback plan");
             enable_replanning();
             return;
         }
@@ -3066,8 +3082,9 @@ pb_step_lift(void) {
             plan_complete = B_TRUE; /* BP_DATAREF plan_complete */
         }
         bp.step_start_t = bp.cur_t;
-        logMsg(BP_INFO_LOG "Pushback plan accepted; beginning nose-gear "
-            "lift after the pre-lift connection hold");
+        logMsg(BP_INFO_LOG "%s plan accepted; beginning nose-gear lift "
+            "after the pre-lift connection hold",
+            emergency_tow_is_active() ? "Emergency Tow" : "Pushback");
     }
 
     d_t = bp.cur_t - bp.step_start_t;

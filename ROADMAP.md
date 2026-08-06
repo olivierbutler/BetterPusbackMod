@@ -286,6 +286,12 @@ per frame, so this must be eliminated before adding another UI surface.
 - Validate parking-brake release/set against simulator datarefs.
 - Add captions for radio/crew exchanges without replacing existing sound packs.
 - Make every waiting reason visible and recoverable.
+- Provide an optional post-completion Emergency Tow workflow that reconnects
+  the tug, opens a one-time manual route, omits the wing walker, and returns the
+  plugin to its cold-start state after final tug departure.
+- Hard-disable persistent route listing, loading, replacement, and saving for
+  Emergency Tow. Preserve the strict published-start guard for the next normal
+  operation so an off-anchor returned aircraft cannot modify the cache.
 
 ### Exit gates
 
@@ -295,6 +301,8 @@ per frame, so this must be eliminated before adding another UI surface.
 - [ ] Door/GPU/ASU and brake mismatches are explained without forcing aircraft
       systems.
 - [ ] Reconnect and abort paths remain valid.
+- [x] A completed operation can call an isolated Emergency Tow and return to a
+      normal cold-start workflow without changing any gate-route cache file.
 
 ## Phase 7 — Manual planner restoration and route-cache correction
 
@@ -424,6 +432,9 @@ dedicated implementation were removed on 2026-08-05.
 | Manual planner route placement | 2, 7 | Planner integration and simulator test |
 | Persistent route-cache alignment | 7 | Agreed pose contract and simulator reuse test |
 | UI remains engaged through disconnect | 3, 8 | End-to-end workflow test |
+| One-time Emergency Tow after completion | 6, 8 | Full normal/emergency/normal simulator sequence |
+| Emergency/off-anchor routes never modify cache | 6, 7 | Hard persistence gates and byte-for-byte cache audit |
+| No wing walker during Emergency Tow | 6, 8 | Allocation guard, lifecycle test, simulator/log review |
 | Pause and smooth resume | 4 | Telemetry and live motion test |
 | Safety stop distinct from cancel | 4 | Command/UI state tests |
 | Tug-driver position after disconnect | 8 | Cockpit visibility and drive-away tests |

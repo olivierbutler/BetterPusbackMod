@@ -74,6 +74,7 @@ typedef enum {
 typedef enum {
     GROUND_OPS_ACTION_NONE,
     GROUND_OPS_ACTION_CALL_TUG,
+    GROUND_OPS_ACTION_CALL_EMERGENCY_TOW,
     GROUND_OPS_ACTION_OPEN_PLANNER,
     GROUND_OPS_ACTION_PAUSE,
     GROUND_OPS_ACTION_RESUME,
@@ -82,6 +83,7 @@ typedef enum {
 
 typedef struct {
     bool operation_active;
+    bool emergency_tow;
     pushback_step_t step;
     ground_ops_prep_state_t prep_state;
     bool prep_state_active;
@@ -113,6 +115,7 @@ typedef struct {
     uint64_t revision;
     uint64_t transition_sequence;
     bool operation_active;
+    bool emergency_tow;
     bool operation_complete;
     bool prep_state_active;
     bool action_required;

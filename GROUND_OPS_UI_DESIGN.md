@@ -230,8 +230,11 @@ The UI must not fabricate a flight identity or weather value.
 - The pilot moves and rotates the planner cursor, clicks to place the desired
   aircraft pose, and explicitly accepts the completed route.
 - A route already drawn in the current planner session may be preserved.
-- Persistent gate-route loading and saving remain disabled until the route-cache
-  alignment defect is separately specified, corrected, and simulator validated.
+- Persistent route reuse is available only when the live nosewheel uniquely
+  matches a published `apt.dat` start within 1 m and 1 degree. Two isolated
+  route slots are available per published gate and compatible aircraft profile.
+- An arbitrary or saved-situation start remains usable for the current session,
+  but it cannot list, load, save, or modify persistent gate-route slots.
 - The planner's blue controller trajectory and magenta danger band remain visual
   review tools and do not claim automatic obstacle clearance.
 
@@ -264,6 +267,24 @@ confirmation because it can terminate the operation.
 
 After completion, all five rail stages are filled for the configured delay and
 then the rail hides by default.
+
+### Emergency return tow
+
+- After a normal operation and final tug departure, the completed view offers
+  the optional blue **Call tow back** action.
+- Emergency Tow is a small session coordinator around the existing
+  connect-first workflow, manual planner, tug physics, and disconnect sequence;
+  it does not duplicate those controllers.
+- Once the nose gear is captured, the planner opens automatically at the live
+  aircraft position with an empty one-time route. Saved-route listing, loading,
+  replacement, and writing are hard-disabled for the entire emergency session.
+- The wing walker is neither allocated nor rendered during Emergency Tow.
+- After the tug disconnects and completes its drive-away, the coordinator ends
+  and Ground Operations returns to the same cold-start **Tug available** state
+  used after a simulator start.
+- A later normal operation again uses the normal published-start guard. If the
+  returned aircraft is off its unique `apt.dat` anchor, the route remains
+  session-only and no cache file can be created or changed.
 
 ## Data sources and precedence
 
@@ -306,6 +327,8 @@ Proposed boundaries:
   through the existing X-Plane command handlers on the manager flight loop.
 - `ground_ops_data.*`: optional cached flight/weather providers added after the
   inert UI is stable.
+- `emergency_tow.[ch]`: bounded session lifecycle plus the hard persistent-route
+  and wing-walker policy gates; motion and planning remain in existing modules.
 
 The UI reads one immutable `ground_ops_snapshot_t` containing fixed-size or
 preformatted values. It does not walk route lists, parse JSON, probe terrain,

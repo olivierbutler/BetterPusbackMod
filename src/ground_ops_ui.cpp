@@ -25,6 +25,7 @@
 #include "ImgWindow/xp_img_window.h"
 #include "bp.h"
 #include "cfg.h"
+#include "emergency_tow.h"
 #include "ground_ops_data.h"
 #include "ground_ops_state.h"
 #include "ground_ops_ui.h"
@@ -51,6 +52,7 @@ enum class UiAction {
     ToggleExpanded,
     ToggleWindowMode,
     CallTug,
+    CallEmergencyTow,
     OpenPlanner,
     PausePush,
     ResumePush,
@@ -297,6 +299,7 @@ collect_raw_state(void)
     bool_t speed_valid = B_FALSE, distance_valid = B_FALSE;
 
     raw.operation_active = (bp_started != B_FALSE);
+    raw.emergency_tow = emergency_tow_is_active();
     raw.step = raw.operation_active ? bp.step : PB_STEP_OFF;
     raw.tug_staged = (tug_pending_mode != B_FALSE);
     raw.late_plan = (late_plan_requested != B_FALSE);
@@ -614,6 +617,8 @@ private:
         switch (action) {
         case GROUND_OPS_ACTION_CALL_TUG:
             return (UiAction::CallTug);
+        case GROUND_OPS_ACTION_CALL_EMERGENCY_TOW:
+            return (UiAction::CallEmergencyTow);
         case GROUND_OPS_ACTION_OPEN_PLANNER:
             return (UiAction::OpenPlanner);
         case GROUND_OPS_ACTION_PAUSE:
@@ -1228,6 +1233,9 @@ process_action(UiAction action)
         break;
     case UiAction::CallTug:
         XPLMCommandOnce(conn_first);
+        break;
+    case UiAction::CallEmergencyTow:
+        XPLMCommandOnce(call_emergency_tow);
         break;
     case UiAction::OpenPlanner:
         XPLMCommandOnce(start_pb);

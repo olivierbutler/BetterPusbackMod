@@ -117,6 +117,10 @@ test_prep_states_are_separate_from_controller(void)
     }
     snapshot = ground_ops_state_get(&state);
     assert(snapshot->operation_complete);
+    assert(!snapshot->action_required);
+    assert(snapshot->primary_action ==
+        GROUND_OPS_ACTION_CALL_EMERGENCY_TOW);
+    assert(strcmp(snapshot->primary_action_label, "Call tow back") == 0);
     for (int index = 0; index < GROUND_OPS_STAGE_COUNT; index++)
         assert(snapshot->stages[index] == GROUND_OPS_STAGE_COMPLETE);
 
@@ -343,6 +347,40 @@ test_called_connection_has_no_second_gate_before_capture(void)
     assert(state.snapshot.primary_action == GROUND_OPS_ACTION_OPEN_PLANNER);
 }
 
+static void
+test_emergency_tow_labels_and_actions(void)
+{
+    ground_ops_state_t state;
+    ground_ops_raw_state_t raw = idle_raw();
+
+    ground_ops_state_init(&state);
+    raw.operation_active = true;
+    raw.emergency_tow = true;
+    raw.late_plan = true;
+    raw.awaiting_plan = true;
+    raw.step = PB_STEP_LIFTING;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(state.snapshot.emergency_tow);
+    assert(strcmp(state.snapshot.status,
+        "Tug connected; plan the tow") == 0);
+    assert(strcmp(state.snapshot.primary_action_label, "Plan tow") == 0);
+    assert(strstr(state.snapshot.detail, "saved routes") != NULL);
+
+    raw.awaiting_plan = false;
+    raw.late_plan = false;
+    raw.step = PB_STEP_PUSHING;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(strcmp(state.snapshot.status,
+        "Emergency tow in progress") == 0);
+    assert(strcmp(state.snapshot.primary_action_label, "Pause tow") == 0);
+
+    raw.pause_requested = true;
+    raw.pause_held = true;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(strcmp(state.snapshot.status, "Emergency tow paused") == 0);
+    assert(strcmp(state.snapshot.primary_action_label, "Resume tow") == 0);
+}
+
 int
 main(void)
 {
@@ -359,6 +397,7 @@ main(void)
     test_idle_workflow_requires_pilot_tug_call();
     test_provider_context_is_display_only();
     test_called_connection_has_no_second_gate_before_capture();
+    test_emergency_tow_labels_and_actions();
     assert(sizeof(ground_ops_snapshot_t) < 1024);
     puts("ground_ops_state tests passed");
     return (0);

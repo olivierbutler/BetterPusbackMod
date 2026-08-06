@@ -59,6 +59,7 @@
 #include "bp.h"
 #include "bp_cam.h"
 #include "driving.h"
+#include "emergency_tow.h"
 #include "gate_route_cache.h"
 #include "gate_route_slots.h"
 #include "planner_cache.h"
@@ -2560,50 +2561,65 @@ bp_cam_start(void)
     }
     XPLMRegisterKeySniffer(key_sniffer, 1, NULL);
 
-    at_published_start = planner_prepare_gate_context(
-        &gate_match_distance, &gate_match_heading);
-    if (list_head(&bp.segs) == NULL) {
-        if (at_published_start) {
+    if (!emergency_tow_allows_persistent_routes()) {
+        memset(&planner_gate_context, 0, sizeof(planner_gate_context));
+        bp_delete_all_segs();
+        planner_gate_routes.new_route = B_TRUE;
+        planner_gate_routes.suppress_save = B_TRUE;
+        planner_gate_routes.loaded_slot = -1;
+        planner_gate_routes.save_slot = -1;
+        planner_route_show_message("Emergency Tow - manual route only; "
+            "saved routes are disabled");
+        logMsg(BP_INFO_LOG "Emergency Tow planner opened at the live "
+            "nosewheel; saved-route listing, loading, and saving are "
+            "disabled");
+    } else {
+        at_published_start = planner_prepare_gate_context(
+            &gate_match_distance, &gate_match_heading);
+        if (list_head(&bp.segs) == NULL) {
+            if (at_published_start) {
+                planner_gate_routes.slot_count = gate_route_cache_list(
+                    &planner_gate_context, planner_gate_routes.slots);
+                if (planner_gate_routes.slot_count != 0) {
+                    planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_SELECT;
+                    logMsg(BP_INFO_LOG "Published start recognized: %s %s "
+                        "(nosewheel match %.2f m, %.2f degrees); %u "
+                        "compatible saved route slot%s available for pilot "
+                        "selection", planner_gate_context.airport,
+                        planner_gate_context.ramp, gate_match_distance,
+                        gate_match_heading, planner_gate_routes.slot_count,
+                        planner_gate_routes.slot_count == 1 ? "" : "s");
+                } else {
+                    planner_gate_routes.save_slot = 0;
+                    planner_gate_routes.new_route = B_TRUE;
+                    logMsg(BP_INFO_LOG "Published start recognized: %s %s "
+                        "(nosewheel match %.2f m, %.2f degrees); no "
+                        "compatible saved route slots, planner opened for "
+                        "manual placement", planner_gate_context.airport,
+                        planner_gate_context.ramp, gate_match_distance,
+                        gate_match_heading);
+                }
+            } else {
+                planner_gate_routes.new_route = B_TRUE;
+                planner_gate_routes.suppress_save = B_TRUE;
+                logMsg(BP_INFO_LOG "No unique published apt.dat start "
+                    "matched; planner begins at the live nosewheel and this "
+                    "route will not be saved persistently");
+            }
+        } else if (at_published_start) {
             planner_gate_routes.slot_count = gate_route_cache_list(
                 &planner_gate_context, planner_gate_routes.slots);
-            if (planner_gate_routes.slot_count != 0) {
-                planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_SELECT;
-                logMsg(BP_INFO_LOG "Published start recognized: %s %s "
-                    "(nosewheel match %.2f m, %.2f degrees); %u compatible "
-                    "saved route slot%s available for pilot selection",
-                    planner_gate_context.airport,
-                    planner_gate_context.ramp, gate_match_distance,
-                    gate_match_heading, planner_gate_routes.slot_count,
-                    planner_gate_routes.slot_count == 1 ? "" : "s");
-            } else {
-                planner_gate_routes.save_slot = 0;
-                planner_gate_routes.new_route = B_TRUE;
-                logMsg(BP_INFO_LOG "Published start recognized: %s %s "
-                    "(nosewheel match %.2f m, %.2f degrees); no compatible "
-                    "saved route slots, planner opened for manual placement",
-                    planner_gate_context.airport,
-                    planner_gate_context.ramp, gate_match_distance,
-                    gate_match_heading);
-            }
-        } else {
-            planner_gate_routes.new_route = B_TRUE;
             planner_gate_routes.suppress_save = B_TRUE;
-            logMsg(BP_INFO_LOG "No unique published apt.dat start matched; "
-                "planner begins at the live nosewheel and this route will "
-                "not be saved persistently");
+            logMsg(BP_INFO_LOG "Planner retained the pilot's current "
+                "in-session route at published start %s %s; no saved slot "
+                "will be changed", planner_gate_context.airport,
+                planner_gate_context.ramp);
+        } else {
+            planner_gate_routes.suppress_save = B_TRUE;
+            logMsg(BP_INFO_LOG "Planner retained the pilot's current "
+                "in-session route; current position is not a unique "
+                "published apt.dat start, so persistent saving is disabled");
         }
-    } else if (at_published_start) {
-        planner_gate_routes.slot_count = gate_route_cache_list(
-            &planner_gate_context, planner_gate_routes.slots);
-        planner_gate_routes.suppress_save = B_TRUE;
-        logMsg(BP_INFO_LOG "Planner retained the pilot's current in-session "
-            "route at published start %s %s; no saved slot will be changed",
-            planner_gate_context.airport, planner_gate_context.ramp);
-    } else {
-        planner_gate_routes.suppress_save = B_TRUE;
-        logMsg(BP_INFO_LOG "Planner retained the pilot's current in-session "
-            "route; current position is not a unique published apt.dat "
-            "start, so persistent saving is disabled");
     }
 
     /*
@@ -2691,7 +2707,11 @@ bp_cam_stop(void)
         planner_path_cache.max_build_us / 1000.0,
         (unsigned)planner_path_cache.point_count);
     if (!slave_mode && list_head(&bp.segs) != NULL) {
-        if (!planner_gate_context.recognized) {
+        if (!emergency_tow_allows_persistent_routes()) {
+            logMsg(BP_INFO_LOG "Emergency Tow route accepted for this "
+                "session only; hard persistence guard skipped every gate "
+                "route cache write");
+        } else if (!planner_gate_context.recognized) {
             logMsg(BP_INFO_LOG "Route remains available for this pushback "
                 "session but was not saved: aircraft did not start at a "
                 "unique published apt.dat location");
