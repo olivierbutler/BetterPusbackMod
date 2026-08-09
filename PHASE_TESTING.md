@@ -19,12 +19,12 @@ retained as evidence when they apply to the phase.
 
 Status: **Confirmed**
 
-Date prepared: 2026-08-02  
-Date confirmed in X-Plane: 2026-08-03  
-Branch: `feature/realistic-tug-physics`  
-Starting commit: `d446978ca266`  
+Date prepared: 2026-08-02
+Date confirmed in X-Plane: 2026-08-03
+Branch: `feature/realistic-tug-physics`
+Starting commit: `d446978ca266`
 Windows artifact SHA-256:
-`C72E497CAE2F308C21151260AF20949478B569A172BFE70F403C48F422050A06`  
+`C72E497CAE2F308C21151260AF20949478B569A172BFE70F403C48F422050A06`
 Linux artifact SHA-256:
 `2E05C2E34982156AEF9776D4C88112863B9E5B306CEFA8217F0A14C6B8E71697`
 
@@ -135,11 +135,11 @@ Pilot confirmation: “All went very smoothly. Test complete.”
 
 ### Evidence files
 
-- `C:\X-Plane 12\Log.txt`  
+- `C:\X-Plane 12\Log.txt`
   SHA-256: `B7093D2EF9F8A0B261CBFF06E298237FF90849C0AFE149900FD8C2D31E02BE96`
-- `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260803_003524_AST-3F_tug.csv`  
+- `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260803_003524_AST-3F_tug.csv`
   SHA-256: `271162A2FCDE8C0B6EA7CCBE1CB21053C15EEB6511F6380631811A7780CA9AFB`
-- `C:\Users\DARRON\OneDrive\Pictures\Screenshots\Screenshot 2026-08-03 003906.png`  
+- `C:\Users\DARRON\OneDrive\Pictures\Screenshots\Screenshot 2026-08-03 003906.png`
   SHA-256: `90BE83B098588D9AF276037F11691FD7207652DE6FC39F9EE6DC8557AFBEAA35`
 
 Phase 1 disposition: **Accepted and closed. Phase 2 is next in the roadmap.**
@@ -148,12 +148,12 @@ Phase 1 disposition: **Accepted and closed. Phase 2 is next in the roadmap.**
 
 Status: **Confirmed**
 
-Date prepared: 2026-08-03  
-Date confirmed in X-Plane: 2026-08-03  
-Branch: `feature/realistic-tug-physics`  
-Starting commit: `d446978ca266`  
+Date prepared: 2026-08-03
+Date confirmed in X-Plane: 2026-08-03
+Branch: `feature/realistic-tug-physics`
+Starting commit: `d446978ca266`
 Windows artifact SHA-256:
-`E558BF5FC3EAE1BE4101077F5DD2D546997D325CA2C750CE8FD8769BC64903EA`  
+`E558BF5FC3EAE1BE4101077F5DD2D546997D325CA2C750CE8FD8769BC64903EA`
 Linux artifact SHA-256:
 `919E5823E2DD8D2FBDE3A09C1C3DF39221B0F7450420B804A890B89BA770A0F2`
 
@@ -275,7 +275,7 @@ Phase 2 disposition: **Accepted and closed. Phase 3 is next in the roadmap.**
 
 ### Simulator validation attempt 1 — Rejected and corrected
 
-Date: 2026-08-03  
+Date: 2026-08-03
 Artifact SHA-256:
 `08643D25C2180B5C388462BDAF96DF73285F3F0357E9C82E82CB3A387C22C198`
 
@@ -310,11 +310,11 @@ Corrective action:
 
 Attempt 1 evidence:
 
-- `C:\X-Plane 12\Log.txt`  
+- `C:\X-Plane 12\Log.txt`
   SHA-256: `056BF51D94CFB5DE02E690611AD8867D51FC3E7B17E95ABC7BE2832D3EACB9F9`
-- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 02.02.55.png`  
+- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 02.02.55.png`
   SHA-256: `202AA6FA95E1BE1679E33B769FE431186B769D78C49E18EE8647547F4BBDA8DA`
-- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 02.03.55.png`  
+- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 02.03.55.png`
   SHA-256: `45C5315DE39133E1B947E4A2681288E83778A794485549A7BB09A7B0DE7DD2BD`
 
 The rejected Windows and Linux binaries are preserved for audit at:
@@ -326,7 +326,7 @@ artifact installed for simulator re-validation.
 
 ### Simulator validation attempt 2 — Accepted
 
-Date: 2026-08-03  
+Date: 2026-08-03
 Windows artifact SHA-256:
 `E558BF5FC3EAE1BE4101077F5DD2D546997D325CA2C750CE8FD8769BC64903EA`
 
@@ -357,13 +357,13 @@ suspending it. UI still functions as it should."
 
 ### Accepted evidence files
 
-- `C:\X-Plane 12\Log.txt`  
+- `C:\X-Plane 12\Log.txt`
   SHA-256: `763C90B7E4B1D1EA3BEB1C533092A3C0822421818DE2085E7203AF156D6E798A`
-- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 08.24.41.png`  
+- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 08.24.41.png`
   SHA-256: `7DCE5A4D6AFB928CBCD133EC203C10CB20F05C943030DC987D1707D13AAD4FE9`
-- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 08.26.06.png`  
+- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 08.26.06.png`
   SHA-256: `124F85D07E5A6A2F2948D45A9B9748817B0A59EF8DF4E55D14EE0BA729A9696E`
-- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 08.26.13.png`  
+- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-03 08.26.13.png`
   SHA-256: `CCAE120AB781165D7075DF6C041E209311D9ECDF7431B6641C7634D93A28F7C6`
 
 The accepted Windows and Linux binaries plus the final evidence set are
@@ -375,11 +375,11 @@ preserved at:
 
 Status: **Complete — accepted in simulator on 2026-08-04**
 
-Date prepared: 2026-08-03  
-Branch: `feature/realistic-tug-physics`  
-Starting commit: `d446978ca266`  
+Date prepared: 2026-08-03
+Branch: `feature/realistic-tug-physics`
+Starting commit: `d446978ca266`
 Initial validation Windows artifact SHA-256:
-`C24B80E9D3CF2D95706609F0E6637EB392FD00357D8FD9C7CFB189D88E7049AE`  
+`C24B80E9D3CF2D95706609F0E6637EB392FD00357D8FD9C7CFB189D88E7049AE`
 Initial validation Linux artifact SHA-256:
 `935F649E1FFA8730761F801E8348785042BF34B7EFA054CD070F234018FDBEB7`
 
@@ -507,7 +507,7 @@ Phase 2 ceilings, and no plugin error, assertion, or crash record is acceptable.
 
 ### Simulator validation attempt 1 — Motion passed, workflow rejected
 
-Date: 2026-08-03  
+Date: 2026-08-03
 Windows artifact SHA-256:
 `C24B80E9D3CF2D95706609F0E6637EB392FD00357D8FD9C7CFB189D88E7049AE`
 
@@ -541,9 +541,9 @@ awaiting planning.
 
 Evidence hashes:
 
-- `C:\X-Plane 12\Log.txt`  
+- `C:\X-Plane 12\Log.txt`
   SHA-256: `BFBD1933003CDDCFEF347C7E81F2B04E47E232C64A1F297E4DA8DE0706C6D272`
-- `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260803_090250_AST-3F_tug.csv`  
+- `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260803_090250_AST-3F_tug.csv`
   SHA-256: `C2BBB85DC82E0731FA0104BCCD163478F6E1E0F66ED9F61DB138E92ACA220FFC`
 - Screenshots `08.56.29`, `08.56.35`, `08.57.11`, `08.57.17`, `09.00.13`,
   `09.05.56`, `09.07.45`, `09.07.55`, and `09.09.53` are retained in
@@ -558,9 +558,9 @@ Pilot disposition: **Rejected for workflow correction; motion was successful.**
 
 ### Corrective artifact attempt 2 — Rejected in design review
 
-Date prepared: 2026-08-03  
+Date prepared: 2026-08-03
 Windows artifact SHA-256:
-`E2AB3D8C3F5A56B9BF75C09582EFDF00329A2F29BCB38EB28D36F14584C4D252`  
+`E2AB3D8C3F5A56B9BF75C09582EFDF00329A2F29BCB38EB28D36F14584C4D252`
 Linux artifact SHA-256:
 `2638AEE25BE2E2819DB93D6200E03490D7FC264A94659AC2EE4F12C1DD9BB05F`
 
@@ -596,9 +596,9 @@ was authorized.**
 
 ### Corrective artifact attempt 3 — Installed for simulator validation
 
-Date prepared: 2026-08-03  
+Date prepared: 2026-08-03
 Windows artifact SHA-256:
-`A7CE585CAF89C193E4F7D630678E21D4113A0370FBDFE702B0C4481255EC3AB7`  
+`A7CE585CAF89C193E4F7D630678E21D4113A0370FBDFE702B0C4481255EC3AB7`
 Linux artifact SHA-256:
 `3E30EF15F992C60944F8C08401404E32D9F260EF44E5500E7B82156CC872CD78`
 
@@ -684,9 +684,9 @@ review; attempt 3 built and installed.**
 
 ### Corrective artifact attempt 4 — Pilot-called tug workflow
 
-Date prepared: 2026-08-04  
+Date prepared: 2026-08-04
 Windows artifact SHA-256:
-`29E6BB47658CE4B378443423C4258F2534F63DCCFAC3B2408C3F333BEDEC05B8`  
+`29E6BB47658CE4B378443423C4258F2534F63DCCFAC3B2408C3F333BEDEC05B8`
 Linux artifact SHA-256:
 `6FF91E2E7F66F5B68C47E1887BD62552B2D9631417291DAB8105F93DB361E681`
 
@@ -752,9 +752,9 @@ are preserved at:
 
 ### Corrective artifact attempt 5 — Startup airport-context crash fix
 
-Date prepared: 2026-08-04  
+Date prepared: 2026-08-04
 Windows artifact SHA-256:
-`8562F61A3B565C460785BD38F9FD3170ADB6427AABC72A56B7789A1CA0591F23`  
+`8562F61A3B565C460785BD38F9FD3170ADB6427AABC72A56B7789A1CA0591F23`
 Linux artifact SHA-256:
 `23F90D438D25F31AA31120AED7C1875DF643A55A814DB0AF07183374A3547A5A`
 
@@ -798,22 +798,22 @@ Validation attempt 5 procedure:
 
 ### Simulator validation attempt 5 — Accepted
 
-Date: 2026-08-04  
-Airport: KCOS  
-Aircraft: B737 (`737_70NG.acf`)  
+Date: 2026-08-04
+Airport: KCOS
+Aircraft: B737 (`737_70NG.acf`)
 Tug: `AST-3F.tug`
 
 Pilot disposition: **Everything worked as it should. Phase accepted.**
 
 Evidence:
 
-- `C:\X-Plane 12\Log.txt`  
+- `C:\X-Plane 12\Log.txt`
   SHA-256: `FB65593E244585F9B05BADB1B550E4EF799312CCA5A378FAEEFCAEE22EECE516`
-- `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260804_093221_AST-3F_tug.csv`  
+- `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260804_093221_AST-3F_tug.csv`
   SHA-256: `F2C99646E24FA07580D771E1C37CB9F04192548D1A0FA8C91F71AC9EC183D55B`
-- Accepted Windows artifact SHA-256:  
+- Accepted Windows artifact SHA-256:
   `8562F61A3B565C460785BD38F9FD3170ADB6427AABC72A56B7789A1CA0591F23`
-- Accepted Linux artifact SHA-256:  
+- Accepted Linux artifact SHA-256:
   `23F90D438D25F31AA31120AED7C1875DF643A55A814DB0AF07183374A3547A5A`
 
 The accepted binaries and evidence are preserved at:
@@ -869,9 +869,9 @@ remaining Phase 4 scenario matrix stay in simulator validation.**
 
 ### Simulator validation attempt 1 — One stationary-handoff correction required
 
-Date: 2026-08-04  
-Airport: KCOS  
-Aircraft: B737 (`737_70NG.acf`)  
+Date: 2026-08-04
+Airport: KCOS
+Aircraft: B737 (`737_70NG.acf`)
 Tug: `AST-3F.tug`
 
 Accepted behavior:
@@ -916,13 +916,13 @@ Root cause and correction:
 
 Evidence:
 
-- `C:\X-Plane 12\Log.txt`  
+- `C:\X-Plane 12\Log.txt`
   SHA-256: `BE59770D4D8CED81BD4B89F8BD78F443BADF44C6844FB67412A921134089F336`
-- Moving End/Keep/End-confirm run:  
-  `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260804_100720_AST-3F_tug.csv`  
+- Moving End/Keep/End-confirm run:
+  `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260804_100720_AST-3F_tug.csv`
   SHA-256: `FB4E6C875C2BB36E40BD90E0F4325EF417BA5EA70B2EA20FA8742CAEE3A15AEE`
-- Pause/Resume and stationary-End run:  
-  `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260804_101453_AST-3F_tug.csv`  
+- Pause/Resume and stationary-End run:
+  `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260804_101453_AST-3F_tug.csv`
   SHA-256: `72DCA82FFF0AE4ED6424699B0578C010ABF84CFE98F94E90A730D4AAFF73F361`
 
 The tested attempt-1 binaries and all three evidence files are preserved at:
@@ -931,9 +931,9 @@ The tested attempt-1 binaries and all three evidence files are preserved at:
 
 Corrective artifact installed for focused simulator validation:
 
-- Windows SHA-256:  
+- Windows SHA-256:
   `44942CFA17E5819D6FA51FF14CD5D1BEC8153BB23FB52417B08F193C03A205A3`
-- Linux SHA-256:  
+- Linux SHA-256:
   `4C2CEC29D4B256073CEC3DBDA064AE92036CD517A170835ACD96AD104B1B1B13`
 
 Automated evidence:
@@ -969,9 +969,9 @@ in simulator validation pending only the focused six-step check above.**
 
 ### Simulator validation attempt 2 — Accepted
 
-Date: 2026-08-04  
-Airport: KCOS  
-Aircraft: B737 (`737_70NG.acf`)  
+Date: 2026-08-04
+Airport: KCOS
+Aircraft: B737 (`737_70NG.acf`)
 Tug: `AST-3F.tug`
 
 Pilot disposition: **Worked exactly as intended. The push was deliberately
@@ -980,15 +980,15 @@ movement, requested the parking brake, and disconnected successfully.**
 
 Evidence:
 
-- `C:\X-Plane 12\Log.txt`  
+- `C:\X-Plane 12\Log.txt`
   SHA-256: `4A49A4B52A0EA493FF4895C11B63DB5A86A74C1377B7908CF610468FA084D58B`
-- `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260804_104837_AST-3F_tug.csv`  
+- `C:\X-Plane 12\Output\BetterPushback\telemetry\push_20260804_104837_AST-3F_tug.csv`
   SHA-256: `8B34A2BE20BD109017FDA8704D4769680194BDE7B03EEA269B4D63F14AABA266`
-- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-04 10.53.29.png`  
+- `C:\X-Plane 12\Output\screenshots\737_70NG - 2026-08-04 10.53.29.png`
   SHA-256: `95CDEFB809E908D30EB76C3BCA07A89A5A9A728664C7D4F691F56CB9705EAF9F`
-- Accepted Windows artifact SHA-256:  
+- Accepted Windows artifact SHA-256:
   `44942CFA17E5819D6FA51FF14CD5D1BEC8153BB23FB52417B08F193C03A205A3`
-- Accepted Linux artifact SHA-256:  
+- Accepted Linux artifact SHA-256:
   `4C2CEC29D4B256073CEC3DBDA064AE92036CD517A170835ACD96AD104B1B1B13`
 
 Log evidence:
@@ -1037,12 +1037,12 @@ next in the roadmap.**
 
 ### Slice 1 — Provider foundation and simulator-local fallback
 
-Date prepared: 2026-08-04  
+Date prepared: 2026-08-04
 Status: **Accepted and closed**
 
-Windows artifact SHA-256:  
-`A3F20C7D8207D1057E1587AA20EE73E6D7F705CF03FFD28DB24DBD73E4EC00EE`  
-Linux artifact SHA-256:  
+Windows artifact SHA-256:
+`A3F20C7D8207D1057E1587AA20EE73E6D7F705CF03FFD28DB24DBD73E4EC00EE`
+Linux artifact SHA-256:
 `CC9FA601A761F20A1DC593BDDDED3A1700D284FDCA69556784C86F3AC3BC7AAE`
 
 Change under test:
@@ -1110,8 +1110,8 @@ Simulator validation procedure:
 
 ### Validation 1 — Complete workflow and local-data presentation
 
-Date tested: 2026-08-04  
-Operational disposition: **Accepted**  
+Date tested: 2026-08-04
+Operational disposition: **Accepted**
 Presentation disposition: **Corrections installed for focused validation**
 
 Accepted artifact SHA-256 values:
@@ -1177,7 +1177,7 @@ Focused validation procedure:
 
 ### Validation 2 — Focused presentation correction
 
-Date tested: 2026-08-04  
+Date tested: 2026-08-04
 Disposition: **Accepted**
 
 Accepted artifact SHA-256 values:
@@ -1222,7 +1222,7 @@ placeholders unless a later display-only design is approved.**
 
 ### Slice 1 — X-Plane wind soft seed
 
-Date prepared: 2026-08-04  
+Date prepared: 2026-08-04
 Status: **Rejected in simulator validation; retained below as historical test evidence**
 
 Change under test:
@@ -1298,7 +1298,7 @@ the edited suggestion.
 
 ### Validation 1 - cache priority and hover defect
 
-Date tested: 2026-08-04  
+Date tested: 2026-08-04
 Disposition: **Rejected**
 
 The preceding cached-route-first procedure is obsolete and must not be
@@ -1321,7 +1321,7 @@ Rejected artifacts and evidence are preserved at:
 
 ### Corrective Slice 2 - weather proposal first, cache by pilot choice
 
-Date prepared: 2026-08-04  
+Date prepared: 2026-08-04
 Status: **Rejected in simulator validation on 2026-08-05**
 
 Corrected decision hierarchy:
@@ -1401,7 +1401,7 @@ the saved route`.
 
 ### Validation 2 - heading presentation, turn geometry, and cache transform
 
-Date tested: 2026-08-05  
+Date tested: 2026-08-05
 Disposition: **Rejected**
 
 Findings:
@@ -1471,7 +1471,7 @@ Focused simulator validation result:
 
 ### Corrective Slice 4 - restore manual planner
 
-Date prepared: 2026-08-05  
+Date prepared: 2026-08-05
 Status: **Accepted in simulator**
 
 Product decision:
@@ -1841,15 +1841,34 @@ AST-3F tug:
 
 Commit criterion: **Passed**.
 
-## Open release-engineering requirements
+## Beta testing completion
 
-### RE-001 — Reproducible dependency bootstrap
+Date reported: 2026-08-08
+Status: **Passed - no errors or bugs discovered**
 
-The source-tree build correctly reached the new cache files but the local
-sibling `libacfutils` dependency checkout does not currently contain all of the
-Windows cross-compiled headers. The dependency-complete staging checkout at
-`/opt/betterpushback-build` produced both plugins successfully. Before release,
-the fork must document or automate the exact dependency/submodule bootstrap so
-a clean machine can reproduce the release artifacts without relying on that
-staging checkout. This is tracked for release hardening and does not block the
-Phase 1 simulator test.
+- The distributed beta used the simulator-accepted Windows and Linux binaries
+  from source commit `ac64ea2e45a298ff9cec30fc8529577ab638d80a`.
+- Installation required testers to preserve and completely remove their
+  original BetterPushback folder before copying in the beta.
+- The beta covered the compact and expanded Ground Operations UI, native
+  pop-out placement, keyboard commands, two route slots per airport/gate/
+  aircraft profile, Pause/Resume, End operation, wing-walker signals, and the
+  guarded Emergency Tow lifecycle.
+- The user reported that beta testing completed without discovering an error or
+  bug. No post-beta plugin-code correction was required.
+- Distribution ZIPs, simulator logs, telemetry, screenshots, and route caches
+  remain external validation artifacts and are not committed to the source
+  repository.
+
+## Known build prerequisite
+
+### RE-001 - Dependency-complete `libacfutils`
+
+BetterPushback inherits the upstream requirement for a dependency-complete
+sibling `libacfutils` tree. The repository README and build scripts identify
+that prerequisite. On 2026-08-08, a clean temporary clone of this branch built
+the default Windows and Linux plugins with warnings treated as errors when the
+prepared sibling dependency tree was supplied. A second Linux build with
+`BP_ENABLE_LEGACY_MAGIC_SQUARES=ON` also passed. Dependency bootstrap remains a
+clean-machine setup requirement, but it does not block branch publication or
+upstream source review.

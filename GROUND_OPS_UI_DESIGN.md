@@ -1,6 +1,6 @@
 # Ground Operations UI Design
 
-Status: approved product direction; Phases 3 and 4 accepted  
+Status: approved product direction; Phases 3 and 4 accepted
 Last updated: 2026-08-04
 
 ## Purpose

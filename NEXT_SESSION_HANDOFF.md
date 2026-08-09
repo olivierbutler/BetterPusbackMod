@@ -1,7 +1,7 @@
 # BetterPushback next-session handoff
 
-Prepared: 2026-08-06
-Workspace: `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\BetterPusbackMod`  
+Prepared: 2026-08-08
+Workspace: `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\BetterPusbackMod`
 Branch: `feature/realistic-tug-physics`
 
 ## Start here
@@ -294,22 +294,22 @@ Exact accepted evidence is preserved at:
 
 `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\backups\ui-cleanup-pass2-accepted-20260806`
 
-## Next work - beta package preparation
+## Beta testing completed - upstream review next
 
-The implementation phase is complete. Await the user's beta-distribution
-requirements, then assemble a tester package from the accepted binaries and
-create a PDF explaining the changed Ground Operations workflow, manual/saved
-route behavior, wing-walker signals, Emergency Tow, test scenarios, telemetry,
-known limitations, and feedback/reporting instructions.
+The implementation and beta phases are complete. The tester package was built
+from the simulator-accepted Windows and Linux binaries, included installation
+instructions and an illustrated operating guide, and was verified by a clean
+test extraction before distribution.
 
-Treat current `HEAD`, including Emergency Tow and the final UI cleanup, as the
-accepted baseline. Do not alter the manual planner, two-slot gate-route cache,
-Emergency Tow policy guards, tug physics, wing-walker timing, poses, placement,
-lighting, or licensed assets while preparing and running the beta.
+On 2026-08-08, the user reported beta testing complete with no discovered
+errors or bugs. Treat commit `ac64ea2e45a298ff9cec30fc8529577ab638d80a`
+as the simulator- and beta-accepted plugin-code baseline. Subsequent repository
+housekeeping is limited to release documentation, test orchestration, file
+modes, and Git hygiene.
 
-After beta testing is complete, the user intends to finalize the repository and
-push the branch for upstream review/approval. Do not push, open a pull request,
-or contact upstream maintainers until the user explicitly requests that action.
+The next external action is to publish `feature/realistic-tug-physics` to the
+configured `origin` for upstream review. Do not push, open a pull request, or
+contact upstream maintainers until the user explicitly authorizes that action.
 
 ## Verification completed
 

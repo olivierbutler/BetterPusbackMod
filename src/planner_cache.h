@@ -80,4 +80,3 @@ void planner_prediction_key_invalidate(planner_prediction_key_t *key);
 #endif
 
 #endif /* _PLANNER_CACHE_H_ */
-

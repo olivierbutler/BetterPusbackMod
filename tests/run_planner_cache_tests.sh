@@ -12,4 +12,3 @@ cc -std=c99 -Wall -Wextra -Werror \
 
 "$test_bin"
 rm -f "$test_bin"
-

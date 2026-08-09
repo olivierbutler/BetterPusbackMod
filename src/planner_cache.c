@@ -176,4 +176,3 @@ planner_prediction_key_invalidate(planner_prediction_key_t *key)
 {
     key->valid = false;
 }
-
