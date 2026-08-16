@@ -19,6 +19,8 @@
 #ifndef    _MSG_H_
 #define    _MSG_H_
 
+#include <stdint.h>
+
 #include <acfutils/types.h>
 
 #ifdef    __cplusplus
@@ -50,6 +52,12 @@ typedef enum {
     MSG_NUM_MSGS
 } message_t;
 
+typedef struct {
+    bool_t active;
+    message_t message;
+    uint64_t sequence;
+} msg_caption_state_t;
+
 bool_t msg_init(const char *my_lang, const char *icao, lang_pref_t lang_pref);
 
 void msg_fini();
@@ -61,6 +69,8 @@ void msg_stop(void);
 bool_t mgs_initiated(void);
 
 double msg_dur(message_t msg);
+
+void msg_get_caption_state(msg_caption_state_t *state);
 
 #ifdef    __cplusplus
 }

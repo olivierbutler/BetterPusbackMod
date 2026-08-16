@@ -20,6 +20,14 @@ project(bp)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
 
+option(BP_ENABLE_LEGACY_MAGIC_SQUARES
+    "Enable the original BetterPushback operational button windows" OFF)
+if(BP_ENABLE_LEGACY_MAGIC_SQUARES)
+    add_compile_definitions(BP_ENABLE_LEGACY_MAGIC_SQUARES=1)
+else()
+    add_compile_definitions(BP_ENABLE_LEGACY_MAGIC_SQUARES=0)
+endif()
+
 if (NOT DEFINED COPYRIGHT_YEAR)
     string(TIMESTAMP COPYRIGHT_YEAR "%Y")
 endif()

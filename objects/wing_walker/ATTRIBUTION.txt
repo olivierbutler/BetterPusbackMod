@@ -1,0 +1,20 @@
+Wing Walker 3D Character Attribution
+====================================
+
+"Low-Poly Construction workers (animated)" by Jungle Jim (@jungle_jim)
+Source: https://sketchfab.com/3d-models/low-poly-construction-workers-animated-7b62e6e1b58c476f8b421dd007a4ff90
+Downloaded: 2026-08-05
+
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+License URL: https://creativecommons.org/licenses/by/4.0/
+
+Changes made for BetterPushback:
+- Removed the hammer prop and discarded the original hammering motion.
+- Re-posed the rig for held STOP, STANDBY, and final-clear signals.
+- Added orange marshalling wands and a green final-clear wand/light.
+- Baked the rigged character into three static, dataref-selected OBJ8 poses.
+- Repacked the diffuse texture into an X-Plane texture atlas and added a
+  matching lit texture for the green final-clear wand.
+- Rotated the character to face the aircraft when instantiated by the plugin.
+
+The original creator does not endorse BetterPushback or these modifications.

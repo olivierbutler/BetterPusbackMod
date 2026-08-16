@@ -32,7 +32,7 @@ PROJECT_PATH='BetterPusbackMod'
 
 
 
-CMAKE_OPTS_COMMON="-DCMAKE_BUILD_TYPE=Release"
+CMAKE_OPTS_COMMON="-DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 
 
 
@@ -97,7 +97,8 @@ Linux)
 	( cd src && rm -f CMakeCache.txt && cmake $CMAKE_OPTS_COMMON . \
 	    && make clean && make -j${NCPUS} )
 	strip {win_x64,lin_x64}/BetterPushback.xpl
-	cp -r {win_x64,lin_x64} BetterPushback
+	mkdir -p BetterPushback
+	cp -r {win_x64,lin_x64} BetterPushback/
 	;;
 Darwin)
 	( cd src && rm -f CMakeCache.txt && cmake $CMAKE_OPTS_COMMON . \
@@ -106,7 +107,8 @@ Darwin)
 		make -f notarize/notarize.make notarize
 	fi
 	strip -x mac_x64/BetterPushback.xpl
-	cp -r mac_x64 BetterPushback
+	mkdir -p BetterPushback
+	cp -r mac_x64 BetterPushback/
 	;;
 *)
 	echo "Unsupported platform" >&2

@@ -43,7 +43,9 @@
 #include "bp_cam.h"
 #include "cab_view.h"
 #include "cfg.h"
+#include "emergency_tow.h"
 #include "ff_a320_intf.h"
+#include "ground_ops_ui.h"
 #include "msg.h"
 #include "tug.h"
 #include "xplane.h"
@@ -63,17 +65,21 @@ enum
 
 static bool_t inited = B_FALSE;
 
-XPLMCommandRef start_pb, start_cam, conn_first, stop_pb;
+XPLMCommandRef start_pb, start_cam, conn_first, stop_pb, pause_pb;
+XPLMCommandRef call_emergency_tow;
 static XPLMCommandRef stop_cam;
 static XPLMCommandRef cab_cam, recreate_routes;
 static XPLMCommandRef abort_push, pref_cmd, reload_cmd;
 static XPLMCommandRef manual_push_start, manual_push_start_no_yoke;
 static XPLMCommandRef manual_push_left, manual_push_right, manual_push_reverse;
+static XPLMCommandRef ground_ops_show_hide, ground_ops_expand_collapse;
 static XPLMMenuID root_menu;
 static int plugins_menu_item;
 static int start_pb_plan_menu_item, stop_pb_plan_menu_item;
 static int start_pb_menu_item, stop_pb_menu_item, conn_first_menu_item;
 static int cab_cam_menu_item, prefs_menu_item, reload_menu_item;
+static int ground_ops_show_hide_menu_item;
+static int ground_ops_expand_collapse_menu_item;
 static bool_t prefs_enable, stop_pb_plan_enable,
     stop_pb_enable, conn_first_enable, cab_cam_enable;
 bool_t start_pb_plan_enable, start_pb_enable;
@@ -88,11 +94,15 @@ static int start_pb_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static int stop_pb_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
+static int pause_pb_handler(XPLMCommandRef, XPLMCommandPhase, void *);
+
 static int start_cam_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static int stop_cam_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static int conn_first_handler(XPLMCommandRef, XPLMCommandPhase, void *);
+
+static int emergency_tow_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static int cab_cam_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
@@ -105,6 +115,10 @@ static int reload_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 static int manual_push_left_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 static int manual_push_right_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 static int manual_push_reverse_handler(XPLMCommandRef, XPLMCommandPhase, void *);
+static int ground_ops_show_hide_handler(XPLMCommandRef,
+    XPLMCommandPhase, void *);
+static int ground_ops_expand_collapse_handler(XPLMCommandRef,
+    XPLMCommandPhase, void *);
 static int manual_push_start_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 static int manual_push_start_no_yoke_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 static int manual_push_reverse_handler(XPLMCommandRef, XPLMCommandPhase, void *);
@@ -177,7 +191,9 @@ static dr_t plan_complete_dr, planner_open_dr, bp_tug_name_dr;
 static dr_t pb_set_remote_dr, pb_set_override_dr;
 static dr_cfg_t pb_set_remote_dr_cfg, pb_set_override_dr_cfg;
 static dr_t bp_groud_crew_audio_volume_dr;
+static dr_t wing_walker_signal_dr;
 float bp_ground_crew_audio_volume ;
+static float wing_walker_signal_value;
 bool_t bp_started = B_FALSE;
 bool_t bp_connected = B_FALSE;
 bool_t slave_mode = B_FALSE;
@@ -292,6 +308,8 @@ init_core_state(void)
     op_complete = B_FALSE;
     plan_complete = B_FALSE; /* BP_DATAREF plan_complete */
     planner_open = B_FALSE;  /* BP_DATAREF planner_open */
+    emergency_tow_reset();
+    ground_ops_ui_reset_context();
     cab_view_init();
 }
 
@@ -309,6 +327,34 @@ enable_menu_items()
     XPLMEnableMenuItem(root_menu, stop_pb_plan_menu_item, stop_pb_plan_enable);
     XPLMEnableMenuItem(root_menu, conn_first_menu_item, conn_first_enable);
     XPLMEnableMenuItem(root_menu, cab_cam_menu_item, cab_cam_enable);
+    XPLMEnableMenuItem(root_menu, ground_ops_show_hide_menu_item,
+        ground_ops_ui_is_enabled());
+    XPLMEnableMenuItem(root_menu, ground_ops_expand_collapse_menu_item,
+        ground_ops_ui_is_enabled());
+}
+
+static int
+ground_ops_show_hide_handler(XPLMCommandRef cmd, XPLMCommandPhase phase,
+    void *refcon)
+{
+    UNUSED(cmd);
+    UNUSED(refcon);
+
+    if (phase == xplm_CommandEnd)
+        ground_ops_ui_toggle_visible();
+    return (1);
+}
+
+static int
+ground_ops_expand_collapse_handler(XPLMCommandRef cmd,
+    XPLMCommandPhase phase, void *refcon)
+{
+    UNUSED(cmd);
+    UNUSED(refcon);
+
+    if (phase == xplm_CommandEnd)
+        ground_ops_ui_toggle_expanded();
+    return (1);
 }
 
 static int
@@ -352,6 +398,7 @@ start_pb_handler_(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
         if (!push_manual.active) {
             if (!bp_cam_start())
             return (1);
+            ground_ops_ui_suspend_for_planner();
         }
         prefs_enable = B_FALSE;
         start_pb_plan_enable = B_FALSE;
@@ -468,6 +515,24 @@ stop_pb_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
 }
 
 static int
+pause_pb_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
+    UNUSED(cmd);
+    UNUSED(refcon);
+
+    if (phase != xplm_CommandEnd)
+        return (1);
+    if (bp_pause_is_requested()) {
+        if (!bp_request_resume())
+            logMsg(BP_WARN_LOG "Automatic push resume request rejected");
+    } else if (!bp_request_pause()) {
+        logMsg(BP_WARN_LOG "Automatic push pause request rejected in the "
+            "current controller state");
+    }
+    return (1);
+}
+
+static int
 manual_push_reverse_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
 {
     UNUSED(cmd);
@@ -515,6 +580,7 @@ start_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
         start_after_cam = B_FALSE;
         return (1);
     }
+    ground_ops_ui_suspend_for_planner();
 
     prefs_enable = B_FALSE;
     start_pb_plan_enable = B_FALSE;
@@ -543,6 +609,7 @@ stop_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
 
     if (!bp_cam_stop())
         return (1);
+    ground_ops_ui_resume_after_planner();
 
     prefs_enable = B_TRUE;
     start_pb_plan_enable = B_TRUE;
@@ -578,59 +645,84 @@ stop_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
 }
 
 static int
-conn_first_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+connect_first_begin(bool_t emergency)
 {
-    UNUSED(cmd);
-    UNUSED(refcon);
-    if (phase != xplm_CommandEnd || !bp_init() || bp_started || slave_mode)
-        return (0);
+    bool_t completed_state = op_complete;
 
-    if (!conn_first_enable)
-    {
-        logMsg(BP_WARN_LOG "Command \"BetterPushback/connect_first\" is currently disabled");
+    if (!bp_init() || bp_started || slave_mode)
+        return (0);
+    if (!conn_first_enable) {
+        logMsg(BP_WARN_LOG "Command \"BetterPushback/connect_first\" is "
+            "currently disabled");
         return (0);
     }
-
     if (get_pref_widget_status())
-    { // do nothing if preference widget is active
         return (1);
+    if (emergency) {
+        if (!op_complete) {
+            logMsg(BP_WARN_LOG "Emergency Tow rejected: the previous ground "
+                "operation is not complete");
+            return (0);
+        }
+        if (!emergency_tow_begin()) {
+            logMsg(BP_WARN_LOG "Emergency Tow rejected: a session is already "
+                "active");
+            return (0);
+        }
+        op_complete = B_FALSE;
+        logMsg(BP_INFO_LOG "Emergency Tow requested; persistent route access "
+            "and wing-walker rendering are disabled for this session");
     }
 
     late_plan_requested = B_TRUE;
     (void)bp_cam_stop();
 
-    /*
-     * The conn_first procedure results in 2 calls to bp_start(). First here to get the tug connected,
-     * then the second is issued by the user to get things moving.
-     * An *active* preplanned route interferes with the holding point after lift in
-     * pb_step_lift() / late_plan_end_cond() .
-     * So we save an active preplanned route here and clear it.
-     * It will be loaded again when the planner is started for the final review in the
-     * user invocation of bp_start() so the planning is not lost but it may be modified.
-     */
+    /* The connected workflow always begins with a fresh in-session route. */
     if (bp_num_segs())
-    {
-        route_save(&bp.segs);
         bp_delete_all_segs();
-    }
 
-    if (!bp_start())
-    {
+    if (!bp_start()) {
         late_plan_requested = B_FALSE;
+        if (emergency) {
+            (void)emergency_tow_finish();
+            op_complete = completed_state;
+            logMsg(BP_WARN_LOG "Emergency Tow dispatch failed; restored the "
+                "completed-operation state");
+        }
         return (1);
     }
 
-    if (!slave_mode)
-    {
-        start_pb_plan_enable = B_FALSE;
-        stop_pb_plan_enable = B_FALSE;
-        start_pb_enable = (bp_num_segs() == 0);
-        stop_pb_enable = B_TRUE;
-        conn_first_enable = B_FALSE;
-        prefs_enable = B_FALSE;
-        enable_menu_items();
-    }
+    start_pb_plan_enable = B_FALSE;
+    stop_pb_plan_enable = B_FALSE;
+    start_pb_enable = (bp_num_segs() == 0);
+    stop_pb_enable = B_TRUE;
+    conn_first_enable = B_FALSE;
+    prefs_enable = B_FALSE;
+    enable_menu_items();
     return (1);
+}
+
+static int
+conn_first_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
+    UNUSED(cmd);
+    UNUSED(refcon);
+
+    if (phase != xplm_CommandEnd)
+        return (1);
+    return (connect_first_begin(B_FALSE));
+}
+
+static int
+emergency_tow_handler(XPLMCommandRef cmd, XPLMCommandPhase phase,
+    void *refcon)
+{
+    UNUSED(cmd);
+    UNUSED(refcon);
+
+    if (phase != xplm_CommandEnd)
+        return (1);
+    return (connect_first_begin(B_TRUE));
 }
 
 static int
@@ -744,6 +836,7 @@ void bp_reconnect_notify(void)
 
     late_plan_requested = B_TRUE;
     VERIFY(bp_cam_start());
+    ground_ops_ui_suspend_for_planner();
     msg_play(MSG_PLAN_START);
     start_pb_plan_enable = B_FALSE;
     stop_pb_plan_enable = B_TRUE;
@@ -751,6 +844,47 @@ void bp_reconnect_notify(void)
     conn_first_enable = B_TRUE;
     stop_pb_enable = B_TRUE;
     enable_menu_items();
+}
+
+void
+bp_emergency_tow_planner_notify(void)
+{
+    if (slave_mode || !emergency_tow_claim_planner_launch())
+        return;
+    if (!bp_cam_start()) {
+        logMsg(BP_WARN_LOG "Emergency Tow could not open the planner "
+            "automatically; the Plan tow action remains available");
+        return;
+    }
+    ground_ops_ui_suspend_for_planner();
+    msg_play(MSG_PLAN_START);
+    prefs_enable = B_FALSE;
+    start_pb_plan_enable = B_FALSE;
+    stop_pb_plan_enable = B_TRUE;
+    start_pb_enable = B_FALSE;
+    conn_first_enable = B_FALSE;
+    stop_pb_enable = B_TRUE;
+    enable_menu_items();
+    logMsg(BP_INFO_LOG "Emergency Tow tug connected; opened the one-time "
+        "manual planner automatically");
+}
+
+void
+bp_emergency_tow_session_end_notify(bool_t completed)
+{
+    if (!emergency_tow_finish())
+        return;
+    start_after_cam = B_FALSE;
+    plan_complete = B_FALSE;
+    planner_open = B_FALSE;
+    op_complete = completed ? B_FALSE : B_TRUE;
+    if (completed) {
+        logMsg(BP_INFO_LOG "Emergency Tow complete; restored the normal "
+            "cold-start Ground Operations state");
+    } else {
+        logMsg(BP_INFO_LOG "Emergency Tow ended before final tug departure; "
+            "restored the previous completed-operation state");
+    }
 }
 
 const char *
@@ -993,13 +1127,18 @@ XPluginStart(char *name, char *sig, char *desc)
     start_pb = XPLMCreateCommand("BetterPushback/start",
                                  _("Start pushback"));
     stop_pb = XPLMCreateCommand("BetterPushback/stop",
-                                _("Stop pushback"));
+                                _("End pushback and disconnect"));
+    pause_pb = XPLMCreateCommand("BetterPushback/pause_resume",
+                                 _("Pause or resume automatic pushback"));
     start_cam = XPLMCreateCommand("BetterPushback/start_planner",
                                   _("Start pushback planner"));
     stop_cam = XPLMCreateCommand("BetterPushback/stop_planner",
                                  _("Stop pushback planner"));
     conn_first = XPLMCreateCommand("BetterPushback/connect_first",
                                    _("Connect tug before entering pushback plan"));
+    call_emergency_tow = XPLMCreateCommand(
+        "BetterPushback/call_emergency_tow",
+        _("Call tug for a one-time emergency tow"));
     cab_cam = XPLMCreateCommand("BetterPushback/cab_camera",
                                 _("View from tug's cab."));
     recreate_routes = XPLMCreateCommand(
@@ -1011,6 +1150,12 @@ XPluginStart(char *name, char *sig, char *desc)
     reload_cmd = XPLMCreateCommand(
         "BetterPushback/reload",
         _("Reload BetterPushback"));
+    ground_ops_show_hide = XPLMCreateCommand(
+        "BetterPushback/ground_ops_show_hide",
+        _("Show or hide the Ground Operations interface"));
+    ground_ops_expand_collapse = XPLMCreateCommand(
+        "BetterPushback/ground_ops_expand_collapse",
+        _("Expand or collapse the Ground Operations interface"));
 
     abort_push = XPLMCreateCommand("BetterPushback/abort_push",
                                    _("Abort pushback during coupled push"));
@@ -1038,6 +1183,13 @@ XPluginStart(char *name, char *sig, char *desc)
     (void)conf_get_f(bp_conf, "ground_crew_audio_volume", &bp_ground_crew_audio_volume);            
     dr_create_f(&bp_groud_crew_audio_volume_dr, (float *)&bp_ground_crew_audio_volume, B_TRUE,
                 "bp/ground_crew_audio_volume");
+    /*
+     * X-Plane requires every custom dataref referenced by an instanced OBJ
+     * to exist before the object is loaded. The instance supplies its own
+     * per-worker value; this backing value only registers the dataref.
+     */
+    dr_create_f(&wing_walker_signal_dr, &wing_walker_signal_value, B_FALSE,
+                WING_WALKER_SIGNAL_DATAREF);
 
     slave_mode_dr_cfg.write_cb = slave_mode_cb;    
     slave_mode_dr_cfg.writable = B_TRUE;    
@@ -1075,6 +1227,7 @@ XPluginStart(char *name, char *sig, char *desc)
 PLUGIN_API void
 XPluginStop(void)
 {
+    ground_ops_ui_fini();
     cfg_cleanup();
     bp_conf_fini();
     acfutils_xlate_fini();
@@ -1088,6 +1241,7 @@ XPluginStop(void)
     dr_delete(&bp_tug_name_dr);
     dr_delete(&pb_set_remote_dr);
     dr_delete(&pb_set_override_dr);
+    dr_delete(&wing_walker_signal_dr);
     dcr_fini();
 
     if (reload_floop_ID != NULL)
@@ -1175,9 +1329,12 @@ bp_priv_enable(void)
 
     XPLMRegisterCommandHandler(start_pb, start_pb_handler, 1, NULL);
     XPLMRegisterCommandHandler(stop_pb, stop_pb_handler, 1, NULL);
+    XPLMRegisterCommandHandler(pause_pb, pause_pb_handler, 1, NULL);
     XPLMRegisterCommandHandler(start_cam, start_cam_handler, 1, NULL);
     XPLMRegisterCommandHandler(stop_cam, stop_cam_handler, 1, NULL);
     XPLMRegisterCommandHandler(conn_first, conn_first_handler, 1, NULL);
+    XPLMRegisterCommandHandler(call_emergency_tow, emergency_tow_handler, 1,
+        NULL);
     XPLMRegisterCommandHandler(cab_cam, cab_cam_handler, 1, NULL);
     XPLMRegisterCommandHandler(recreate_routes, recreate_routes_handler,
                                1, NULL);
@@ -1185,6 +1342,10 @@ bp_priv_enable(void)
                                1, NULL);
     XPLMRegisterCommandHandler(reload_cmd, reload_handler, 1, NULL);
     XPLMRegisterCommandHandler(abort_push, abort_push_handler, 1, NULL);
+    XPLMRegisterCommandHandler(ground_ops_show_hide,
+        ground_ops_show_hide_handler, 1, NULL);
+    XPLMRegisterCommandHandler(ground_ops_expand_collapse,
+        ground_ops_expand_collapse_handler, 1, NULL);
 
     XPLMRegisterCommandHandler(manual_push_left, manual_push_left_handler, 1, NULL);
     XPLMRegisterCommandHandler(manual_push_right, manual_push_right_handler, 1, NULL);
@@ -1206,10 +1367,18 @@ bp_priv_enable(void)
     start_pb_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
                                                        _("Start pushback"), start_pb);
     stop_pb_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
-                                                      _("Stop pushback"), stop_pb);
+        _("End pushback and disconnect"), stop_pb);
+    XPLMAppendMenuItemWithCommand(root_menu,
+        _("Pause/Resume automatic pushback"), pause_pb);
     cab_cam_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
                                                       _("Tug cab view"), cab_cam);
 
+    XPLMAppendMenuSeparator(root_menu);
+    ground_ops_show_hide_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
+        _("Ground Operations: Show/Hide"), ground_ops_show_hide);
+    ground_ops_expand_collapse_menu_item = XPLMAppendMenuItemWithCommand(
+        root_menu, _("Ground Operations: Expand/Collapse"),
+        ground_ops_expand_collapse);
     XPLMAppendMenuSeparator(root_menu);
     prefs_menu_item = XPLMAppendMenuItemWithCommand(root_menu,
                                                     _("Preferences..."), pref_cmd);
@@ -1231,6 +1400,7 @@ bp_priv_enable(void)
     start_pb_plan_enable = B_TRUE;
     stop_pb_plan_enable = B_FALSE;
     cab_cam_enable = B_FALSE;
+    (void)ground_ops_ui_init();
     enable_menu_items();
 
     XPLMRegisterFlightLoopCallback(status_check, STATUS_CHECK_INTVAL, NULL);
@@ -1267,16 +1437,24 @@ bp_priv_disable(void)
         return;
 
     set_xp11_tug_hidden(B_FALSE);
+    ground_ops_ui_fini();
 
     XPLMUnregisterCommandHandler(start_pb, start_pb_handler, 1, NULL);
     XPLMUnregisterCommandHandler(stop_pb, stop_pb_handler, 1, NULL);
+    XPLMUnregisterCommandHandler(pause_pb, pause_pb_handler, 1, NULL);
     XPLMUnregisterCommandHandler(start_cam, start_cam_handler, 1, NULL);
     XPLMUnregisterCommandHandler(stop_cam, stop_cam_handler, 1, NULL);
     XPLMUnregisterCommandHandler(conn_first, conn_first_handler, 1, NULL);
+    XPLMUnregisterCommandHandler(call_emergency_tow, emergency_tow_handler, 1,
+        NULL);
     XPLMUnregisterCommandHandler(cab_cam, cab_cam_handler, 1, NULL);
     XPLMUnregisterCommandHandler(recreate_routes, recreate_routes_handler,
                                  1, NULL);
     XPLMUnregisterCommandHandler(abort_push, abort_push_handler, 1, NULL);
+    XPLMUnregisterCommandHandler(ground_ops_show_hide,
+        ground_ops_show_hide_handler, 1, NULL);
+    XPLMUnregisterCommandHandler(ground_ops_expand_collapse,
+        ground_ops_expand_collapse_handler, 1, NULL);
     XPLMUnregisterCommandHandler(manual_push_left, manual_push_left_handler, 1, NULL);
     XPLMUnregisterCommandHandler(manual_push_right, manual_push_right_handler, 1, NULL);
     XPLMUnregisterCommandHandler(manual_push_reverse, manual_push_reverse_handler, 1, NULL);

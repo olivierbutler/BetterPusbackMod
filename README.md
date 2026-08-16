@@ -9,6 +9,48 @@ pushback operation. To increase immersion, it speaks to you in a variety
 of languages and accents, simulating ground staff at various places
 around the world.
 
+In this realism fork, the planner's blue line is a controller-matched preview
+of the expected main-gear trajectory rather than an ideal circular arc. A
+smooth, uniformly shaded magenta band marks the continuous, wingspan-wide
+danger zone around that trajectory. It supports visual clearance planning but
+does not perform automatic collision detection.
+
+Development of the compact ground-operations experience is governed by the
+tracked [UI design](GROUND_OPS_UI_DESIGN.md) and the fork's complete
+[implementation roadmap](ROADMAP.md). These documents define the approved
+five-stage compact rail, live workflow panel, performance guardrails,
+phased delivery, and acceptance gates. Active crew audio prompts can be mirrored
+as optional panel captions. Build and simulator evidence for every phase is retained in the
+[verification record](PHASE_TESTING.md).
+
+The Ground Operations workflow first displays the parsed departure-airport
+identifier and an amber **Call tug** action. There is no artificial timer or
+automatic dispatch: connection begins only when the pilot presses the button.
+The ground crew then performs approach and nose-gear capture automatically.
+Capture ends at an amber **Plan push** gate with no lift performed; lift starts
+only after the pilot opens the planner and accepts the push route.
+
+The planner opens for manual route placement and does not generate a route from
+wind or runway data. When the live nosewheel uniquely matches a published
+`apt.dat` start within 1 metre and 1 degree, an accepted route can be stored by
+airport, gate or stand, and compatible aircraft profile. Each matching profile
+has two independent saved-route slots with explicit selection and replacement.
+Saved-situation, arbitrary-position, off-anchor, and Emergency Tow routes remain
+session-only and cannot load, replace, or save persistent routes.
+
+Ground Operations can be shown as a compact five-orb stage rail, expanded into
+the complete status and action panel, or popped out as a native X-Plane window
+and moved to another monitor. During an automatic push, **Pause/Resume** retains
+the accepted route and steering state, while **End operation** stops safely and
+continues through the normal disconnect sequence at the current position.
+
+After a completed normal operation, **Call tow back** starts a guarded one-time
+Emergency Tow. The tug reconnects, the manual planner opens at the live aircraft
+position, and the plugin returns to its normal start state after towing and
+disconnect are complete. Emergency Tow does not use the saved-route cache or
+render the wing walker. Normal pushbacks retain the accepted STOP, STANDBY, and
+CLEAR wing-walker sequence.
+
 ### About this Fork and Copyright
 
 Better Pushback is developed by "Saso Kiselkov". So if you see this project or else, just contact me.
@@ -39,9 +81,25 @@ Linux and Windows versions are built in one step on an Ubuntu 16.04 (or
 compatible) machine and the Mac version is obviously built on macOS (10.9
 or later).
 
->Note: __on macOS only__ , by using the option ```-f```, the script will build also the linux and windows versions. see ```README-docker.md```.  
+>Note: __on macOS only__ , by using the option ```-f```, the script will build also the linux and windows versions. see ```README-docker.md```.
 
 For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
+
+### Legacy operational UI compatibility
+
+This fork uses the Ground Operations panel as its operational interface. The
+original BetterPushback "magic squares" windows remain in the source tree but
+are disabled by default so both interfaces are not displayed together. An
+upstream maintainer can restore the original windows without reverting source
+by configuring the build with:
+
+```
+cmake -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON ...
+```
+
+This switch controls presentation only. Existing commands, preferences,
+automatic tug-start behavior, the overhead planner, and disconnect/reconnect
+interfaces remain available in either setting.
 
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:
@@ -54,15 +112,15 @@ stand-alone version of the plugin that is to be installed into the global
 Resources/plugins directory in X-Plane.
 ***
 ```
-$ ./build_xpl_sh [-f] 
+$ ./build_xpl.sh [-f]
 ```
-This build only the .xpl file. (option described above can be used)
+This builds only the `.xpl` files. The option described above can also be used.
 ***
 ```
 $ ./install_xplane.sh
 ```
-Copy the .xpl files to the x-plane and change the quarantine attribute of the ```mac.xpl``` file.  
-In the script, just set ```XPLANE_PLUGIN_DIR``` accordingly. 
+Copy the .xpl files to the x-plane and change the quarantine attribute of the ```mac.xpl``` file.
+In the script, just set ```XPLANE_PLUGIN_DIR``` accordingly.
 ***
 
 For details on how to add tug liveries, see
@@ -70,15 +128,36 @@ For details on how to add tug liveries, see
 
 To add a voice set, see `data/msgs/README.txt` for the information.
 
+## Running the regression tests
+
+The focused regression matrix requires a POSIX shell, a C compiler, Python 3,
+and the same sibling `libacfutils` dependency tree used by the plugin build.
+Run all current suites with:
+
+```
+$ ./tests/run_all_tests.sh
+```
+
 ## Commands
 
 BetterPushback registers these X-Plane commands:
 
 - `BetterPushback/start`: Start pushback (or connect-first if configured).
-- `BetterPushback/stop`: Stop pushback.
+- `BetterPushback/pause_resume`: Smoothly pause or resume automatic pushback
+  without discarding the accepted route.
+- `BetterPushback/stop`: End pushback and disconnect. This retains the legacy
+  command path for compatibility but is presented distinctly from Pause.
 - `BetterPushback/start_planner`: Open the pushback planner.
 - `BetterPushback/stop_planner`: Close the pushback planner.
 - `BetterPushback/connect_first`: Connect the tug before planning/pushback.
+- `BetterPushback/call_emergency_tow`: Call the tug back after a completed
+  operation for a one-time Emergency Tow.
+- `BetterPushback/ground_ops_show_hide`: Show or hide Ground Operations.
+- `BetterPushback/ground_ops_expand_collapse`: Expand or collapse Ground
+  Operations.
+- `BetterPushback/disconnect`: Approve physical disconnect when prompted.
+- `BetterPushback/reconnect`: Reconnect during the supported disconnect
+  decision stage.
 - `BetterPushback/cab_camera`: View from the tug cab.
 - `BetterPushback/recreate_scenery_routes`: Recreate scenery routes from WED files.
 - `BetterPushback/preference`: Open the preference window.
@@ -93,6 +172,9 @@ BetterPushback registers these X-Plane commands:
 
 Note: For coupling add-ons, only `BetterPushback/start` is intended to be
 mirrored to the slave. Other commands remain local.
+
+The Ground Operations **Call tug** button dispatches
+`BetterPushback/connect_first` through the normal command handler.
 
 ### libacfutils Library Required
 

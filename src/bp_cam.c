@@ -26,6 +26,8 @@
 #include <string.h>
 #include <stddef.h>
 #include <errno.h>
+#include <ctype.h>
+#include <stdarg.h>
 
 #include <png.h>
 
@@ -48,6 +50,7 @@
 #include <acfutils/intl.h>
 #include <acfutils/math.h>
 #include <acfutils/list.h>
+#include <acfutils/safe_alloc.h>
 #include <acfutils/time.h>
 #include <acfutils/wav.h>
 
@@ -56,6 +59,12 @@
 #include "bp.h"
 #include "bp_cam.h"
 #include "driving.h"
+#include "emergency_tow.h"
+#include "gate_route_cache.h"
+#include "gate_route_slots.h"
+#include "planner_cache.h"
+#include "realism_config.h"
+#include "vehicle_physics.h"
 #include "xplane.h"
 #include "cfg.h"
 #include "msg.h"
@@ -63,7 +72,13 @@
 #define MAX_PRED_DISTANCE 10000 /* meters */
 #define ANGLE_DRAW_STEP 5
 #define ORIENTATION_LINE_LEN 200
-
+#define PREDICTION_DT 0.1
+#define PREDICTION_SAMPLE_DISTANCE 1.0
+#define MAX_PREDICTION_STEPS 120000
+#define MAX_PREDICTION_POINTS 20000
+#define DANGER_ZONE_CIRCLE_SEGMENTS 24
+#define PREDICTION_KEY_POSITION_EPSILON 0.01
+#define PREDICTION_KEY_HEADING_EPSILON 0.01
 #define INCR_SMALL 5
 #define INCR_MED 25
 #define INCR_BIG 125
@@ -92,6 +107,12 @@
 #define COMPASS_ROSE_SEGMENTS 48
 #define COMPASS_ROSE_RIGHT_CLEARANCE 64
 
+#define ROUTE_PROMPT_WIDTH 640
+#define ROUTE_PROMPT_OPTION_HEIGHT 46
+#define ROUTE_PROMPT_OPTION_GAP 10
+#define ROUTE_PROMPT_HEADER_HEIGHT 82
+#define ROUTE_PROMPT_SIDE_PADDING 24
+
 #define PREDICTION_DRAWING_PHASE xplm_Phase_Window
 #define PREDICTION_DRAWING_PHASE_BEFORE 1
 
@@ -118,6 +139,58 @@ static vect2_t cursor_world_pos;
 static bool_t force_root_win_focus = B_TRUE;
 static float saved_visibility;
 static int saved_cloud_types[3];
+
+typedef struct {
+    vect2_t pos;
+    double hdg;
+} planner_path_point_t;
+
+typedef struct {
+    bool_t turn_active;
+    double turn_distance;
+    double turn_end_hdg;
+    double steer;
+} planner_prediction_state_t;
+
+static planner_path_point_t planner_path[MAX_PREDICTION_POINTS];
+static float planner_path_height[MAX_PREDICTION_POINTS];
+static size_t planner_path_count;
+static bool_t planner_prediction_announced;
+static bool_t planner_prediction_failure_announced;
+static bool_t planner_band_failure_announced;
+static planner_cache_state_t planner_path_cache;
+static planner_prediction_key_t planner_pred_key;
+static gate_route_context_t planner_gate_context;
+
+typedef enum {
+    PLANNER_ROUTE_PROMPT_NONE,
+    PLANNER_ROUTE_PROMPT_SELECT,
+    PLANNER_ROUTE_PROMPT_REPLACE
+} planner_route_prompt_t;
+
+typedef struct {
+    int left;
+    int bottom;
+    int right;
+    int top;
+} planner_route_prompt_rect_t;
+
+typedef struct {
+    planner_route_prompt_t prompt;
+    gate_route_slot_info_t slots[GATE_ROUTE_CACHE_SLOT_COUNT];
+    unsigned slot_count;
+    int loaded_slot;
+    int save_slot;
+    int hover_choice;
+    int mouse_down_choice;
+    bool_t dirty;
+    bool_t new_route;
+    bool_t suppress_save;
+} planner_gate_route_state_t;
+
+static planner_gate_route_state_t planner_gate_routes;
+static uint64_t planner_cursor_solve_count;
+static uint64_t planner_cursor_reuse_count;
 static float fsaved_cloud_types[3];
 static bool_t saved_real_wx;
 static XPLMObjectRef cam_lamp_obj = NULL;
@@ -133,7 +206,6 @@ float loop_nightlamp(float elapsed, float elapsed2, int counter, void *refcon);
 
 static struct
 {
-    dr_t lat, lon;
     dr_t local_x, local_y, local_z;
     dr_t local_vx, local_vy, local_vz;
     dr_t cam_x, cam_y, cam_z;
@@ -447,6 +519,153 @@ vp_unproject(double x, double y, double *x_phys, double *y_phys)
     *y_phys = out_pt[1];
 }
 
+static bool_t
+planner_clear_segments(list_t *segments)
+{
+    seg_t *seg;
+    bool_t changed = B_FALSE;
+
+    while ((seg = list_remove_head(segments)) != NULL) {
+        free(seg);
+        changed = B_TRUE;
+    }
+    return (changed);
+}
+
+static bool_t
+planner_clear_predicted_segments(void)
+{
+    return (planner_clear_segments(&pred_segs));
+}
+
+static uint64_t
+planner_hash_segments(uint64_t hash, const list_t *segments, uint64_t tag)
+{
+    uint64_t count = 0;
+
+    hash = planner_hash_u64(hash, tag);
+    for (const seg_t *seg = list_head(segments); seg != NULL;
+        seg = list_next(segments, seg)) {
+        count++;
+        hash = planner_hash_u64(hash, (uint64_t)seg->type);
+        hash = planner_hash_u64(hash, (uint64_t)seg->have_local_coords);
+        hash = planner_hash_double(hash, seg->start_pos.x);
+        hash = planner_hash_double(hash, seg->start_pos.y);
+        hash = planner_hash_double(hash, seg->start_hdg);
+        hash = planner_hash_double(hash, seg->end_pos.x);
+        hash = planner_hash_double(hash, seg->end_pos.y);
+        hash = planner_hash_double(hash, seg->end_hdg);
+        hash = planner_hash_u64(hash, (uint64_t)seg->backward);
+        if (seg->type == SEG_TYPE_TURN) {
+            hash = planner_hash_double(hash, seg->turn.r);
+            hash = planner_hash_u64(hash, (uint64_t)seg->turn.right);
+        } else {
+            hash = planner_hash_double(hash, seg->len);
+        }
+        hash = planner_hash_u64(hash, (uint64_t)seg->user_placed);
+    }
+    return (planner_hash_u64(hash, count));
+}
+
+static uint64_t
+planner_committed_signature(void)
+{
+    return (planner_hash_segments(planner_hash_init(), &bp.segs,
+        UINT64_C(0x434f4d4d49545445)));
+}
+
+static uint64_t
+planner_prediction_signature(void)
+{
+    uint64_t hash = planner_committed_signature();
+
+    hash = planner_hash_segments(hash, &pred_segs,
+        UINT64_C(0x5052454449435444));
+    hash = planner_hash_double(hash, bp.veh.wheelbase);
+    hash = planner_hash_double(hash, bp.veh.fixed_z_off);
+    hash = planner_hash_double(hash, bp.veh.max_steer);
+    hash = planner_hash_double(hash, bp.veh.max_fwd_spd);
+    hash = planner_hash_double(hash, bp.veh.max_rev_spd);
+    hash = planner_hash_double(hash, bp.veh.max_fwd_ang_vel);
+    hash = planner_hash_double(hash, bp.veh.max_rev_ang_vel);
+    hash = planner_hash_double(hash, bp.veh.max_centr_accel);
+    hash = planner_hash_double(hash, bp.veh.max_accel);
+    hash = planner_hash_double(hash, bp.veh.max_decel);
+    hash = planner_hash_u64(hash, (uint64_t)bp.veh.use_rear_pos);
+    hash = planner_hash_double(hash, bp.acf.main_z);
+    if (bp_ls.outline != NULL) {
+        hash = planner_hash_u64(hash, UINT64_C(1));
+        hash = planner_hash_double(hash, bp_ls.outline->semispan);
+        hash = planner_hash_double(hash, bp_ls.outline->length);
+        hash = planner_hash_u64(hash,
+            (uint64_t)bp_ls.outline->num_pts);
+    } else {
+        hash = planner_hash_u64(hash, UINT64_C(0));
+    }
+    return (hash);
+}
+
+static vect2_t
+planner_aircraft_gear_position(double gear_z)
+{
+    vect2_t origin = VECT2(dr_getf(&drs.local_x),
+        -dr_getf(&drs.local_z));
+    double heading = dr_getf(&drs.hdg);
+
+    return vect2_add(origin,
+        vect2_scmul(hdg2dir(heading), -gear_z));
+}
+
+static vect2_t
+planner_main_gear_position(void)
+{
+    return planner_aircraft_gear_position(bp.acf.main_z);
+}
+
+static vect2_t
+planner_nosewheel_position(void)
+{
+    return planner_aircraft_gear_position(bp.acf.nw_z);
+}
+
+static vect2_t
+planner_nosewheel_from_main_gear(vect2_t main_gear, double heading)
+{
+    return vect2_add(main_gear,
+        vect2_scmul(hdg2dir(heading), bp.veh.wheelbase));
+}
+
+static bool_t
+planner_prepare_gate_context(double *match_distance, double *match_heading)
+{
+    XPLMProbeRef probe;
+    XPLMProbeInfo_t info = {.structSize = sizeof(info)};
+    vect2_t nosewheel = planner_nosewheel_position();
+    geo_pos2_t nosewheel_geo;
+    char aircraft[256] = {0};
+    char aircraft_path[512] = {0};
+    double unused;
+
+    gate_route_context_reset(&planner_gate_context);
+    probe = XPLMCreateProbe(xplm_ProbeY);
+    if (probe == NULL)
+        return B_FALSE;
+    if (XPLMProbeTerrainXYZ(probe, nosewheel.x, 0, -nosewheel.y,
+        &info) != xplm_ProbeHitTerrain) {
+        XPLMDestroyProbe(probe);
+        return B_FALSE;
+    }
+    XPLMDestroyProbe(probe);
+
+    XPLMLocalToWorld(nosewheel.x, info.locationY, -nosewheel.y,
+        &nosewheel_geo.lat, &nosewheel_geo.lon, &unused);
+    XPLMGetNthAircraftModel(0, aircraft, aircraft_path);
+    return gate_route_find_published_start(airportdb, nosewheel_geo,
+        nosewheel, dr_getf(&drs.hdg), aircraft, bp.veh.wheelbase,
+        bp.acf.nw_z, bp.acf.main_z, &planner_gate_context,
+        match_distance, match_heading);
+}
+
 static int
 cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
 {
@@ -478,11 +697,11 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
      * Don't make predictions if due to the camera FOV angle (>= 180 deg)
      * we could be placing the prediction object very far away.
      */
-    if (dx > MAX_PRED_DISTANCE || dy > MAX_PRED_DISTANCE)
+    if (fabs(dx) > MAX_PRED_DISTANCE || fabs(dy) > MAX_PRED_DISTANCE) {
+        planner_clear_predicted_segments();
+        planner_prediction_key_invalidate(&planner_pred_key);
         return (1);
-
-    while ((seg = list_remove_head(&pred_segs)) != NULL)
-        free(seg);
+    }
 
     seg = list_tail(&bp.segs);
     if (seg != NULL)
@@ -492,8 +711,8 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
     }
     else
     {
-        start_pos = VECT2(dr_getf(&drs.local_x),
-                          -dr_getf(&drs.local_z)); /* inverted X-Plane Z */
+        /* The steering route is referenced to the aircraft main gear. */
+        start_pos = planner_main_gear_position();
         start_hdg = dr_getf(&drs.hdg);
     }
 
@@ -501,8 +720,27 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
                         vect2_rot(VECT2(dx, dy), pos->heading));
     cursor_world_pos = VECT2(end_pos.x, end_pos.y);
 
-    n = compute_segs(&bp.veh, start_pos, start_hdg, end_pos,
-                     cursor_hdg, &pred_segs);
+    {
+        uint64_t base_signature = planner_committed_signature();
+
+        if (planner_prediction_key_matches(&planner_pred_key,
+            base_signature, start_pos.x, start_pos.y, start_hdg,
+            end_pos.x, end_pos.y, cursor_hdg,
+            PREDICTION_KEY_POSITION_EPSILON,
+            PREDICTION_KEY_HEADING_EPSILON)) {
+            planner_cursor_reuse_count++;
+            return (1);
+        }
+
+        planner_clear_predicted_segments();
+        planner_cursor_solve_count++;
+        n = compute_segs(&bp.veh, start_pos, start_hdg, end_pos,
+            cursor_hdg, &pred_segs);
+        planner_prediction_key_set(&planner_pred_key, base_signature,
+            start_pos.x, start_pos.y, start_hdg, end_pos.x, end_pos.y,
+            cursor_hdg);
+    }
+
     if (n > 0)
     {
         seg = list_tail(&pred_segs);
@@ -510,6 +748,436 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
     }
 
     return (1);
+}
+
+static double
+planner_tail_arm(void)
+{
+    double aft_y = -HUGE_VAL;
+
+    if (bp_ls.outline != NULL) {
+        for (size_t i = 0; i < bp_ls.outline->num_pts; i++) {
+            vect2_t point = bp_ls.outline->pts[i];
+
+            if (!IS_NULL_VECT(point) && isfinite(point.y))
+                aft_y = MAX(aft_y, point.y);
+        }
+        if (isfinite(aft_y) && aft_y > bp.acf.main_z)
+            return (aft_y - bp.acf.main_z);
+        if (bp_ls.outline->length > 0)
+            return (MAX(bp_ls.outline->length * 0.4,
+                bp.veh.wheelbase / 2));
+    }
+
+    return (MAX(bp.veh.wheelbase, 1));
+}
+
+static double
+planner_deadband(double value, double deadband)
+{
+    if (fabs(value) <= deadband)
+        return (0);
+    return (value - copysign(deadband, value));
+}
+
+static const seg_t *
+planner_tail_target(const list_t *segs, const seg_t *current)
+{
+    const seg_t *target = current;
+
+    if (current->type == SEG_TYPE_STRAIGHT)
+        return (current);
+
+    for (const seg_t *candidate = current; candidate != NULL;
+        candidate = list_next(segs, candidate)) {
+        target = candidate;
+        if (candidate->user_placed)
+            break;
+    }
+    return (target);
+}
+
+/* Mirrors automatic_steer_target without touching live pushback state. */
+static double
+planner_steer_target(const list_t *segs, const seg_t *seg,
+    const vehicle_t *veh, const vehicle_pos_t *pose, double route_steer,
+    double tail_arm, planner_prediction_state_t *state)
+{
+    const seg_t *control_target = planner_tail_target(segs, seg);
+    double signed_turn = 0, total_distance = 0, direction = 0;
+    double profile_target = 0, capture_fraction = 1;
+    double cross_track, along_remaining, heading_error, feedback;
+    double path_weight, path_correction;
+    vect2_t aircraft_dir = hdg2dir(pose->hdg);
+    vect2_t target_dir = hdg2dir(control_target->end_hdg);
+    vect2_t target_right = vect2_norm(target_dir, B_TRUE);
+    vect2_t travel_dir = (control_target->backward ?
+        vect2_neg(target_dir) : target_dir);
+    vect2_t tail_pos = vect2_add(pose->pos,
+        vect2_scmul(aircraft_dir, -tail_arm));
+    vect2_t target_tail_pos = vect2_add(control_target->end_pos,
+        vect2_scmul(target_dir, -tail_arm));
+
+    if (seg->type == SEG_TYPE_TURN) {
+        signed_turn = rel_hdg(seg->start_hdg, seg->end_hdg);
+        total_distance = DEG2RAD(fabs(signed_turn)) * seg->turn.r;
+        if (!state->turn_active ||
+            fabs(rel_hdg(state->turn_end_hdg, seg->end_hdg)) > 1e-6) {
+            state->turn_active = B_TRUE;
+            state->turn_distance = 0;
+            state->turn_end_hdg = seg->end_hdg;
+        }
+        state->turn_distance = MIN(state->turn_distance +
+            fabs(pose->spd) * PREDICTION_DT, total_distance);
+        direction = (signed_turn >= 0 ? 1 : -1) *
+            (seg->backward ? -1 : 1);
+        profile_target = vehicle_turn_profile_steer(veh->wheelbase,
+            seg->turn.r, total_distance, state->turn_distance,
+            TURN_PROFILE_TRANSITION_DIST, direction, veh->max_steer);
+        capture_fraction = (total_distance > 0 ?
+            2 * (state->turn_distance / total_distance - 0.5) : 1);
+        capture_fraction = MIN(MAX(capture_fraction, 0), 1);
+    } else {
+        state->turn_active = B_FALSE;
+        state->turn_distance = 0;
+    }
+
+    cross_track = vect2_dotprod(vect2_sub(tail_pos, target_tail_pos),
+        target_right);
+    along_remaining = vect2_dotprod(vect2_sub(target_tail_pos, tail_pos),
+        travel_dir);
+    heading_error = rel_hdg(pose->hdg, control_target->end_hdg);
+    feedback = vehicle_tail_steer_correction(
+        planner_deadband(cross_track, TAIL_CROSS_TRACK_DEADBAND),
+        planner_deadband(heading_error, TAIL_HEADING_DEADBAND),
+        capture_fraction, TAIL_CROSS_TRACK_GAIN, TAIL_HEADING_GAIN,
+        TAIL_MAX_STEER_CORRECTION, seg->backward);
+    path_weight = vehicle_path_terminal_weight(along_remaining,
+        ROUTE_PATH_TERMINAL_FADE_DIST, list_next(segs, seg) == NULL);
+    path_correction = vehicle_path_steer_correction(route_steer,
+        profile_target, ROUTE_PATH_STEER_DEADBAND,
+        ROUTE_PATH_MAX_CORRECTION, path_weight);
+
+    return (MIN(MAX(profile_target + path_correction + feedback,
+        -veh->max_steer), veh->max_steer));
+}
+
+static void
+planner_copy_segments(const list_t *source, list_t *destination)
+{
+    for (const seg_t *seg = list_head(source); seg != NULL;
+        seg = list_next(source, seg)) {
+        seg_t *copy = safe_calloc(1, sizeof(*copy));
+
+        *copy = *seg;
+        memset(&copy->node, 0, sizeof(copy->node));
+        list_insert_tail(destination, copy);
+    }
+}
+
+static void
+planner_path_append(const vehicle_pos_t *pose)
+{
+    if (planner_path_count >= MAX_PREDICTION_POINTS)
+        return;
+    planner_path[planner_path_count++] = (planner_path_point_t) {
+        pose->pos, pose->hdg
+    };
+}
+
+/*
+ * Simulate the planned route through the same steering target and rate limits
+ * used during pushback. The controller pose is the aircraft main-gear point;
+ * drawing converts each sampled pose to the corresponding nosewheel point.
+ */
+static bool_t
+planner_build_controller_path(void)
+{
+    list_t work;
+    vehicle_t veh = bp.veh;
+    vehicle_pos_t pose;
+    planner_prediction_state_t state = {0};
+    seg_t *seg;
+    double last_mis_hdg = 0, sample_distance = 0;
+    double tail_arm = planner_tail_arm();
+    bool_t complete = B_FALSE;
+
+    planner_path_count = 0;
+    list_create(&work, sizeof(seg_t), offsetof(seg_t, node));
+    planner_copy_segments(&bp.segs, &work);
+    planner_copy_segments(&pred_segs, &work);
+    seg = list_head(&work);
+    if (seg == NULL) {
+        list_destroy(&work);
+        return (B_FALSE);
+    }
+
+    veh.fixed_z_off = 0;
+    veh.use_rear_pos = B_FALSE;
+    pose = (vehicle_pos_t) {seg->start_pos, seg->start_hdg, 0};
+    planner_path_append(&pose);
+
+    for (unsigned step = 0; step < MAX_PREDICTION_STEPS; step++) {
+        double route_steer, target_speed, target_steer;
+        double next_speed, next_steer, distance;
+        bool_t decelerating = B_FALSE;
+
+        seg = list_head(&work);
+        if (seg == NULL) {
+            complete = B_TRUE;
+            break;
+        }
+        if (!drive_segs(&pose, &veh, &work, &last_mis_hdg,
+            PREDICTION_DT, &route_steer, &target_speed, &decelerating))
+            continue;
+
+        target_steer = planner_steer_target(&work, seg, &veh, &pose,
+            route_steer, tail_arm, &state);
+        next_steer = vehicle_steering_step(state.steer, target_steer,
+            TURN_PROFILE_STEER_RATE, PREDICTION_DT);
+        next_speed = vehicle_speed_step(pose.spd, target_speed,
+            veh.max_accel, veh.max_decel, PREDICTION_DT);
+        distance = (pose.spd + next_speed) / 2 * PREDICTION_DT;
+        vehicle_bicycle_step(veh.wheelbase,
+            (pose.spd + next_speed) / 2,
+            (state.steer + next_steer) / 2, PREDICTION_DT,
+            &pose.pos.x, &pose.pos.y, &pose.hdg);
+        pose.spd = next_speed;
+        state.steer = next_steer;
+        sample_distance += fabs(distance);
+        if (sample_distance >= PREDICTION_SAMPLE_DISTANCE) {
+            planner_path_append(&pose);
+            sample_distance = 0;
+        }
+        if (planner_path_count >= MAX_PREDICTION_POINTS)
+            break;
+    }
+
+    if (planner_path_count < MAX_PREDICTION_POINTS)
+        planner_path_append(&pose);
+    while ((seg = list_remove_head(&work)) != NULL)
+        free(seg);
+    list_destroy(&work);
+
+    return (complete && planner_path_count > 1);
+}
+
+static bool_t
+planner_draw_danger_zone_geometry(void)
+{
+    const double radius = bp_ls.outline->semispan;
+
+    glBegin(GL_QUADS);
+    for (size_t i = 1; i < planner_path_count; i++) {
+        vect2_t p1 = planner_path[i - 1].pos;
+        vect2_t p2 = planner_path[i].pos;
+        vect2_t tangent = vect2_sub(p2, p1);
+        double length = vect2_abs(tangent);
+        vect2_t normal;
+
+        if (length < 1e-6)
+            continue;
+        normal = VECT2(-tangent.y / length * radius,
+            tangent.x / length * radius);
+        glVertex3f(p1.x + normal.x, planner_path_height[i - 1],
+            -(p1.y + normal.y));
+        glVertex3f(p1.x - normal.x, planner_path_height[i - 1],
+            -(p1.y - normal.y));
+        glVertex3f(p2.x - normal.x, planner_path_height[i],
+            -(p2.y - normal.y));
+        glVertex3f(p2.x + normal.x, planner_path_height[i],
+            -(p2.y + normal.y));
+    }
+    glEnd();
+
+    /* Round joins union neighboring segment rectangles into one smooth band. */
+    glBegin(GL_TRIANGLES);
+    for (size_t i = 1; i + 1 < planner_path_count; i++) {
+        vect2_t center = planner_path[i].pos;
+        vect2_t incoming = vect2_sub(center, planner_path[i - 1].pos);
+        vect2_t outgoing = vect2_sub(planner_path[i + 1].pos, center);
+        double incoming_len = vect2_abs(incoming);
+        double outgoing_len = vect2_abs(outgoing);
+        double turn_sine;
+
+        if (incoming_len < 1e-6 || outgoing_len < 1e-6)
+            continue;
+        turn_sine = (incoming.x * outgoing.y - incoming.y * outgoing.x) /
+            (incoming_len * outgoing_len);
+        if (fabs(turn_sine) < 0.001)
+            continue;
+
+        for (unsigned j = 0; j < DANGER_ZONE_CIRCLE_SEGMENTS; j++) {
+            double a1 = 2 * M_PI * j / DANGER_ZONE_CIRCLE_SEGMENTS;
+            double a2 = 2 * M_PI * (j + 1) /
+                DANGER_ZONE_CIRCLE_SEGMENTS;
+
+            glVertex3f(center.x, planner_path_height[i], -center.y);
+            glVertex3f(center.x + cos(a1) * radius,
+                planner_path_height[i], -(center.y + sin(a1) * radius));
+            glVertex3f(center.x + cos(a2) * radius,
+                planner_path_height[i], -(center.y + sin(a2) * radius));
+        }
+    }
+    glEnd();
+    return (B_TRUE);
+}
+
+static bool_t
+planner_draw_danger_zone(void)
+{
+    GLint stencil_bits = 0;
+
+    glGetIntegerv(GL_STENCIL_BITS, &stencil_bits);
+    if (stencil_bits <= 0)
+        return (B_FALSE);
+
+    /*
+     * First build the union in the stencil buffer. The color pass clears a
+     * stencil pixel as it shades it, so overlapping rectangles and round
+     * joins can never accumulate alpha or expose their individual triangles.
+     */
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_ALPHA_TEST);
+    glEnable(GL_STENCIL_TEST);
+    glStencilMask(0xff);
+    glClearStencil(0);
+    glClear(GL_STENCIL_BUFFER_BIT);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glStencilFunc(GL_ALWAYS, 1, 0xff);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    planner_draw_danger_zone_geometry();
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glStencilFunc(GL_EQUAL, 1, 0xff);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
+    glColor4f(1, 0.05, 1, 0.22);
+    planner_draw_danger_zone_geometry();
+
+    glClear(GL_STENCIL_BUFFER_BIT);
+    glPopAttrib();
+    return (B_TRUE);
+}
+
+static bool_t
+planner_build_terrain_heights(uint64_t *probe_count)
+{
+    XPLMProbeRef probe;
+
+    ASSERT(probe_count != NULL);
+    *probe_count = 0;
+    probe = XPLMCreateProbe(xplm_ProbeY);
+    if (probe == NULL)
+        return (B_FALSE);
+    for (size_t i = 0; i < planner_path_count; i++) {
+        XPLMProbeInfo_t info = {.structSize = sizeof(info)};
+
+        (*probe_count)++;
+        if (XPLMProbeTerrainXYZ(probe, planner_path[i].pos.x, 0,
+            -planner_path[i].pos.y,
+            &info) == xplm_ProbeHitTerrain) {
+            planner_path_height[i] = info.locationY + 0.05f;
+        } else if (i > 0) {
+            planner_path_height[i] = planner_path_height[i - 1];
+        } else {
+            XPLMDestroyProbe(probe);
+            return (B_FALSE);
+        }
+    }
+    XPLMDestroyProbe(probe);
+    return (B_TRUE);
+}
+
+static bool_t
+draw_controller_path(void)
+{
+    uint64_t signature, build_start, build_us, terrain_probes = 0;
+
+    if (bp_ls.outline == NULL)
+        return (B_FALSE);
+
+    signature = planner_prediction_signature();
+    planner_cache_observe(&planner_path_cache, signature);
+    if (planner_cache_needs_rebuild(&planner_path_cache)) {
+        bool_t success;
+
+        build_start = microclock();
+        success = planner_build_controller_path();
+        if (success)
+            success = planner_build_terrain_heights(&terrain_probes);
+        build_us = microclock() - build_start;
+        planner_cache_commit(&planner_path_cache, success != B_FALSE,
+            planner_path_count, build_us, terrain_probes);
+
+        if (!success) {
+            if (!planner_prediction_failure_announced &&
+                (list_head(&bp.segs) != NULL ||
+                list_head(&pred_segs) != NULL)) {
+                logMsg(BP_WARN_LOG "Controller-matched planner preview "
+                    "could not complete; cached geometric fallback for "
+                    "route revision %llu",
+                    (unsigned long long)planner_path_cache.revision);
+                planner_prediction_failure_announced = B_TRUE;
+            }
+        } else {
+            planner_prediction_failure_announced = B_FALSE;
+            if (!planner_prediction_announced) {
+                const seg_t *last = list_tail(&pred_segs);
+
+                if (last == NULL)
+                    last = list_tail(&bp.segs);
+                logMsg(BP_INFO_LOG "Controller-matched cached planner "
+                    "preview active (%u path points, endpoint offset "
+                    "%.2f m, first build %.2f ms)",
+                    (unsigned)planner_path_count,
+                    last != NULL ? vect2_dist(
+                    planner_path[planner_path_count - 1].pos,
+                    last->end_pos) : 0, build_us / 1000.0);
+                planner_prediction_announced = B_TRUE;
+            }
+        }
+    } else {
+        planner_cache_note_hit(&planner_path_cache);
+    }
+
+    if (!planner_path_cache.have_result ||
+        !planner_path_cache.result_success)
+        return (B_FALSE);
+
+    if (!planner_draw_danger_zone()) {
+        if (!planner_band_failure_announced) {
+            logMsg(BP_WARN_LOG "Planner danger-zone fill unavailable; "
+                "drawing controller path without the band");
+            planner_band_failure_announced = B_TRUE;
+        }
+    } else {
+        planner_band_failure_announced = B_FALSE;
+    }
+
+    /*
+     * The controller works from the main gear, while the pilot-facing blue
+     * trajectory shows the corresponding nosewheel path. This makes its first
+     * point the published ramp-start anchor without changing steering physics.
+     */
+    XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
+    glColor3f(0, 0, 1);
+    glLineWidth(3);
+    glBegin(GL_LINE_STRIP);
+    for (size_t i = 0; i < planner_path_count; i++) {
+        vect2_t nosewheel = planner_nosewheel_from_main_gear(
+            planner_path[i].pos, planner_path[i].hdg);
+
+        glVertex3f(nosewheel.x, planner_path_height[i], -nosewheel.y);
+    }
+    glEnd();
+    return (B_TRUE);
 }
 
 static void
@@ -527,6 +1195,7 @@ draw_segment(const seg_t *seg)
     {
         float h1, h2;
         vect2_t wing_l, wing_r, p;
+        vect2_t nose_start, nose_end;
 
         // VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->start_pos.x, 0,
         //                              -seg->start_pos.y, &info), ==, xplm_ProbeHitTerrain);
@@ -551,8 +1220,12 @@ draw_segment(const seg_t *seg)
         glColor3f(0, 0, 1);
         glLineWidth(3);
         glBegin(GL_LINES);
-        glVertex3f(seg->start_pos.x, h1, -seg->start_pos.y);
-        glVertex3f(seg->end_pos.x, h2, -seg->end_pos.y);
+        nose_start = planner_nosewheel_from_main_gear(seg->start_pos,
+            seg->start_hdg);
+        nose_end = planner_nosewheel_from_main_gear(seg->end_pos,
+            seg->end_hdg);
+        glVertex3f(nose_start.x, h1, -nose_start.y);
+        glVertex3f(nose_end.x, h2, -nose_end.y);
         glEnd();
 
         wing_l = vect2_rot(wing_off_l, seg->start_hdg);
@@ -612,8 +1285,15 @@ draw_segment(const seg_t *seg)
             glColor3f(0, 0, 1);
             glLineWidth(3);
             glBegin(GL_LINES);
-            glVertex3f(p1.x, info.locationY, -p1.y);
-            glVertex3f(p2.x, info.locationY, -p2.y);
+            {
+                vect2_t nose1 = planner_nosewheel_from_main_gear(p1,
+                    seg->start_hdg + a);
+                vect2_t nose2 = planner_nosewheel_from_main_gear(p2,
+                    seg->start_hdg + a + step);
+
+                glVertex3f(nose1.x, info.locationY, -nose1.y);
+                glVertex3f(nose2.x, info.locationY, -nose2.y);
+            }
             glEnd();
 
             glColor3f(1, 0.25, 1);
@@ -737,13 +1417,21 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon)
 
     XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
 
-    for (seg = list_head(&bp.segs); seg != NULL;
-         seg = list_next(&bp.segs, seg))
-        draw_segment(seg);
+    /*
+     * The blue centerline and magenta danger-zone band now come from the same
+     * controller model used during pushback. Retain the geometric segment
+     * renderer as a safe fallback if a very long or invalid route cannot be
+     * predicted completely.
+     */
+    if (!draw_controller_path()) {
+        for (seg = list_head(&bp.segs); seg != NULL;
+             seg = list_next(&bp.segs, seg))
+            draw_segment(seg);
 
-    for (seg = list_head(&pred_segs); seg != NULL;
-         seg = list_next(&pred_segs, seg))
-        draw_segment(seg);
+        for (seg = list_head(&pred_segs); seg != NULL;
+             seg = list_next(&pred_segs, seg))
+            draw_segment(seg);
+    }
 
     if ((seg = list_tail(&pred_segs)) != NULL)
     {
@@ -990,6 +1678,326 @@ draw_compass_rose(void)
     }
 }
 
+static char planner_route_message[256];
+
+static void
+planner_gate_route_state_reset(void)
+{
+    memset(&planner_gate_routes, 0, sizeof(planner_gate_routes));
+    planner_gate_routes.loaded_slot = -1;
+    planner_gate_routes.save_slot = -1;
+    planner_gate_routes.hover_choice = -1;
+    planner_gate_routes.mouse_down_choice = -1;
+}
+
+static int
+planner_first_empty_route_slot(void)
+{
+    bool occupied[GATE_ROUTE_CACHE_SLOT_COUNT];
+
+    for (unsigned slot = 0; slot < GATE_ROUTE_CACHE_SLOT_COUNT; slot++) {
+        occupied[slot] = planner_gate_routes.slots[slot].valid != B_FALSE;
+    }
+    return gate_route_first_empty_slot(occupied,
+        GATE_ROUTE_CACHE_SLOT_COUNT);
+}
+
+static unsigned
+planner_route_prompt_option_count(void)
+{
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT)
+        return 3;
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_REPLACE)
+        return 4;
+    return 0;
+}
+
+static planner_route_prompt_rect_t
+planner_route_prompt_panel_rect(void)
+{
+    unsigned options = planner_route_prompt_option_count();
+    int width = MIN(ROUTE_PROMPT_WIDTH, monitor_def.w - 80);
+    int height = ROUTE_PROMPT_HEADER_HEIGHT + ROUTE_PROMPT_SIDE_PADDING +
+        (int)options * ROUTE_PROMPT_OPTION_HEIGHT +
+        (int)(options - 1) * ROUTE_PROMPT_OPTION_GAP;
+    int center_x = monitor_def.x_origin + monitor_def.w / 2;
+    int center_y = monitor_def.y_origin + monitor_def.h / 2;
+
+    return (planner_route_prompt_rect_t){
+        .left = center_x - width / 2,
+        .bottom = center_y - height / 2,
+        .right = center_x + width / 2,
+        .top = center_y + height / 2
+    };
+}
+
+static planner_route_prompt_rect_t
+planner_route_prompt_option_rect(unsigned choice)
+{
+    planner_route_prompt_rect_t panel = planner_route_prompt_panel_rect();
+    int top = panel.top - ROUTE_PROMPT_HEADER_HEIGHT -
+        (int)choice * (ROUTE_PROMPT_OPTION_HEIGHT + ROUTE_PROMPT_OPTION_GAP);
+
+    return (planner_route_prompt_rect_t){
+        .left = panel.left + ROUTE_PROMPT_SIDE_PADDING,
+        .bottom = top - ROUTE_PROMPT_OPTION_HEIGHT,
+        .right = panel.right - ROUTE_PROMPT_SIDE_PADDING,
+        .top = top
+    };
+}
+
+static bool_t
+planner_route_prompt_choice_enabled(unsigned choice)
+{
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT &&
+        choice < GATE_ROUTE_CACHE_SLOT_COUNT) {
+        return planner_gate_routes.slots[choice].valid;
+    }
+    return (choice < planner_route_prompt_option_count());
+}
+
+static int
+planner_route_prompt_hit_check(int x, int y)
+{
+    for (unsigned choice = 0; choice < planner_route_prompt_option_count();
+         choice++) {
+        planner_route_prompt_rect_t rect =
+            planner_route_prompt_option_rect(choice);
+
+        if (planner_route_prompt_choice_enabled(choice) && x >= rect.left &&
+            x <= rect.right && y >= rect.bottom && y <= rect.top) {
+            return (int)choice;
+        }
+    }
+    return -1;
+}
+
+static void
+planner_route_prompt_option_text(unsigned choice, char *text,
+    size_t capacity)
+{
+    ASSERT(text != NULL);
+    ASSERT(capacity != 0);
+    text[0] = '\0';
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT) {
+        if (choice < GATE_ROUTE_CACHE_SLOT_COUNT) {
+            const gate_route_slot_info_t *slot =
+                &planner_gate_routes.slots[choice];
+
+            if (slot->valid) {
+                (void)snprintf(text, capacity,
+                    "%u  Use Route %u - Tail %s - aircraft heading %03.0f deg",
+                    choice + 1, choice + 1, slot->tail_direction,
+                    slot->final_aircraft_hdg);
+            } else {
+                (void)snprintf(text, capacity, "Route %u - not saved",
+                    choice + 1);
+            }
+        } else {
+            (void)snprintf(text, capacity, "N  Plan a new manual route");
+        }
+    } else if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_REPLACE) {
+        if (choice < GATE_ROUTE_CACHE_SLOT_COUNT) {
+            const gate_route_slot_info_t *slot =
+                &planner_gate_routes.slots[choice];
+
+            (void)snprintf(text, capacity,
+                "%u  Replace Route %u - Tail %s - aircraft heading %03.0f deg",
+                choice + 1, choice + 1, slot->tail_direction,
+                slot->final_aircraft_hdg);
+        } else if (choice == GATE_ROUTE_CACHE_SLOT_COUNT) {
+            (void)snprintf(text, capacity, "U  Use once without saving");
+        } else {
+            (void)snprintf(text, capacity, "B  Back to the planner");
+        }
+    }
+}
+
+static void
+draw_planner_route_prompt(void)
+{
+    planner_route_prompt_rect_t panel;
+    float title_color[3] = {1.0f, 1.0f, 1.0f};
+    float text_color[3] = {0.88f, 0.90f, 0.94f};
+    char title[160];
+    char instruction[200];
+
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_NONE)
+        return;
+    panel = planner_route_prompt_panel_rect();
+    XPLMDrawTranslucentDarkBox(panel.left, panel.top, panel.right,
+        panel.bottom);
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT) {
+        (void)snprintf(title, sizeof(title), "Saved routes for %s %s",
+            planner_gate_context.airport, planner_gate_context.ramp);
+        (void)snprintf(instruction, sizeof(instruction),
+            "Choose a saved route or begin a new manual plan.");
+    } else {
+        (void)snprintf(title, sizeof(title),
+            "Both saved-route slots are occupied");
+        (void)snprintf(instruction, sizeof(instruction),
+            "Choose which route to replace, use this plan once, or go back.");
+    }
+    XPLMDrawString(title_color, panel.left + ROUTE_PROMPT_SIDE_PADDING,
+        panel.top - 30, title, NULL, xplmFont_Proportional);
+    XPLMDrawString(text_color, panel.left + ROUTE_PROMPT_SIDE_PADDING,
+        panel.top - 56, instruction, NULL, xplmFont_Proportional);
+
+    for (unsigned choice = 0; choice < planner_route_prompt_option_count();
+         choice++) {
+        planner_route_prompt_rect_t rect =
+            planner_route_prompt_option_rect(choice);
+        bool_t enabled = planner_route_prompt_choice_enabled(choice);
+        char label[192];
+        float label_color[3] = {enabled ? 1.0f : 0.52f,
+            enabled ? 1.0f : 0.54f, enabled ? 1.0f : 0.58f};
+
+        XPLMSetGraphicsState(0, 0, 0, 0, 1, 0, 0);
+        glColor4f(choice == (unsigned)planner_gate_routes.hover_choice ?
+            0.18f : 0.08f, choice ==
+            (unsigned)planner_gate_routes.hover_choice ? 0.48f : 0.20f,
+            choice == (unsigned)planner_gate_routes.hover_choice ?
+            0.62f : 0.28f, enabled ? 0.92f : 0.55f);
+        glBegin(GL_QUADS);
+        glVertex2i(rect.left, rect.bottom);
+        glVertex2i(rect.right, rect.bottom);
+        glVertex2i(rect.right, rect.top);
+        glVertex2i(rect.left, rect.top);
+        glEnd();
+        planner_route_prompt_option_text(choice, label, sizeof(label));
+        XPLMDrawString(label_color, rect.left + 16, rect.bottom + 16, label,
+            NULL, xplmFont_Proportional);
+    }
+}
+
+static void
+planner_route_show_message(const char *format, ...)
+{
+    va_list args;
+
+    va_start(args, format);
+    (void)vsnprintf(planner_route_message, sizeof(planner_route_message),
+        format, args);
+    va_end(args);
+    init_bottom_msg(planner_route_message);
+}
+
+static void
+planner_route_select_saved(unsigned slot)
+{
+    gate_route_slot_info_t info;
+
+    ASSERT(slot < GATE_ROUTE_CACHE_SLOT_COUNT);
+    bp_delete_all_segs();
+    planner_clear_predicted_segments();
+    planner_prediction_key_invalidate(&planner_pred_key);
+    if (!gate_route_cache_load(&planner_gate_context, slot, &bp.segs, &info)) {
+        planner_gate_routes.slots[slot].valid = B_FALSE;
+        planner_gate_routes.slot_count = gate_route_cache_list(
+            &planner_gate_context, planner_gate_routes.slots);
+        planner_gate_routes.prompt = planner_gate_routes.slot_count != 0 ?
+            PLANNER_ROUTE_PROMPT_SELECT : PLANNER_ROUTE_PROMPT_NONE;
+        planner_gate_routes.save_slot = planner_first_empty_route_slot();
+        planner_gate_routes.new_route = B_TRUE;
+        logMsg(BP_WARN_LOG "Gate route slot %u could not be loaded for %s "
+            "%s; planner remains in manual mode", slot + 1,
+            planner_gate_context.airport, planner_gate_context.ramp);
+        return;
+    }
+    planner_gate_routes.slots[slot] = info;
+    planner_gate_routes.loaded_slot = (int)slot;
+    planner_gate_routes.save_slot = (int)slot;
+    planner_gate_routes.dirty = B_FALSE;
+    planner_gate_routes.new_route = B_FALSE;
+    planner_gate_routes.suppress_save = B_FALSE;
+    planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+    planner_route_show_message("Loaded Route %u - Tail %s - aircraft heading "
+        "%03.0f deg", slot + 1, info.tail_direction,
+        info.final_aircraft_hdg);
+    logMsg(BP_INFO_LOG "Gate route slot %u recalled for %s %s; Tail %s, "
+        "final aircraft heading %.2f degrees", slot + 1,
+        planner_gate_context.airport, planner_gate_context.ramp,
+        info.tail_direction, info.final_aircraft_hdg);
+}
+
+static void
+planner_route_begin_new(void)
+{
+    bp_delete_all_segs();
+    planner_clear_predicted_segments();
+    planner_prediction_key_invalidate(&planner_pred_key);
+    planner_gate_routes.loaded_slot = -1;
+    planner_gate_routes.save_slot = planner_first_empty_route_slot();
+    planner_gate_routes.dirty = B_FALSE;
+    planner_gate_routes.new_route = B_TRUE;
+    planner_gate_routes.suppress_save = B_FALSE;
+    planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+    if (planner_gate_routes.save_slot >= 0) {
+        planner_route_show_message("New manual route will be saved as Route "
+            "%u", planner_gate_routes.save_slot + 1);
+    } else {
+        planner_route_show_message("Plan a new manual route; Enter will ask "
+            "which saved route to replace");
+    }
+    logMsg(BP_INFO_LOG "New manual route selected for %s %s; save slot %d",
+        planner_gate_context.airport, planner_gate_context.ramp,
+        planner_gate_routes.save_slot + 1);
+}
+
+static void
+planner_route_accept_and_close(void)
+{
+    gate_route_save_policy_t policy;
+
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT)
+        return;
+    policy = gate_route_slot_save_policy(
+        planner_gate_context.recognized != B_FALSE,
+        list_head(&bp.segs) != NULL,
+        planner_gate_routes.suppress_save != B_FALSE,
+        planner_gate_routes.loaded_slot, planner_gate_routes.save_slot,
+        planner_gate_routes.dirty != B_FALSE,
+        planner_gate_routes.new_route != B_FALSE);
+    if (policy == GATE_ROUTE_SAVE_NEEDS_REPLACEMENT) {
+        planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_REPLACE;
+        planner_gate_routes.hover_choice = -1;
+        planner_gate_routes.mouse_down_choice = -1;
+        return;
+    }
+    XPLMCommandOnce(XPLMFindCommand("BetterPushback/stop_planner"));
+}
+
+static void
+planner_route_prompt_choose(unsigned choice)
+{
+    if (!planner_route_prompt_choice_enabled(choice))
+        return;
+    if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT) {
+        if (choice < GATE_ROUTE_CACHE_SLOT_COUNT)
+            planner_route_select_saved(choice);
+        else
+            planner_route_begin_new();
+        return;
+    }
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_REPLACE)
+        return;
+    if (choice < GATE_ROUTE_CACHE_SLOT_COUNT) {
+        planner_gate_routes.save_slot = (int)choice;
+        planner_gate_routes.suppress_save = B_FALSE;
+        planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+        planner_route_accept_and_close();
+    } else if (choice == GATE_ROUTE_CACHE_SLOT_COUNT) {
+        planner_gate_routes.save_slot = -1;
+        planner_gate_routes.suppress_save = B_TRUE;
+        planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+        planner_route_accept_and_close();
+    } else {
+        planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_NONE;
+        planner_gate_routes.hover_choice = -1;
+        planner_gate_routes.mouse_down_choice = -1;
+    }
+}
+
 static void
 fake_win_draw(XPLMWindowID inWindowID, void *inRefcon)
 {
@@ -1024,8 +2032,10 @@ if (bp_plan_callback_is_alive == 0) {
     scale = (double)h / h_buttons;
     scale = MIN(scale, 1);
     /* don't draw the buttons if we don't have enough space for them */
-    if (scale < MIN_BUTTON_SCALE)
+    if (scale < MIN_BUTTON_SCALE) {
+        draw_planner_route_prompt();
         return;
+    }
 
     h_off = (h + (h_buttons * scale)) / 2;
     for (int i = 0; buttons[i].filename != NULL;
@@ -1045,8 +2055,10 @@ if (bp_plan_callback_is_alive == 0) {
         draw_bottom_msg(w, h);
     }
 
-    draw_prediction(0, 0, NULL);
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_SELECT)
+        draw_prediction(0, 0, NULL);
     draw_compass_rose();
+    draw_planner_route_prompt();
 }
 
 static int
@@ -1097,9 +2109,14 @@ fake_win_cursor(XPLMWindowID inWindowID, int x, int y, void *inRefcon)
     int lit;
 
     UNUSED(inWindowID);
-    UNUSED(x);
-    UNUSED(y);
     UNUSED(inRefcon);
+
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_NONE) {
+        planner_gate_routes.hover_choice =
+            planner_route_prompt_hit_check(x, y);
+        button_lit = -1;
+        return (xplm_CursorDefault);
+    }
 
     if ((lit = button_hit_check(x, y)) != -1 && buttons[lit].vk != -1)
         button_lit = lit;
@@ -1119,6 +2136,25 @@ fake_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
 
     UNUSED(inWindowID);
     UNUSED(inRefcon);
+
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_NONE) {
+        int choice = planner_route_prompt_hit_check(x, y);
+
+        if (inMouse == xplm_MouseDown) {
+            planner_gate_routes.mouse_down_choice = choice;
+            force_root_win_focus = B_FALSE;
+        } else if (inMouse == xplm_MouseDrag) {
+            planner_gate_routes.hover_choice = choice;
+        } else {
+            if (choice != -1 &&
+                choice == planner_gate_routes.mouse_down_choice) {
+                planner_route_prompt_choose((unsigned)choice);
+            }
+            planner_gate_routes.mouse_down_choice = -1;
+            force_root_win_focus = B_TRUE;
+        }
+        return (1);
+    }
 
     /*
      * The mouse handling logic is as follows:
@@ -1187,6 +2223,8 @@ fake_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
                  * Transfer whatever is in pred_segs to
                  * the normal segments and clear pred_segs.
                  */
+                if (list_head(&pred_segs) != NULL)
+                    planner_gate_routes.dirty = B_TRUE;
                 list_move_tail(&bp.segs, &pred_segs);
             }
         }
@@ -1207,6 +2245,9 @@ fake_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
     UNUSED(wheel);
     UNUSED(clicks);
     UNUSED(inRefcon);
+
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_NONE)
+        return (1);
 
     if (wheel == 0 && clicks != 0)
     {
@@ -1231,19 +2272,48 @@ fake_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
 static int
 key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon)
 {
-    UNUSED(inChar);
     UNUSED(refcon);
 
     /* Only allow the plain key to be pressed, no modifiers */
     if (inFlags != xplm_DownFlag)
         return (1);
 
+    if (planner_gate_routes.prompt != PLANNER_ROUTE_PROMPT_NONE) {
+        unsigned char key = (unsigned char)toupper((unsigned char)inChar);
+
+        if (key == '1') {
+            planner_route_prompt_choose(0);
+            return (0);
+        }
+        if (key == '2') {
+            planner_route_prompt_choose(1);
+            return (0);
+        }
+        if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_SELECT &&
+            key == 'N') {
+            planner_route_prompt_choose(GATE_ROUTE_CACHE_SLOT_COUNT);
+            return (0);
+        }
+        if (planner_gate_routes.prompt == PLANNER_ROUTE_PROMPT_REPLACE) {
+            if (key == 'U') {
+                planner_route_prompt_choose(GATE_ROUTE_CACHE_SLOT_COUNT);
+                return (0);
+            }
+            if (key == 'B' || inVirtualKey == XPLM_VK_ESCAPE) {
+                planner_route_prompt_choose(GATE_ROUTE_CACHE_SLOT_COUNT + 1);
+                return (0);
+            }
+        }
+        if (inVirtualKey != XPLM_VK_ESCAPE)
+            return (0);
+    }
+
     switch ((unsigned char)inVirtualKey)
     {
     case XPLM_VK_RETURN:
     case XPLM_VK_ENTER:
     case XPLM_VK_NUMPAD_ENT:
-        XPLMCommandOnce(XPLMFindCommand("BetterPushback/stop_planner"));
+        planner_route_accept_and_close();
         return (0);
     case XPLM_VK_ESCAPE:
         bp_delete_all_segs();
@@ -1253,6 +2323,8 @@ key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon)
     case XPLM_VK_BACK:
     case XPLM_VK_DELETE:
         /* Delete the segments up to the next user-placed segment */
+        if (list_tail(&bp.segs) != NULL)
+            planner_gate_routes.dirty = B_TRUE;
         free(list_remove_tail(&bp.segs));
         for (seg_t *seg = list_tail(&bp.segs); seg != NULL &&
                                                !seg->user_placed;
@@ -1275,8 +2347,6 @@ key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon)
 static void
 find_drs(void)
 {
-    fdr_find(&drs.lat, "sim/flightmodel/position/latitude");
-    fdr_find(&drs.lon, "sim/flightmodel/position/longitude");
     fdr_find(&drs.local_vx, "sim/flightmodel/position/local_vx");
     fdr_find(&drs.local_vy, "sim/flightmodel/position/local_vy");
     fdr_find(&drs.local_vz, "sim/flightmodel/position/local_vz");
@@ -1385,8 +2455,10 @@ bp_cam_start(void)
     char icao[8] = {0};
     char *cam_obj_path;
     char airline[1024] = {0};
-    char bottom_msg[256] = {0};
+    char update_message[256] = {0};
     char *updateAvailable;
+    double gate_match_distance = NAN, gate_match_heading = NAN;
+    bool_t at_published_start;
 
     if (cam_inited || !bp_init())
         return (B_FALSE);
@@ -1460,6 +2532,15 @@ bp_cam_start(void)
     XPLMTakeKeyboardFocus(fake_win);
 
     list_create(&pred_segs, sizeof(seg_t), offsetof(seg_t, node));
+    planner_cache_init(&planner_path_cache);
+    planner_prediction_key_init(&planner_pred_key);
+    planner_prediction_announced = B_FALSE;
+    planner_prediction_failure_announced = B_FALSE;
+    planner_band_failure_announced = B_FALSE;
+    planner_cursor_solve_count = 0;
+    planner_cursor_reuse_count = 0;
+    planner_gate_route_state_reset();
+    logMsg(BP_INFO_LOG "Planner trajectory cache initialized");
     force_root_win_focus = B_TRUE;
     cam_height = 15 * bp.veh.wheelbase;
     /* We keep the camera position in our coordinates for ease of manip */
@@ -1480,11 +2561,65 @@ bp_cam_start(void)
     }
     XPLMRegisterKeySniffer(key_sniffer, 1, NULL);
 
-    /* If the list of segs is empty, try to reload the saved state */
-    if (list_head(&bp.segs) == NULL)
-    {
-        route_load(GEO_POS2(dr_getf(&drs.lat), dr_getf(&drs.lon)),
-                   dr_getf(&drs.hdg), &bp.segs);
+    if (!emergency_tow_allows_persistent_routes()) {
+        memset(&planner_gate_context, 0, sizeof(planner_gate_context));
+        bp_delete_all_segs();
+        planner_gate_routes.new_route = B_TRUE;
+        planner_gate_routes.suppress_save = B_TRUE;
+        planner_gate_routes.loaded_slot = -1;
+        planner_gate_routes.save_slot = -1;
+        planner_route_show_message("Emergency Tow - manual route only; "
+            "saved routes are disabled");
+        logMsg(BP_INFO_LOG "Emergency Tow planner opened at the live "
+            "nosewheel; saved-route listing, loading, and saving are "
+            "disabled");
+    } else {
+        at_published_start = planner_prepare_gate_context(
+            &gate_match_distance, &gate_match_heading);
+        if (list_head(&bp.segs) == NULL) {
+            if (at_published_start) {
+                planner_gate_routes.slot_count = gate_route_cache_list(
+                    &planner_gate_context, planner_gate_routes.slots);
+                if (planner_gate_routes.slot_count != 0) {
+                    planner_gate_routes.prompt = PLANNER_ROUTE_PROMPT_SELECT;
+                    logMsg(BP_INFO_LOG "Published start recognized: %s %s "
+                        "(nosewheel match %.2f m, %.2f degrees); %u "
+                        "compatible saved route slot%s available for pilot "
+                        "selection", planner_gate_context.airport,
+                        planner_gate_context.ramp, gate_match_distance,
+                        gate_match_heading, planner_gate_routes.slot_count,
+                        planner_gate_routes.slot_count == 1 ? "" : "s");
+                } else {
+                    planner_gate_routes.save_slot = 0;
+                    planner_gate_routes.new_route = B_TRUE;
+                    logMsg(BP_INFO_LOG "Published start recognized: %s %s "
+                        "(nosewheel match %.2f m, %.2f degrees); no "
+                        "compatible saved route slots, planner opened for "
+                        "manual placement", planner_gate_context.airport,
+                        planner_gate_context.ramp, gate_match_distance,
+                        gate_match_heading);
+                }
+            } else {
+                planner_gate_routes.new_route = B_TRUE;
+                planner_gate_routes.suppress_save = B_TRUE;
+                logMsg(BP_INFO_LOG "No unique published apt.dat start "
+                    "matched; planner begins at the live nosewheel and this "
+                    "route will not be saved persistently");
+            }
+        } else if (at_published_start) {
+            planner_gate_routes.slot_count = gate_route_cache_list(
+                &planner_gate_context, planner_gate_routes.slots);
+            planner_gate_routes.suppress_save = B_TRUE;
+            logMsg(BP_INFO_LOG "Planner retained the pilot's current "
+                "in-session route at published start %s %s; no saved slot "
+                "will be changed", planner_gate_context.airport,
+                planner_gate_context.ramp);
+        } else {
+            planner_gate_routes.suppress_save = B_TRUE;
+            logMsg(BP_INFO_LOG "Planner retained the pilot's current "
+                "in-session route; current position is not a unique "
+                "published apt.dat start, so persistent saving is disabled");
+        }
     }
 
     /*
@@ -1524,8 +2659,8 @@ bp_cam_start(void)
     updateAvailable = getPluginUpdateStatus();
     if (updateAvailable != NULL)
     {
-        snprintf(bottom_msg, sizeof(bottom_msg), "New version of BetterPushBack available: %s (Use SkunkCrafts Updater to update)", updateAvailable);
-        init_bottom_msg(bottom_msg);
+        snprintf(update_message, sizeof(update_message), "New version of BetterPushBack available: %s (Use SkunkCrafts Updater to update)", updateAvailable);
+        init_bottom_msg(update_message);
     }
 
     if (bp_floop_nightlamp == NULL)
@@ -1538,7 +2673,6 @@ bp_cam_start(void)
 bool_t
 bp_cam_stop(void)
 {
-    seg_t *seg;
     XPLMCommandRef cockpit_view_cmd;
 
     if (!cam_inited)
@@ -1556,8 +2690,72 @@ bp_cam_stop(void)
         XPLMUnloadObject(cam_lamp_obj);
     cam_lamp_obj = NULL;
 
-    while ((seg = list_remove_head(&pred_segs)) != NULL)
-        free(seg);
+    logMsg(BP_INFO_LOG "Planner cache summary: route revisions %llu, path "
+        "builds %llu, path cache hits %llu, cursor solves %llu, cursor reuse "
+        "%llu, failures %llu, terrain probes %llu, average build %.2f ms, "
+        "maximum build %.2f ms, last path points %u",
+        (unsigned long long)planner_path_cache.revision,
+        (unsigned long long)planner_path_cache.build_count,
+        (unsigned long long)planner_path_cache.cache_hit_count,
+        (unsigned long long)planner_cursor_solve_count,
+        (unsigned long long)planner_cursor_reuse_count,
+        (unsigned long long)planner_path_cache.failure_count,
+        (unsigned long long)planner_path_cache.terrain_probe_count,
+        planner_path_cache.build_count != 0 ?
+        (double)planner_path_cache.total_build_us /
+        planner_path_cache.build_count / 1000.0 : 0,
+        planner_path_cache.max_build_us / 1000.0,
+        (unsigned)planner_path_cache.point_count);
+    if (!slave_mode && list_head(&bp.segs) != NULL) {
+        if (!emergency_tow_allows_persistent_routes()) {
+            logMsg(BP_INFO_LOG "Emergency Tow route accepted for this "
+                "session only; hard persistence guard skipped every gate "
+                "route cache write");
+        } else if (!planner_gate_context.recognized) {
+            logMsg(BP_INFO_LOG "Route remains available for this pushback "
+                "session but was not saved: aircraft did not start at a "
+                "unique published apt.dat location");
+        } else if (planner_gate_routes.suppress_save) {
+            logMsg(BP_INFO_LOG "Route accepted for this pushback without "
+                "changing either saved route slot for %s %s",
+                planner_gate_context.airport, planner_gate_context.ramp);
+        } else if (planner_gate_routes.loaded_slot >= 0 &&
+            !planner_gate_routes.dirty) {
+            logMsg(BP_INFO_LOG "Gate route slot %u accepted unchanged for "
+                "%s %s; cache file was not rewritten",
+                planner_gate_routes.loaded_slot + 1,
+                planner_gate_context.airport, planner_gate_context.ramp);
+        } else if (planner_gate_routes.save_slot >= 0) {
+            gate_route_slot_info_t saved;
+
+            if (gate_route_cache_save(&planner_gate_context,
+                (unsigned)planner_gate_routes.save_slot, &bp.segs, &saved)) {
+                planner_gate_routes.slots[saved.slot] = saved;
+                logMsg(BP_INFO_LOG "Gate route slot %u saved for %s %s; "
+                    "Tail %s, final aircraft heading %.2f degrees, anchor "
+                    "%.8f, %.8f at %.2f degrees",
+                    saved.slot + 1, planner_gate_context.airport,
+                    planner_gate_context.ramp, saved.tail_direction,
+                    saved.final_aircraft_hdg,
+                    planner_gate_context.anchor_geo.lat,
+                    planner_gate_context.anchor_geo.lon,
+                    planner_gate_context.anchor_hdg);
+            } else {
+                logMsg(BP_WARN_LOG "Gate route slot %u was not saved for "
+                    "%s %s: route start or slot file validation failed",
+                    planner_gate_routes.save_slot + 1,
+                    planner_gate_context.airport,
+                    planner_gate_context.ramp);
+            }
+        } else {
+            logMsg(BP_INFO_LOG "Route accepted for this pushback without "
+                "changing either saved route slot for %s %s because no "
+                "replacement slot was selected",
+                planner_gate_context.airport, planner_gate_context.ramp);
+        }
+    }
+    planner_clear_predicted_segments();
+    planner_prediction_key_invalidate(&planner_pred_key);
     list_destroy(&pred_segs);
 
     XPLMDestroyWindow(fake_win);

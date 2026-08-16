@@ -36,6 +36,7 @@
 #include <XPLMUtilities.h>
 
 #include "driving.h"
+#include "vehicle_physics.h"
 #include "xplane.h"
 
 #define    SEG_TURN_MULT        0.9    /* leave 10% for oversteer */
@@ -49,8 +50,6 @@
 
 #define    STEER_GATE(x, g)    MIN(MAX((x), -g), g)
 
-#define    ROUTE_DIST_LIM        30    /* meters */
-#define    ROUTE_HDG_LIM        10    /* degrees */
 #define    ROUTE_TABLE_DIRS    bp_xpdir, "Output", "caches"
 #define    ROUTE_TABLE_FILENAME    "BetterPushback_routes.dat"
 
@@ -189,8 +188,8 @@ compute_segs_impl(const vehicle_t *veh, vect2_t start_pos, double start_hdg,
      * SEG_TURN_MULT), to allow for some oversteering correction.
      * Also limit the radius to something sensible (MIN_TURN_RADIUS).
      */
-    min_radius = MAX(tan(DEG2RAD(90 - (veh->max_steer * SEG_TURN_MULT))) *
-                     veh->wheelbase, MIN_TURN_RADIUS);
+    min_radius = MAX(fabs(vehicle_turn_radius(veh->wheelbase,
+        veh->max_steer * SEG_TURN_MULT)), MIN_TURN_RADIUS);
 
     /*
      * If the amount of heading change is tiny, just project the desired
@@ -505,8 +504,12 @@ straight_run_speed(const vehicle_t *veh, list_t *segs, double rmng_d,
     cruise_spd = (backward ? veh->max_rev_spd : veh->max_fwd_spd);
     crawl_spd = CRAWL_SPEED(bp_xp_ver, veh);
 
-    if (rmng_d < crawl_spd)
-        return (MAX(next_spd, crawl_spd));
+    if (rmng_d < crawl_spd) {
+        spd = MAX(next_spd, crawl_spd);
+        if (out_decelerating != NULL)
+            *out_decelerating = (spd < cruise_spd);
+        return (spd);
+    }
 
     /*
      * Pretend we have less distance left so as to reach our target speed
@@ -681,7 +684,9 @@ ang_vel_speed_limit(const vehicle_t *veh, double steer, double speed) {
 
     if (speed == 0)
         return (0);
-    turn_radius = tan(DEG2RAD(90 - ABS(steer))) * veh->wheelbase;
+    if (ABS(steer) < 1e-6)
+        return (speed);
+    turn_radius = fabs(vehicle_turn_radius(veh->wheelbase, steer));
     ang_vel = RAD2DEG(ABS(speed) / turn_radius);
     if (speed >= 0)
         speed *= MIN(veh->max_fwd_ang_vel / ang_vel, 1);
@@ -813,24 +818,25 @@ route_alloc(avl_tree_t *route_table, const list_t *segs) {
 static int
 route_table_compar(const void *a, const void *b) {
     const route_t *r1 = a, *r2 = b;
-    double dist, rhdg;
 
     ASSERT(!IS_NULL_VECT(r1->pos_ecef));
     ASSERT(!IS_NULL_VECT(r2->pos_ecef));
     ASSERT(!isnan(r1->hdg));
     ASSERT(!isnan(r2->hdg));
 
-    dist = vect3_dist(r1->pos_ecef, r2->pos_ecef);
-    rhdg = fabs(rel_hdg(r1->hdg, r2->hdg));
-
-    if (dist <= ROUTE_DIST_LIM && rhdg <= ROUTE_HDG_LIM) {
-        return (0);
-    } else if ((r1->pos.lat * 1000 + r1->pos.lon) * 1000 + r1->hdg <
-               (r2->pos.lat * 1000 + r2->pos.lon) * 1000 + r2->hdg) {
+    if (r1->pos.lat < r2->pos.lat)
         return (-1);
-    } else {
+    if (r1->pos.lat > r2->pos.lat)
         return (1);
-    }
+    if (r1->pos.lon < r2->pos.lon)
+        return (-1);
+    if (r1->pos.lon > r2->pos.lon)
+        return (1);
+    if (r1->hdg < r2->hdg)
+        return (-1);
+    if (r1->hdg > r2->hdg)
+        return (1);
+    return (0);
 }
 
 static avl_tree_t *

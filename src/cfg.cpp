@@ -33,7 +33,9 @@
 
 #include "bp.h"
 #include "cfg.h"
+#include "ground_ops_ui.h"
 #include "msg.h"
+#include "ui_runtime.h"
 #include "xplane.h"
 
 #include "xp_img_window.h"
@@ -52,7 +54,6 @@
 conf_t *bp_conf = NULL;
 
 static bool_t inited = B_FALSE;
-static bool_t gui_inited = B_FALSE;
 bool_t setup_view_callback_is_alive = B_FALSE;
 
 #define MAIN_WINDOW_W 800
@@ -154,6 +155,12 @@ const char *hide_xp11_tug_tooltip =
 const char *hide_magic_squares_tooltip =
     "Hides the shortcut buttons on the left side of the screen.\n"
     "The first button starts the planner and the second starts the push-back.";
+const char *ground_ops_ui_tooltip =
+    "Enables the compact Ground Operations orb and panel.\n"
+    "When disabled, all classic BetterPushback menu commands remain available.";
+const char *ground_ops_captions_tooltip =
+    "Mirrors active ground-crew audio prompts as text in the read-only "
+    "Ground Operations panel.";
 const char *doors_check_tooltip =
     "Select the action after the doors/GPU/ASU status check is done before starting the push-back.\n"
     "Active with ground crew message: The ground crew will tell you if the doors are not closed.\n"
@@ -178,13 +185,6 @@ const char *eye_tracker_tooltip =
     "CAUTION: At this point, you know what you are doing, selecting the wrong "
     "plugin may cause X-plane to crash.\n"
     "Otherwise this setting must be set to : None.";
-
-  const char *plugin_acf_tooltip =
-  "Some aircraft plugin may be not compatible with BpB\n"
-  "If it is the case, select the plugin that is in conflit with BpB.\n\n"
-  "CAUTION: At this point, you know what you are doing, selecting the wrong "
-  "plugin may cause X-plane to crash.\n"
-  "Otherwise this setting must be set to : None.";
 
 typedef struct {
   const char *string;
@@ -241,9 +241,6 @@ comboList_t sound_device_list = {sound_device_list_, 0, "##sound_device_list",
 comboList_t_ *plg_list_ = nullptr;
 comboList_t plg_list = {plg_list_, 0, "##plg_list", 0};
 
-comboList_t_ *plg_list_acf_ = nullptr;
-comboList_t plg_acf_list = {plg_list_acf_, 0, "##plg_acf_list", 0};
-
 comboList_t_ *doors_check_list_ = nullptr;
 comboList_t doors_check_list = {doors_check_list_, 0, "##doors_check", 0};
 
@@ -263,7 +260,6 @@ public:
     comboList_free(&radio_device_list);
     comboList_free(&sound_device_list);
     comboList_free(&plg_list);
-    comboList_free(&plg_acf_list);
     comboList_free(&doors_check_list);
     comboList_free(&hide_magic_squares_global_list);
   }
@@ -277,6 +273,8 @@ private:
   bool_t disco_when_done;
   bool_t ignore_park_brake;
   bool_t hide_magic_squares;
+  bool_t ground_ops_ui_enabled;
+  bool_t ground_ops_captions_enabled;
   bool_t dont_hide;
   bool_t always_connect_tug_first;
   bool_t per_aircraft_is_global;
@@ -289,7 +287,7 @@ private:
   int magic_squares_height;
   int doors_check;
   int hide_magic_squares_global;
-  const char *radio_dev, *sound_dev, *plg_to_exclude, *plg_acf_to_exclude;
+  const char *radio_dev, *sound_dev, *plg_to_exclude;
   void LoadConfig(void);
   void sound_comboList_init(comboList_t *list);
   void plugin_comboList_init(comboList_t *list, bool_t only_aircraft);
@@ -367,6 +365,13 @@ void SettingsWindow::LoadConfig(void) {
   tug_starts_next_plane = B_FALSE;
   (void)conf_get_b(bp_conf, "tug_starts_next_plane", &tug_starts_next_plane);
 
+  ground_ops_ui_enabled = B_TRUE;
+  (void)conf_get_b(bp_conf, "ground_ops_ui_enabled",
+                   &ground_ops_ui_enabled);
+  ground_ops_captions_enabled = B_TRUE;
+  (void)conf_get_b(bp_conf, "ground_ops_captions_enabled",
+                   &ground_ops_captions_enabled);
+
 // feature disabled for now
 //  tug_auto_start = B_FALSE;
 //  (void)conf_get_b(bp_conf, "tug_auto_start", &tug_auto_start);
@@ -420,19 +425,6 @@ void SettingsWindow::LoadConfig(void) {
       }
     }
   }  
-
-  plg_acf_to_exclude = NULL;
-  plugin_comboList_init(&plg_acf_list, B_TRUE);
-  plg_acf_list.selected = 0;
-  if (conf_get_str_per_acf((char *) "plg_acf_to_exclude", (char **) &plg_acf_to_exclude)) {
-    for (int i = 0; i < plg_acf_list.list_size; i++) {
-      if ((strcmp(plg_acf_to_exclude, plg_acf_list.combo_list[i].value) == 0)) {
-        plg_acf_list.selected = i;
-        break;
-      }
-    }
-  }  
-  
 
   doorscheck_comboList_init(&doors_check_list);
   doors_check_list.selected = doors_check;
@@ -785,22 +777,6 @@ void SettingsWindow::buildInterface() {
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    ImGui::Text("%s", _("ACF Plugin Exclusion (Experimental)"));
-    Tooltip(_(plugin_acf_tooltip));
-
-    ImGui::TableNextColumn();
-    ImGui::SetNextItemWidth(combowithWidth);
-    if (comboList(&plg_acf_list)) {
-      if (plg_acf_list.selected == 0) {
-        conf_set_str_per_acf((char *) "plg_acf_to_exclude", NULL);
-      } else {
-        conf_set_str_per_acf((char *) "plg_acf_to_exclude",
-                     (char *) plg_acf_list.combo_list[plg_acf_list.selected].value);
-      }
-    }
-
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
     ImGui::Text(" ");
     ImGui::TableNextRow();
 
@@ -830,6 +806,31 @@ void SettingsWindow::buildInterface() {
     ImGui::SetNextItemWidth(combowithWidth);
     if (comboList(&hide_magic_squares_global_list)) {
       (void)conf_set_i(bp_conf,"hide_magic_squares_global", hide_magic_squares_global_list.selected);
+    }
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Enable Ground Operations UI"));
+    Tooltip(_(ground_ops_ui_tooltip));
+
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##ground_ops_ui_enabled",
+                        (bool *)&ground_ops_ui_enabled)) {
+      (void)conf_set_b(bp_conf, "ground_ops_ui_enabled",
+                       ground_ops_ui_enabled);
+    }
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Show Ground Operations captions"));
+    Tooltip(_(ground_ops_captions_tooltip));
+
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##ground_ops_captions_enabled",
+                        (bool *)&ground_ops_captions_enabled)) {
+      (void)conf_set_b(bp_conf, "ground_ops_captions_enabled",
+                       ground_ops_captions_enabled);
+      ground_ops_ui_set_captions_enabled(ground_ops_captions_enabled);
     }
     
     ImGui::TableNextRow();
@@ -1513,12 +1514,8 @@ void initMonitorOrigin(void) {
 }
 
 void bp_conf_open() {
-
-  if (!gui_inited) {
-    XPImgWindowInit();
-    logMsg(BP_INFO_LOG "XPImgWindowInit");
-    gui_inited = B_TRUE;
-  }
+  if (!bp_ui_runtime_init())
+    return;
 
   destroy_setup_window();
   setup_window = new SettingsWindow();
@@ -1527,5 +1524,6 @@ void bp_conf_open() {
 }
 
 void cfg_cleanup() {
-  XPImgWindowCleanup();
+  destroy_setup_window();
+  bp_ui_runtime_cleanup();
 }

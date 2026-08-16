@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 
-#define    TUG_WHEELBASE(tug)    ((tug)->info->rear_z - (tug)->info->front_z)
+#define    TUG_WHEELBASE(tug)    ((tug)->info->front_z - (tug)->info->rear_z)
 
 /* Defines how the tug lifts the aircraft up. */
 typedef enum {
@@ -62,6 +62,8 @@ typedef struct {
     double max_steer;    /* max steering deflection, degrees */
     double max_fwd_speed;    /* m/s */
     double max_rev_speed;    /* m/s */
+    double max_tow_fwd_speed;/* m/s while carrying an aircraft */
+    double max_tow_rev_speed;/* m/s while carrying an aircraft */
     double max_accel;    /* m/s^2 */
     double max_decel;    /* m/s^2 */
 
