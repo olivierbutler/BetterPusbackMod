@@ -241,7 +241,7 @@ map_prep(const ground_ops_raw_state_t *raw,
         snapshot->operation_complete = true;
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "COMPLETE",
             "Ground operation complete", "Aircraft and equipment are clear",
-            "Call tow assistance if the aircraft must return", false);
+            "Call tow assistance if the\naircraft must return", false);
         set_actions(snapshot, GROUND_OPS_ACTION_CALL_EMERGENCY_TOW,
             "Call tow back", GROUND_OPS_ACTION_NONE, "");
         break;

@@ -60,6 +60,7 @@
 #include "bp_cam.h"
 #include "cfg.h"
 #include "emergency_tow.h"
+#include "ground_ops_ui.h"
 #include "msg.h"
 #include "telemetry.h"
 #include "xplane.h"
@@ -3841,6 +3842,13 @@ main_intf_hide(void) {
 
 void
 main_intf(bool_t force_hide) {
+    /*
+     * Preserve the owner's legacy visibility gate for the replacement Ground
+     * Operations panel: remain visible for an active operation, otherwise
+     * require an airliner on the ground moving at less than 1 m/s.
+     */
+    ground_ops_ui_set_legacy_visibility(bp_started ||
+        (acf_is_airliner() && acf_on_gnd_stopped(NULL)));
     main_intf_update_automation();
 
     /*

@@ -16,6 +16,7 @@ void ground_ops_ui_fini(void);
 void ground_ops_ui_reset_context(void);
 bool_t ground_ops_ui_is_enabled(void);
 bool_t ground_ops_ui_is_visible(void);
+void ground_ops_ui_set_legacy_visibility(bool_t visible);
 void ground_ops_ui_set_captions_enabled(bool_t enabled);
 void ground_ops_ui_toggle_visible(void);
 void ground_ops_ui_toggle_expanded(void);

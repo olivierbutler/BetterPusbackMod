@@ -91,6 +91,7 @@ static bool_t initialized = B_FALSE;
 static bool_t ui_enabled = B_TRUE;
 static bool_t captions_enabled = B_TRUE;
 static bool_t planner_suspended = B_FALSE;
+static bool_t legacy_gate_hidden = B_FALSE;
 static bool_t have_float_rect = B_FALSE;
 static bool_t have_os_rect = B_FALSE;
 static ground_ops_rect_t float_rect = {};
@@ -575,6 +576,17 @@ private:
             text);
     }
 
+    static void draw_text_wrapped(ImDrawList *draw, float size, float x,
+        float y, float width, float height, ImU32 color, const char *text)
+    {
+        const ImVec2 start = point(x, y);
+
+        draw->PushClipRect(start, point(x + width, y + height), true);
+        draw->AddText(ImGui::GetFont(), scaled(size), start, color, text,
+            nullptr, scaled(width));
+        draw->PopClipRect();
+    }
+
     static ImVec2 measure_text(float size, const char *text)
     {
         return (ImGui::GetFont()->CalcTextSizeA(scaled(size),
@@ -912,7 +924,7 @@ private:
         draw_text(draw, 10.0f, 84, 291,
             snapshot->action_required ? amber : secondary,
             snapshot->action_required ? "PILOT ACTION" : "CURRENT TASK");
-        draw_text(draw, 11.0f, 84, 308, primary,
+        draw_text_wrapped(draw, 10.5f, 84, 304, 184, 23, primary,
             snapshot->current_task);
 
         if (end_confirmation_armed) {
@@ -1204,6 +1216,27 @@ hide_window(const char *reason)
 }
 
 static void
+apply_legacy_visibility(bool_t visible)
+{
+    bool_t hidden = visible ? B_FALSE : B_TRUE;
+
+    if (legacy_gate_hidden == hidden)
+        return;
+    legacy_gate_hidden = hidden;
+    if (!initialized || !ui_enabled || ground_window == nullptr ||
+        planner_suspended) {
+        return;
+    }
+
+    ground_window->SetVisible(visible);
+    if (manager_loop != nullptr) {
+        XPLMScheduleFlightLoop(manager_loop, visible ? -1.0f : 0.0f, 1);
+    }
+    logMsg(BP_INFO_LOG "Ground Ops UI %s by the legacy ground-speed gate",
+        visible ? "restored" : "temporarily hidden");
+}
+
+static void
 toggle_window_mode(void)
 {
     if (ground_window == nullptr)
@@ -1318,7 +1351,8 @@ manager_callback(float elapsed, float elapsed_flight, int counter,
     pending_action = UiAction::None;
     if (action != UiAction::None)
         process_action(action);
-    if (ground_window != nullptr && !planner_suspended) {
+    if (ground_window != nullptr && !planner_suspended &&
+        !legacy_gate_hidden) {
         local_data_poll_elapsed += elapsed;
         if (local_data_poll_elapsed >= LOCAL_DATA_POLL_SECONDS) {
             (void)refresh_local_data_context();
@@ -1440,6 +1474,7 @@ ground_ops_ui_fini(void)
     qnh_ref = nullptr;
     pending_action = UiAction::None;
     planner_suspended = B_FALSE;
+    legacy_gate_hidden = B_FALSE;
     geometry_poll_elapsed = 0;
     local_data_poll_elapsed = LOCAL_DATA_POLL_SECONDS;
     local_data_logged = false;
@@ -1475,7 +1510,14 @@ ground_ops_ui_is_enabled(void)
 extern "C" bool_t
 ground_ops_ui_is_visible(void)
 {
-    return (ground_window != nullptr && !planner_suspended);
+    return (ground_window != nullptr && !planner_suspended &&
+        !legacy_gate_hidden);
+}
+
+extern "C" void
+ground_ops_ui_set_legacy_visibility(bool_t visible)
+{
+    apply_legacy_visibility(visible);
 }
 
 extern "C" void
@@ -1522,8 +1564,8 @@ ground_ops_ui_resume_after_planner(void)
     planner_suspended = B_FALSE;
     (void)refresh_local_data_context();
     refresh_snapshot();
-    ground_window->SetVisible(B_TRUE);
-    if (manager_loop != nullptr)
+    ground_window->SetVisible(!legacy_gate_hidden);
+    if (manager_loop != nullptr && !legacy_gate_hidden)
         XPLMScheduleFlightLoop(manager_loop, -1.0f, 1);
     logMsg(BP_INFO_LOG "Ground Ops UI restored after planner close");
 }

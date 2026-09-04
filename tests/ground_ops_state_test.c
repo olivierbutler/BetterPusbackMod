@@ -294,6 +294,19 @@ test_idle_workflow_requires_pilot_tug_call(void)
 }
 
 static void
+test_completed_task_has_bounded_two_line_copy(void)
+{
+    ground_ops_state_t state;
+    ground_ops_raw_state_t raw = idle_raw();
+
+    ground_ops_state_init(&state);
+    raw.prep_state = GROUND_OPS_PREP_COMPLETE;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(strcmp(state.snapshot.current_task,
+        "Call tow assistance if the\naircraft must return") == 0);
+}
+
+static void
 test_provider_context_is_display_only(void)
 {
     ground_ops_state_t state;
@@ -420,6 +433,7 @@ main(void)
     test_pause_resume_actions_preserve_push_stage();
     test_end_from_pause_hold_uses_stationary_handoff();
     test_idle_workflow_requires_pilot_tug_call();
+    test_completed_task_has_bounded_two_line_copy();
     test_provider_context_is_display_only();
     test_called_connection_has_no_second_gate_before_capture();
     test_change_plan_is_only_offered_during_connected_hold();

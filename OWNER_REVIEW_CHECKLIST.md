@@ -13,6 +13,10 @@ visual and motion checks require X-Plane.
   without `-m` must remain at 58 by 244 and 292 by 420.
 - Hover every Ground Operations control. Panel tooltips must wrap and remain
   inside the panel.
+- Confirm every CURRENT TASK message remains inside its card. The completed
+  operation message must render on exactly two lines.
+- Confirm the installed package contains the wing-walker OBJ, diffuse texture,
+  LIT texture, and attribution file under `objects/wing_walker`.
 - Confirm the Preferences window does not show Auto disconnect when done,
   either Hide magic squares control, Magic squares position, Enable Ground
   Operations UI, or Show Ground Operations captions.
@@ -34,6 +38,10 @@ visual and motion checks require X-Plane.
   endpoint.
 - Complete the operation. Confirm disconnect occurs automatically and no
   separate disconnect or reconnect windows appear.
+- Confirm Ground Operations remains visible throughout an active operation.
+  After completion, taxi at or above the legacy 1 m/s threshold and confirm
+  the UI hides; slow below 1 m/s while on the ground and confirm the same
+  expanded or collapsed view returns automatically.
 
 ## Repeated and emergency operation
 
