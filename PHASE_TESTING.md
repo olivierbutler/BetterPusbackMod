@@ -1,5 +1,14 @@
 # Realism Fork Verification Record
 
+> This file preserves historical experiment evidence. On 2026-09-04, owner
+> review superseded the custom steering, endpoint-correction, acceleration,
+> disconnect/reconnect-prompt, and optional-Ground-Ops preferences described in
+> older phases. The current candidate uses the upstream legacy motion path,
+> mandatory automatic disconnect, always-enabled Ground Operations captions,
+> a connected-hold **Change plan** action, and platform-scaled Mac UI geometry.
+> Historical artifact hashes below must not be treated as hashes of the current
+> candidate.
+
 This is the evidence log for the realism fork. A phase is not marked complete
 until its code has passed automated checks, its Windows plugin has been built
 and installed, and its acceptance checks have been confirmed in X-Plane by a

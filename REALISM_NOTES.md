@@ -1,6 +1,15 @@
-# Tug physics calibration notes
+# Archived tug-physics experiments
 
-This branch separates four quantities that the original implementation mixed
+> Historical record only. The steering profiles, tail/path corrections,
+> acceleration ramp, jerk limiter, force-cap experiment, corrected tug
+> wheelbase, and controller-matched preview described below are not active in
+> the current build. Owner review restored the upstream legacy planner,
+> `drive_segs` steering, turn/endpoint behavior, tug approach geometry, and
+> breakaway behavior. The only retained motion customization is each tug's
+> configured loaded towing-speed limit. The per-aircraft experimental plugin
+> exclusion was also restored with its original disable/re-enable behavior.
+
+This archive records experiments that separated four quantities the original implementation mixed
 or ignored: unloaded speed, aircraft-carrying speed, acceleration/deceleration,
 and available tractive effort.
 

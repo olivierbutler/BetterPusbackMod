@@ -1,13 +1,20 @@
 # BetterPushback next-session handoff
 
+> Superseded on 2026-09-04 by the owner-review reconciliation. Historical
+> hashes and simulator-accepted experiments below remain useful evidence, but
+> they are not the current release candidate. The active branch now restores
+> upstream legacy path motion, automatic disconnect, the original per-aircraft
+> plugin exclusion, connected-hold replanning, and proportional macOS Ground
+> Operations scaling.
+
 Prepared: 2026-08-08
 Workspace: `C:\Users\DARRON\OneDrive\Documents\BetterPushBack\BetterPusbackMod`
 Branch: `feature/realistic-tug-physics`
 
 ## Start here
 
-The completed Ground Operations UI and Emergency Tow workflow are the
-**simulator-accepted baseline** at current `HEAD`. The fork now presents only
+The completed Ground Operations UI and Emergency Tow workflow were the
+**simulator-accepted baseline** at the recorded historical commit. The fork presents only
 the Ground Operations panel by default while preserving the original
 operational UI behind a reversible build option.
 

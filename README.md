@@ -9,18 +9,18 @@ pushback operation. To increase immersion, it speaks to you in a variety
 of languages and accents, simulating ground staff at various places
 around the world.
 
-In this realism fork, the planner's blue line is a controller-matched preview
-of the expected main-gear trajectory rather than an ideal circular arc. A
-smooth, uniformly shaded magenta band marks the continuous, wingspan-wide
-danger zone around that trajectory. It supports visual clearance planning but
-does not perform automatic collision detection.
+In this fork, the planner and live tug use BetterPushback's original route
+construction, segment steering, turn tracking, stopping, and approach
+geometry. The planner's blue line therefore describes the legacy planned path.
+A smooth, uniformly shaded magenta band marks a wingspan-wide visual-clearance
+area around it, but does not perform automatic collision detection.
 
 Development of the compact ground-operations experience is governed by the
 tracked [UI design](GROUND_OPS_UI_DESIGN.md) and the fork's complete
 [implementation roadmap](ROADMAP.md). These documents define the approved
 five-stage compact rail, live workflow panel, performance guardrails,
-phased delivery, and acceptance gates. Active crew audio prompts can be mirrored
-as optional panel captions. Build and simulator evidence for every phase is retained in the
+phased delivery, and acceptance gates. Active crew audio prompts are mirrored
+as panel captions. Build and simulator evidence for every phase is retained in the
 [verification record](PHASE_TESTING.md).
 
 The Ground Operations workflow first displays the parsed departure-airport
@@ -45,7 +45,7 @@ the accepted route and steering state, while **End operation** stops safely and
 continues through the normal disconnect sequence at the current position.
 
 After a completed normal operation, **Call tow back** starts a guarded one-time
-Emergency Tow. The tug reconnects, the manual planner opens at the live aircraft
+Emergency Tow. The tug returns and connects, the manual planner opens at the live aircraft
 position, and the plugin returns to its normal start state after towing and
 disconnect are complete. Emergency Tow does not use the saved-route cache or
 render the wing walker. Normal pushbacks retain the accepted STOP, STANDBY, and
@@ -81,7 +81,7 @@ Linux and Windows versions are built in one step on an Ubuntu 16.04 (or
 compatible) machine and the Mac version is obviously built on macOS (10.9
 or later).
 
->Note: __on macOS only__ , by using the option ```-f```, the script will build also the linux and windows versions. see ```README-docker.md```.
+>Note: __on macOS only__ , by using the option ```-f```, the script will build also the linux and windows versions. see ```README-docker.md```. Use ```-m``` on a development build to emulate the enlarged macOS Ground Operations layout on Windows or Linux.
 
 For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 
@@ -97,9 +97,11 @@ by configuring the build with:
 cmake -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON ...
 ```
 
-This switch controls presentation only. Existing commands, preferences,
-automatic tug-start behavior, the overhead planner, and disconnect/reconnect
-interfaces remain available in either setting.
+This switch controls only the four original shortcut windows. Ground
+Operations remains enabled, and the overhead planner and classic menu commands
+remain available. The end sequence disconnects automatically; the original
+disconnect/reconnect window implementation is retained as dormant source and
+is not created.
 
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:
@@ -142,8 +144,9 @@ $ ./tests/run_all_tests.sh
 
 BetterPushback registers these X-Plane commands:
 
-- `BetterPushback/start`: Start pushback (or connect-first if configured).
-- `BetterPushback/pause_resume`: Smoothly pause or resume automatic pushback
+- `BetterPushback/start`: Start pushback (or reopen the planner as **Change
+  plan** during the connected parking-brake hold).
+- `BetterPushback/pause_resume`: Pause or resume automatic pushback
   without discarding the accepted route.
 - `BetterPushback/stop`: End pushback and disconnect. This retains the legacy
   command path for compatibility but is presented distinctly from Pause.
@@ -155,9 +158,8 @@ BetterPushback registers these X-Plane commands:
 - `BetterPushback/ground_ops_show_hide`: Show or hide Ground Operations.
 - `BetterPushback/ground_ops_expand_collapse`: Expand or collapse Ground
   Operations.
-- `BetterPushback/disconnect`: Approve physical disconnect when prompted.
-- `BetterPushback/reconnect`: Reconnect during the supported disconnect
-  decision stage.
+- `BetterPushback/disconnect`: Internal compatibility command used by the
+  automatic physical-disconnect sequence.
 - `BetterPushback/cab_camera`: View from the tug cab.
 - `BetterPushback/recreate_scenery_routes`: Recreate scenery routes from WED files.
 - `BetterPushback/preference`: Open the preference window.
