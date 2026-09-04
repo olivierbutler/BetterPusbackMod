@@ -39,16 +39,28 @@ ground_ops_window_mode_valid(int mode)
         mode <= GROUND_OPS_WINDOW_POPOUT);
 }
 
+double
+ground_ops_ui_scale(void)
+{
+    return (GROUND_OPS_UI_SCALE);
+}
+
+int
+ground_ops_scaled_pixels(int logical_pixels)
+{
+    return ((int)(logical_pixels * ground_ops_ui_scale() + 0.5));
+}
+
 void
 ground_ops_presentation_size(ground_ops_presentation_t presentation,
     int *width, int *height)
 {
     if (presentation == GROUND_OPS_PRESENTATION_PANEL) {
-        *width = GROUND_OPS_PANEL_WIDTH;
-        *height = GROUND_OPS_PANEL_HEIGHT;
+        *width = ground_ops_scaled_pixels(GROUND_OPS_PANEL_WIDTH);
+        *height = ground_ops_scaled_pixels(GROUND_OPS_PANEL_HEIGHT);
     } else {
-        *width = GROUND_OPS_ORB_WIDTH;
-        *height = GROUND_OPS_ORB_HEIGHT;
+        *width = ground_ops_scaled_pixels(GROUND_OPS_ORB_WIDTH);
+        *height = ground_ops_scaled_pixels(GROUND_OPS_ORB_HEIGHT);
     }
 }
 

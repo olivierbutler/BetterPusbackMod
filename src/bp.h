@@ -177,6 +177,8 @@ bool_t bp_pause_is_held(void);
 
 bool_t bp_is_awaiting_plan(void);
 
+bool_t bp_can_replan(void);
+
 void bp_get_ground_ops_metrics(double *speed_mps, bool_t *speed_valid,
     double *distance_remaining_m, bool_t *distance_valid);
 

@@ -28,6 +28,14 @@ else()
     add_compile_definitions(BP_ENABLE_LEGACY_MAGIC_SQUARES=0)
 endif()
 
+option(BP_EMULATE_MAC_UI_SCALE
+    "Use the macOS Ground Operations scale on a development build" OFF)
+if(BP_EMULATE_MAC_UI_SCALE)
+    add_compile_definitions(BP_EMULATE_MAC_UI_SCALE=1)
+else()
+    add_compile_definitions(BP_EMULATE_MAC_UI_SCALE=0)
+endif()
+
 if (NOT DEFINED COPYRIGHT_YEAR)
     string(TIMESTAMP COPYRIGHT_YEAR "%Y")
 endif()

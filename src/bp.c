@@ -61,7 +61,6 @@
 #include "cfg.h"
 #include "emergency_tow.h"
 #include "msg.h"
-#include "realism_config.h"
 #include "telemetry.h"
 #include "xplane.h"
 
@@ -118,6 +117,9 @@
  */
 #define    TOW_COMPLETE_TUG_STEER_THRESH    5    /* degrees */
 #define    TOW_COMPLETE_ACF_STEER_THRESH    2.5    /* degrees */
+
+/* Begin neutralizing the final straight at the upstream legacy threshold. */
+#define    NEARING_END_THRESHOLD        1    /* meters */
 
 enum {
     RWY_FRICTION_GOOD = 0,
@@ -185,8 +187,6 @@ bp_long_state_t bp_ls = {0};
 
 static bool_t inited = B_FALSE;
 static XPLMFlightLoopID bp_floop = NULL;
-
-static bool_t cfg_disco_when_done = B_FALSE;
 
 static bool_t cfg_ignore_park_break = B_FALSE;
 
@@ -258,8 +258,6 @@ void main_intf_hide(void);
 
 static int disco_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
-static int recon_handler(XPLMCommandRef, XPLMCommandPhase, void *);
-
 static bool_t bp_run_push_manual(void);
 
 void acf_plg_debut(void);
@@ -300,12 +298,15 @@ static const char *const bp_step_names[] = {
     "driving_away"
 };
 
-static XPLMCommandRef disco_cmd = NULL, recon_cmd = NULL;
+static XPLMCommandRef disco_cmd = NULL;
+#if 0
+static XPLMCommandRef recon_cmd = NULL;
 static button_t disco_buttons[] = {
         {.filename = "disconnect.png", .vk = -1, .tex = 0, .tex_data = NULL},
         {.filename = "reconnect.png", .vk = -1, .tex = 0, .tex_data = NULL},
         {.filename = NULL},
 };
+#endif
 
 static button_t magic_buttons[] = {
         {.filename = "planner.png", .vk = -1, .tex = 0, .tex_data = NULL, .wind_id = NULL},
@@ -314,6 +315,13 @@ static button_t magic_buttons[] = {
         {.filename = "status.png", .vk = -1, .tex = 0, .tex_data = NULL, .wind_id = NULL},
         {.filename = NULL},
 };
+
+static struct
+{
+    int exclusion_started;
+    int plg_status;
+    XPLMPluginID plg_id;
+} acf_tracker_plg_exclude = {0, 0, -1};
 
 /*
  * This flag is set by the planner if the user clicked on the "connect first"
@@ -472,6 +480,14 @@ bp_pause_is_held(void)
 }
 
 bool_t
+bp_can_replan(void)
+{
+    return (bp_started && !slave_mode && !push_manual.active &&
+        bp.step == PB_STEP_CONNECTED && pbrake_is_set() &&
+        list_head(&bp.segs) != NULL && !bp_cam_is_running());
+}
+
+bool_t
 bp_is_awaiting_plan(void)
 {
     return (bp_started && bp.awaiting_plan);
@@ -500,29 +516,6 @@ telemetry_sanitize_name(const char *input, char *output, size_t capacity)
     } else {
         output[j] = '\0';
     }
-}
-
-/* Distance from the main-gear reference point to the aft outline point. */
-static double
-aircraft_tail_arm(void)
-{
-    double aft_y = -HUGE_VAL;
-
-    if (bp_ls.outline != NULL) {
-        for (size_t i = 0; i < bp_ls.outline->num_pts; i++) {
-            vect2_t point = bp_ls.outline->pts[i];
-
-            if (!IS_NULL_VECT(point) && isfinite(point.y))
-                aft_y = MAX(aft_y, point.y);
-        }
-        if (isfinite(aft_y) && aft_y > bp.acf.main_z)
-            return (aft_y - bp.acf.main_z);
-        if (bp_ls.outline->length > 0)
-            return (MAX(bp_ls.outline->length * 0.4,
-                bp.veh.wheelbase / 2));
-    }
-
-    return (MAX(bp.veh.wheelbase, 1));
 }
 
 static void
@@ -602,17 +595,17 @@ telemetry_start(void)
     metadata.aircraft_mass_kg = dr_getf(&drs.acf_mass);
     metadata.aircraft_mtow_kg = dr_getf(&drs.mtow);
     metadata.aircraft_wheelbase_m = bp.veh.wheelbase;
-    metadata.aircraft_tail_arm_m = aircraft_tail_arm();
+    metadata.aircraft_tail_arm_m = NAN;
     metadata.aircraft_max_steer_deg = bp.veh.max_steer;
     metadata.effective_max_fwd_speed_mps = bp.veh.max_fwd_spd;
     metadata.effective_max_rev_speed_mps = bp.veh.max_rev_spd;
-    metadata.push_start_accel_ramp_time_s = PUSH_START_ACCEL_RAMP_TIME;
-    metadata.push_start_jerk_limit_mps3 = PUSH_START_JERK_LIMIT;
-    metadata.turn_profile_transition_m = TURN_PROFILE_TRANSITION_DIST;
-    metadata.turn_profile_steer_rate_dps = TURN_PROFILE_STEER_RATE;
-    metadata.route_path_deadband_deg = ROUTE_PATH_STEER_DEADBAND;
-    metadata.route_path_max_correction_deg = ROUTE_PATH_MAX_CORRECTION;
-    metadata.route_path_terminal_fade_m = ROUTE_PATH_TERMINAL_FADE_DIST;
+    metadata.push_start_accel_ramp_time_s = NAN;
+    metadata.push_start_jerk_limit_mps3 = NAN;
+    metadata.turn_profile_transition_m = NAN;
+    metadata.turn_profile_steer_rate_dps = NAN;
+    metadata.route_path_deadband_deg = NAN;
+    metadata.route_path_max_correction_deg = NAN;
+    metadata.route_path_terminal_fade_m = NAN;
     metadata.tug_mass_kg = bp_ls.tug->info->mass;
     metadata.tug_wheelbase_m = bp_ls.tug->veh.wheelbase;
     metadata.tug_max_steer_deg = bp_ls.tug->veh.max_steer;
@@ -1775,8 +1768,10 @@ void
 bp_boot_init(void) {
     disco_cmd = XPLMCreateCommand("BetterPushback/disconnect",
                                   _("Disconnect tow + headset and switch to hand signals."));
+#if 0
     recon_cmd = XPLMCreateCommand("BetterPushback/reconnect",
                                   _("Reconnect tow and await further instructions."));
+#endif
 
     DCR_CREATE_F(NULL, &bp.anim.nosewheel_rot_spd, false, "bp/anim/nosewheel_rotation_speed_rad_sec");
 }
@@ -1951,7 +1946,6 @@ bp_init(void) {
     fdr_find(&drs.joystick, "sim/joystick/joy_mapped_axis_value");
 
     XPLMRegisterCommandHandler(disco_cmd, disco_handler, 1, NULL);
-    XPLMRegisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
 
     /*
      * We do this check before attempting to read gear info, because
@@ -1963,15 +1957,10 @@ bp_init(void) {
 
     if (!bp_state_init())
         goto errout;
-    if (!audio_sys_init() || !load_buttons() ||
-        !load_icon(&disco_buttons[0]) || !load_icon(&disco_buttons[1]))
+    if (!audio_sys_init() || !load_buttons())
         goto errout;
 
     XPLMGetNthAircraftModel(0, my_acf, my_path);
-
-    cfg_disco_when_done = B_FALSE;
-    conf_get_b_per_acf("disco_when_done", &cfg_disco_when_done);
-
 
     cfg_ignore_park_break = B_FALSE;
     conf_get_b_per_acf("ignore_park_brake", &cfg_ignore_park_break);
@@ -1999,11 +1988,8 @@ bp_init(void) {
     return (B_TRUE);
     errout:
     XPLMUnregisterCommandHandler(disco_cmd, disco_handler, 1, NULL);
-    XPLMUnregisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
     msg_fini();
     unload_buttons();
-    unload_icon(&disco_buttons[0]);
-    unload_icon(&disco_buttons[1]);
     if (bp_ls.outline != NULL) {
         acf_outline_free(bp_ls.outline);
         bp_ls.outline = NULL;
@@ -2207,7 +2193,6 @@ bp_fini(void) {
     }
 
     XPLMUnregisterCommandHandler(disco_cmd, disco_handler, 1, NULL);
-    XPLMUnregisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
 
     msg_fini();
     bp_complete();
@@ -2215,8 +2200,6 @@ bp_fini(void) {
     /* segs have been released in bp_complete */
     list_destroy(&bp.segs);
 
-    unload_icon(&disco_buttons[0]);
-    unload_icon(&disco_buttons[1]);
     unload_buttons();
 
     radio_volume_warn = B_FALSE;
@@ -3057,6 +3040,8 @@ pb_step_lift(void) {
 static void
 pb_step_connected(void) {
     seg_t *seg = NULL;
+    bool_t parking_brake_set = pbrake_is_set();
+
     if ( !push_manual.active ) {
         seg = list_head(&bp.segs);
         if  ( seg == NULL ) {
@@ -3064,7 +3049,12 @@ pb_step_connected(void) {
             return;
         }
     }
-    if (pbrake_is_set() ||
+    if (parking_brake_set)
+        enable_replanning();
+    else
+        disable_replanning();
+
+    if (parking_brake_set ||
         bp.cur_t - bp.last_voice_t < msg_dur(MSG_CONNECTED)) {
         /*
          * Keep resetting the start time to enforce the state delay
@@ -3072,9 +3062,7 @@ pb_step_connected(void) {
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes release");
-        enable_replanning();
     } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
-        disable_replanning();
         if (!slave_mode) {
             bool_t backward = true; 
             if (!push_manual.active) {
@@ -3426,6 +3414,12 @@ pb_step_closing_cradle(void) {
     }
 }
 
+/*
+ * The original disconnect/reconnect windows are kept here for reference, but
+ * the standard workflow below disconnects automatically and never creates
+ * either window.
+ */
+#if 0
 static void
 disco_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
     int w, h, mx, my;
@@ -3455,6 +3449,7 @@ disco_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
                   B_FALSE, is_lit);
     }
 }
+#endif
 
 static int
 disco_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
@@ -3469,6 +3464,7 @@ disco_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     return (1);
 }
 
+#if 0
 static int
 recon_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     UNUSED(cmd);
@@ -3508,6 +3504,7 @@ disco_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
 
     return (1);
 }
+#endif
 
 static XPLMCursorStatus
 nil_win_cursor(XPLMWindowID inWindowID, int x, int y, void *inRefcon) {
@@ -3530,6 +3527,7 @@ nil_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
     return (1);
 }
 
+#if 0
 static void
 disco_intf_show(void) {
     XPLMCreateWindow_t disco_ops = {
@@ -3564,6 +3562,7 @@ disco_intf_show(void) {
     ASSERT(bp_ls.recon_win != NULL);
     XPLMBringWindowToFront(bp_ls.recon_win);
 }
+#endif
 
 static void
 disco_intf_hide(void) {
@@ -3868,24 +3867,17 @@ main_intf(bool_t force_hide) {
 static void
 pb_step_waiting4ok2disco(void) {
     if (!bp.ok2disco) {
-        if (bp_ls.disco_win == NULL && !slave_mode) {
-            if (cfg_disco_when_done) {
-                /*
-                 * Don't actually show the interface, just
-                 * fire the disconnection command.
-                 */
-                XPLMCommandOnce(disco_cmd);
-                return;
-            }
-            disco_intf_show();
+        if (!slave_mode) {
+            XPLMCommandOnce(disco_cmd);
+            return;
         }
 
-        /* Keep resetting the start time to enforce the delay */
+        /* Wait for the master to advance the shared operation state. */
         bp.step_start_t = bp.cur_t;
         return;
     }
 
-    /* Once the user clicked disconnect, hide the buttons immediately */
+    /* Be defensive if upgrading while an old interface is still visible. */
     disco_intf_hide();
 
     if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
@@ -4364,7 +4356,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             pb_step_ungrabbing();
             break;
         case PB_STEP_WAITING4OK2DISCO:
-            bp_hint_status_str = _("Waiting the OK to disconnect");
+            bp_hint_status_str = _("Disconnecting the tug");
             pb_step_waiting4ok2disco();
             break;
         case PB_STEP_MOVING_AWAY:
@@ -4463,24 +4455,54 @@ bp_num_segs(void) {
 
 void acf_plg_debut(void)
 {
-    const char *plg_to_exclude = NULL;
+    if (!acf_tracker_plg_exclude.exclusion_started) {
+        const char *plg_to_exclude = NULL;
 
-    /*
-     * Aircraft-local plugins commonly own the electrical, hydraulic, landing
-     * gear and flight-control state. Disabling one while the tug is moving can
-     * therefore depower the aircraft, retract its gear or corrupt its systems
-     * state. Older versions offered this as an experimental per-aircraft
-     * option. Keep reading the setting so stale configurations produce a clear
-     * diagnostic, but never act on it.
-     */
-    if (conf_get_str_per_acf((char *)"plg_acf_to_exclude",
-        (char **)&plg_to_exclude)) {
-        logMsg(BP_WARN_LOG "Ignoring unsafe aircraft plugin exclusion: %s",
-            plg_to_exclude);
+        acf_tracker_plg_exclude.exclusion_started = 1;
+        acf_tracker_plg_exclude.plg_id = -1;
+        if (conf_get_str_per_acf((char *)"plg_acf_to_exclude",
+            (char **)&plg_to_exclude)) {
+            acf_tracker_plg_exclude.plg_id =
+                XPLMFindPluginBySignature(plg_to_exclude);
+        } else {
+            logMsg(BP_INFO_LOG "Acf XPLMDisablePlugin not done, no Acf "
+                "plugin to exclude selected");
+            return;
+        }
+
+        if (acf_tracker_plg_exclude.plg_id != -1) {
+            acf_tracker_plg_exclude.plg_status = XPLMIsPluginEnabled(
+                acf_tracker_plg_exclude.plg_id);
+            if (acf_tracker_plg_exclude.plg_status) {
+                XPLMDisablePlugin(acf_tracker_plg_exclude.plg_id);
+                logMsg(BP_INFO_LOG "Acf XPLMDisablePlugin on %s",
+                    plg_to_exclude);
+            } else {
+                logMsg(BP_INFO_LOG "Acf XPLMDisablePlugin not done, was "
+                    "already disabled");
+            }
+        } else {
+            logMsg(BP_INFO_LOG "Acf XPLMDisablePlugin not done, plugin %s "
+                "not found", plg_to_exclude);
+        }
     }
 }
 
 void acf_plg_fini(void)
 {
-    /* Aircraft plugins are never disabled by acf_plg_debut(). */
+    if (!acf_tracker_plg_exclude.exclusion_started)
+        return;
+
+    if (acf_tracker_plg_exclude.plg_id != -1) {
+        acf_tracker_plg_exclude.plg_status = XPLMIsPluginEnabled(
+            acf_tracker_plg_exclude.plg_id);
+        if (!acf_tracker_plg_exclude.plg_status) {
+            int r = XPLMEnablePlugin(acf_tracker_plg_exclude.plg_id);
+            logMsg(BP_INFO_LOG "Acf XPLMEnablePlugin %d", r);
+        } else {
+            logMsg(BP_INFO_LOG "Acf XPLMEnablePlugin not done, was already "
+                "enabled");
+        }
+    }
+    acf_tracker_plg_exclude.exclusion_started = 0;
 }

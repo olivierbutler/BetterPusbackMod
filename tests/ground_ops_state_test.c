@@ -94,7 +94,7 @@ test_action_markers(void)
     assert(snapshot_for_step(PB_STEP_WAITING_FOR_PBRAKE).action_required);
     assert(snapshot_for_step(PB_STEP_CONNECTED).action_required);
     assert(snapshot_for_step(PB_STEP_STOPPED).action_required);
-    assert(snapshot_for_step(PB_STEP_WAITING4OK2DISCO).action_required);
+    assert(!snapshot_for_step(PB_STEP_WAITING4OK2DISCO).action_required);
     assert(!snapshot_for_step(PB_STEP_PUSHING).action_required);
     assert(!snapshot_for_step(PB_STEP_MOVING_AWAY).action_required);
 }
@@ -348,6 +348,31 @@ test_called_connection_has_no_second_gate_before_capture(void)
 }
 
 static void
+test_change_plan_is_only_offered_during_connected_hold(void)
+{
+    ground_ops_state_t state;
+    ground_ops_raw_state_t raw = idle_raw();
+
+    ground_ops_state_init(&state);
+    raw.operation_active = true;
+    raw.step = PB_STEP_CONNECTED;
+    raw.plan_complete = true;
+    raw.replan_available = true;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(state.snapshot.primary_action == GROUND_OPS_ACTION_CHANGE_PLAN);
+    assert(strcmp(state.snapshot.primary_action_label, "Change plan") == 0);
+
+    raw.replan_available = false;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(state.snapshot.primary_action == GROUND_OPS_ACTION_NONE);
+
+    raw.replan_available = true;
+    raw.step = PB_STEP_STARTING;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(state.snapshot.primary_action == GROUND_OPS_ACTION_NONE);
+}
+
+static void
 test_emergency_tow_labels_and_actions(void)
 {
     ground_ops_state_t state;
@@ -397,6 +422,7 @@ main(void)
     test_idle_workflow_requires_pilot_tug_call();
     test_provider_context_is_display_only();
     test_called_connection_has_no_second_gate_before_capture();
+    test_change_plan_is_only_offered_during_connected_hold();
     test_emergency_tow_labels_and_actions();
     assert(sizeof(ground_ops_snapshot_t) < 1024);
     puts("ground_ops_state tests passed");

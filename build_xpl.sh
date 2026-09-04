@@ -36,7 +36,7 @@ CMAKE_OPTS_COMMON="-DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
 
 
-while getopts "nfh" o; do
+while getopts "nfmh" o; do
 	case "${o}" in
 	f)
 	if [[ $(uname) = "Darwin" ]]; then
@@ -53,12 +53,16 @@ while getopts "nfh" o; do
 		fi
 		notarize=1
 		;;
+	m)
+		CMAKE_OPTS_COMMON="$CMAKE_OPTS_COMMON -DBP_EMULATE_MAC_UI_SCALE=ON"
+		;;
 	h)
 		cat << EOF
-Usage: $0 [-fnh]
+Usage: $0 [-fmnh]
 	-f : (macOS-only) Cross-compile to linux and window
 		using the docker image provided by docker-compose.yml.
 		See README-docker.md for more information.
+    -m : development build using the macOS Ground Operations scale
     -n : (macOS-only) Codesign & notarize the resulting XPL after build
          Note: requires that you create a file named user.make in the
          notarize directory with DEVELOPER_USERNAME and DEVELOPER_PASSWORD

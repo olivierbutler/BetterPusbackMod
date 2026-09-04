@@ -27,6 +27,20 @@ extern "C" {
 #define GROUND_OPS_WINDOW_MARGIN 24
 #define GROUND_OPS_CLICK_DRAG_THRESHOLD 5
 
+#ifndef APL
+#define APL 0
+#endif
+
+#ifndef BP_EMULATE_MAC_UI_SCALE
+#define BP_EMULATE_MAC_UI_SCALE 0
+#endif
+
+#if APL || BP_EMULATE_MAC_UI_SCALE
+#define GROUND_OPS_UI_SCALE 1.35
+#else
+#define GROUND_OPS_UI_SCALE 1.0
+#endif
+
 typedef enum {
     GROUND_OPS_PRESENTATION_HIDDEN = 0,
     GROUND_OPS_PRESENTATION_ORB = 1,
@@ -52,6 +66,8 @@ typedef struct {
 
 bool ground_ops_presentation_valid(int presentation);
 bool ground_ops_window_mode_valid(int mode);
+double ground_ops_ui_scale(void);
+int ground_ops_scaled_pixels(int logical_pixels);
 void ground_ops_presentation_size(ground_ops_presentation_t presentation,
     int *width, int *height);
 void ground_ops_rect_resize_top_right(ground_ops_rect_t *rect, int width,
