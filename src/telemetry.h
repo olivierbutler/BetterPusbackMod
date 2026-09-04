@@ -25,6 +25,14 @@ extern "C" {
 
 #define BP_TELEMETRY_SCHEMA_VERSION 7
 
+/*
+ * Runtime CSV recording is diagnostic-only. Distribution builds leave it
+ * disabled so normal simulator use cannot accumulate unbounded output files.
+ */
+#ifndef BP_ENABLE_RUNTIME_TELEMETRY
+#define BP_ENABLE_RUNTIME_TELEMETRY 0
+#endif
+
 typedef struct {
     const char *plugin_version;
     const char *aircraft_icao;

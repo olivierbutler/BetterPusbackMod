@@ -395,7 +395,8 @@ dedicated implementation were removed on 2026-08-05.
 - [ ] No measurable idle FPS regression beyond the documented budget.
 - [ ] No unbounded memory growth.
 - [ ] Every external failure has a tested fallback.
-- [ ] Telemetry contains enough context to reproduce motion defects.
+- [ ] Opt-in diagnostic telemetry contains enough context to reproduce motion
+  defects, while normal builds create no telemetry files.
 
 ## Phase 10 — Release candidate
 

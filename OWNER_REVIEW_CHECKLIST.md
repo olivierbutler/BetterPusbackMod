@@ -17,6 +17,9 @@ visual and motion checks require X-Plane.
   operation message must render on exactly two lines.
 - Confirm the installed package contains the wing-walker OBJ, diffuse texture,
   LIT texture, and attribution file under `objects/wing_walker`.
+- Confirm a normal build does not log `Recording pushback telemetry` and does
+  not create a new CSV in `Output/BetterPushback/telemetry`. Telemetry must be
+  present only in an explicit `./build_xpl.sh -t` diagnostic build.
 - Confirm the Preferences window does not show Auto disconnect when done,
   either Hide magic squares control, Magic squares position, Enable Ground
   Operations UI, or Show Ground Operations captions.

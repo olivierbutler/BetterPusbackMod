@@ -522,6 +522,12 @@ telemetry_sanitize_name(const char *input, char *output, size_t capacity)
 static void
 telemetry_start(void)
 {
+    bp_telemetry_close(&bp_telem.writer);
+    telemetry_begin_frame();
+
+    if (!BP_ENABLE_RUNTIME_TELEMETRY)
+        return;
+
     char aircraft_file[512] = {0}, aircraft_path[512] = {0};
     char aircraft_icao[16] = {0}, tug_name[128] = {0};
     char timestamp[32] = {0}, filename[256];
@@ -531,9 +537,6 @@ telemetry_start(void)
     dr_t icao_dr;
     time_t wall_time;
     struct tm *local_time;
-
-    bp_telemetry_close(&bp_telem.writer);
-    telemetry_begin_frame();
 
     directory = mkpathname(bp_xpdir, "Output", "BetterPushback",
         "telemetry", NULL);
@@ -633,6 +636,9 @@ telemetry_start(void)
 static void
 telemetry_record(bool_t force)
 {
+    if (!BP_ENABLE_RUNTIME_TELEMETRY || bp_telem.writer.fp == NULL)
+        return;
+
     bp_telemetry_sample_t sample = {
         .segment_backward = -1,
         .segment_end_distance_m = NAN,
@@ -668,9 +674,6 @@ telemetry_record(bool_t force)
     };
     seg_t *segment;
     double nosewheel_steer = NAN;
-
-    if (bp_telem.writer.fp == NULL)
-        return;
 
     segment = list_head(&bp.segs);
     sample.sim_time_s = bp.cur_t;
