@@ -39,7 +39,6 @@
 #include "cfg.h"
 #include "driving.h"
 #include "tug.h"
-#include "vehicle_physics.h"
 #include "xplane.h"
 
 #define    TUG_STEER_RATE        40    /* deg/s */
@@ -52,6 +51,8 @@
 #define    TUG_MAX_REV_SPD        3    /* m/s */
 #define    TUG_MAX_ACCEL        1    /* m/s^2 */
 #define    TUG_MAX_DECEL        0.5    /* m/s^2 */
+
+#define    TUG_MIN_WHEELBASE    5    /* meters */
 
 #define    VOLUME_INSIDE_MODIFIER    0.5
 
@@ -831,8 +832,7 @@ tug_info_read(const char *tugdir, const char *tug_name, const char *icao,
     VALIDATE_TUG_REAL(ti->min_nlg_len, "min_nlg_len");
     VALIDATE_TUG_REAL(ti->lift_height, "lift_height");
     VALIDATE_TUG_REAL_NAN(ti->apch_dist, "apch_dist");
-    VALIDATE_TUG_REAL(ti->max_TE, "max_TE");
-    VALIDATE_TUG(ti->front_z <= ti->rear_z, "front_z/rear_z");
+    VALIDATE_TUG_REAL_NAN(ti->max_TE, "max_TE");
     VALIDATE_TUG_INT(ti->num_fwd_gears, "num_fwd_gears");
     VALIDATE_TUG_INT(ti->num_rev_gears, "num_rev_gears");
     VALIDATE_TUG_STR(ti->engine_snd, "engine_snd");
@@ -1208,7 +1208,7 @@ tug_alloc_common(tug_info_t *ti, double tirrad) {
     tug->info = ti;
     tug->tirrad = tirrad;
 
-    tug->veh.wheelbase = TUG_WHEELBASE(tug);
+    tug->veh.wheelbase = MAX(TUG_WHEELBASE(tug), TUG_MIN_WHEELBASE);
     tug->veh.fixed_z_off = tug->info->rear_z;
     tug->veh.max_steer = tug->info->max_steer;
     tug->veh.max_fwd_spd = tug->info->max_fwd_speed;
@@ -1448,10 +1448,19 @@ tug_run(tug_t *tug, double d_t, bool_t drive_slow) {
                    &tug->segs, &tug->last_mis_hdg, d_t, &steer, &speed, NULL);
     }
 
-    speed = vehicle_steering_speed_limit(speed, tug->veh.max_fwd_spd,
-        tug->veh.max_rev_spd, steer, tug->veh.max_steer);
-    accel = vehicle_speed_step(tug->pos.spd, speed, tug->veh.max_accel,
-        tug->veh.max_decel, d_t) - tug->pos.spd;
+    /* modulate our speed based on required steering angle */
+    if (speed > 0) {
+        speed = MIN(speed, tug->veh.max_fwd_spd *
+                           (1.1 - (steer / tug->veh.max_steer)));
+    } else {
+        speed = MAX(speed, -tug->veh.max_rev_spd *
+                           (1.1 - (steer / tug->veh.max_steer)));
+    }
+
+    if (speed >= tug->pos.spd)
+        accel = MIN(speed - tug->pos.spd, TUG_MAX_ACCEL * d_t);
+    else
+        accel = MAX(speed - tug->pos.spd, -TUG_MAX_ACCEL * d_t);
 
     if (steer >= tug->cur_steer)
         turn = MIN(steer - tug->cur_steer, TUG_STEER_RATE * d_t);
@@ -1462,7 +1471,7 @@ tug_run(tug_t *tug, double d_t, bool_t drive_slow) {
     if (!tug->steer_override)
         tug->cur_steer += turn;
 
-    radius = vehicle_turn_radius(tug->veh.wheelbase, tug->cur_steer);
+    radius = tan(DEG2RAD(90 - tug->cur_steer)) * tug->veh.wheelbase;
     if (radius > -1e3 && radius < 1e3) {
         double d_hdg = RAD2DEG((tug->pos.spd / radius) * d_t);
         vect2_t p2c = VECT2(radius, tug->info->rear_z);

@@ -95,11 +95,6 @@ typedef struct {
 
     double last_steer;
     double last_force;
-    double push_accel_limit;
-    double turn_profile_distance;
-    double turn_profile_end_hdg;
-    double smooth_steer_cmd;
-    bool_t turn_profile_active;
     bool_t pause_requested;
     bool_t pause_hold;
     bool_t stop_from_pause_hold;

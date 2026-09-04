@@ -63,7 +63,6 @@
 #include "msg.h"
 #include "realism_config.h"
 #include "telemetry.h"
-#include "vehicle_physics.h"
 #include "xplane.h"
 
 #ifndef BP_ENABLE_LEGACY_MAGIC_SQUARES
@@ -249,6 +248,8 @@ static void tug_pos_update(vect2_t my_pos, double my_hdg, bool_t pos_only);
 
 static double aircraft_nose_forward_offset(void);
 
+static double route_distance_remaining(void);
+
 static void disco_intf_hide(void);
 
 static void main_intf_show(void);
@@ -417,12 +418,13 @@ bp_get_ground_ops_metrics(double *speed_mps, bool_t *speed_valid,
         *speed_mps = fabs(bp.cur_pos.spd);
     if (speed_valid != NULL)
         *speed_valid = isfinite(bp.cur_pos.spd) ? B_TRUE : B_FALSE;
-    if (bp.step == PB_STEP_PUSHING &&
-        isfinite(bp_telem.tail_along_remaining_m)) {
+    if (bp.step == PB_STEP_PUSHING && list_head(&bp.segs) != NULL) {
+        double remaining = route_distance_remaining();
+
         if (distance_remaining_m != NULL) {
-            *distance_remaining_m = MAX(bp_telem.tail_along_remaining_m, 0);
+            *distance_remaining_m = MAX(remaining, 0);
         }
-        if (distance_valid != NULL)
+        if (distance_valid != NULL && isfinite(remaining))
             *distance_valid = B_TRUE;
     }
 }
@@ -437,7 +439,6 @@ bp_request_pause(void)
 
     bp.pause_requested = B_TRUE;
     bp.pause_hold = B_FALSE;
-    bp.push_accel_limit = 0;
     logMsg(BP_INFO_LOG "Automatic push pause requested; preserving route");
     return (B_TRUE);
 }
@@ -453,7 +454,6 @@ bp_request_resume(void)
 
     bp.pause_requested = B_FALSE;
     bp.pause_hold = B_FALSE;
-    bp.push_accel_limit = 0;
     logMsg(BP_INFO_LOG "Automatic push resume requested; continuing route");
     return (B_TRUE);
 }
@@ -709,8 +709,9 @@ telemetry_record(bool_t force)
         sample.tug_heading_deg = bp_ls.tug->pos.hdg;
         sample.tug_speed_mps = bp_ls.tug->pos.spd;
         sample.tug_steer_deg = bp_ls.tug->cur_steer;
-        sample.tug_turn_radius_m = vehicle_turn_radius(
-            bp_ls.tug->veh.wheelbase, bp_ls.tug->cur_steer);
+        sample.tug_turn_radius_m =
+            tan(DEG2RAD(90 - bp_ls.tug->cur_steer)) *
+            bp_ls.tug->veh.wheelbase;
         sample.tug_aircraft_heading_delta_deg = rel_hdg(bp.cur_pos.hdg,
             bp_ls.tug->pos.hdg);
         dr_getvf(&drs.tire_steer_cmd, &nosewheel_steer, bp.acf.nw_i, 1);
@@ -1308,8 +1309,8 @@ turn_nosewheel(double req_steer) {
     bp_telem.nosewheel_steer_request_deg = req_steer;
 
     if (ABS(bp_ls.tug->cur_steer) > 0.01) {
-        tug_turn_r = vehicle_turn_radius(bp_ls.tug->veh.wheelbase,
-            bp_ls.tug->cur_steer);
+        tug_turn_r = (1 / tan(DEG2RAD(bp_ls.tug->cur_steer))) *
+                     bp_ls.tug->veh.wheelbase;
     } else {
         tug_turn_r = 1e10;
     }
@@ -1422,9 +1423,7 @@ push_at_speed(double targ_speed, double max_accel, bool_t allow_snd_ctl,
      * flinging the aircraft across the tarmac in case some external
      * factor is blocking us (like chocks).
      */
-    force_lim = vehicle_force_limit(
-        FORCE_PER_TON * (dr_getf(&drs.acf_mass) / 1000),
-        bp_ls.tug->info->max_TE);
+    force_lim = FORCE_PER_TON * (dr_getf(&drs.acf_mass) / 1000);
     bp_telem.command_active = B_TRUE;
     bp_telem.target_speed_raw_mps = raw_targ_speed;
     bp_telem.target_speed_limited_mps = targ_speed;
@@ -1459,6 +1458,14 @@ push_at_speed(double targ_speed, double max_accel, bool_t allow_snd_ctl,
     force = bp.last_force;
     d_v = targ_speed - cur_spd;
 
+    /*
+     * This is some fudge needed to get some high-thrust aircraft
+     * going, otherwise we'll just jitter in-place due to thinking
+     * we're overdoing acceleration.
+     */
+    if (ABS(cur_spd) < BREAKAWAY_THRESH)
+        max_accel *= 100;
+
     if (d_v > 0) {        /* speed up */
         /*
          * Modulate the acceleration to reach our target speed smoothly,
@@ -1482,10 +1489,6 @@ push_at_speed(double targ_speed, double max_accel, bool_t allow_snd_ctl,
         else if (accel_now > max_accel)
             force -= force_incr;
     }
-
-    /* Clamp before applying the force to X-Plane. */
-    force = MIN(force_lim, force);
-    force = MAX(-force_lim, force);
 
     /*
      * Calculate the vector components of our force on the aircraft
@@ -1540,9 +1543,10 @@ push_at_speed(double targ_speed, double max_accel, bool_t allow_snd_ctl,
     }
     dr_setf(&drs.rot_force_M, nose_down_moment);
 
-    /* The nose-gear safety correction above must not escape the limit. */
+    /* Don't overstep the force limits for this aircraft */
     force = MIN(force_lim, force);
     force = MAX(-force_lim, force);
+
     bp.last_force = force;
 
     if (allow_snd_ctl) {
@@ -2175,7 +2179,6 @@ bp_stop(void) {
     }
     bp.pause_requested = B_FALSE;
     bp.pause_hold = B_FALSE;
-    bp.push_accel_limit = 0;
 
     /* prevent trying to reach segment end hdg and apply correct back */
     bp.last_hdg = NAN;
@@ -2221,6 +2224,23 @@ bp_fini(void) {
     inited = B_FALSE;
 }
 
+static bool_t
+nearing_end(void) {
+    double long_displ;
+    seg_t *seg = list_head(&bp.segs);
+    vect2_t end_dir, end2acf;
+
+    if (seg->type != SEG_TYPE_STRAIGHT || seg != list_tail(&bp.segs))
+        return (B_FALSE);
+
+    end_dir = hdg2dir(seg->end_hdg);
+    if (seg->backward)
+        end_dir = vect2_neg(end_dir);
+    end2acf = vect2_sub(bp.cur_pos.pos, seg->end_pos);
+    long_displ = vect2_dotprod(end_dir, end2acf);
+    return (long_displ > -NEARING_END_THRESHOLD);
+}
+
 /*
  * We need to compute a fake position for drive_segs. This is because when
  * steering, we don't actually perform simple steering around our nosewheel.
@@ -2248,6 +2268,50 @@ corr_acf_pos(void) {
     corr_hdg = dir2hdg(corr_dir);
 
     return ((vehicle_pos_t) {corr_pos, corr_hdg, bp.cur_pos.spd});
+}
+
+/*
+ * Read-only route distance for the Ground Operations display. This mirrors
+ * the legacy drive_segs distance inputs and never feeds back into steering,
+ * speed control or segment completion.
+ */
+static double
+route_distance_remaining(void)
+{
+    const seg_t *seg = list_head(&bp.segs);
+    vehicle_pos_t pos;
+    double remaining = 0;
+
+    if (seg == NULL)
+        return (NAN);
+
+    pos = corr_acf_pos();
+    if (seg->type == SEG_TYPE_STRAIGHT) {
+        vect2_t fixed_pos = vect2_add(pos.pos,
+            vect2_scmul(hdg2dir(pos.hdg), bp.veh.fixed_z_off));
+        vect2_t dir = seg->backward ?
+            vect2_neg(hdg2dir(seg->start_hdg)) :
+            hdg2dir(seg->start_hdg);
+        double travelled = vect2_dotprod(
+            vect2_sub(fixed_pos, seg->start_pos), dir);
+
+        remaining = MAX(seg->len - travelled, 0);
+    } else {
+        remaining = DEG2RAD(fabs(rel_hdg(pos.hdg, seg->end_hdg))) *
+            seg->turn.r;
+    }
+
+    for (seg = list_next(&bp.segs, seg); seg != NULL;
+        seg = list_next(&bp.segs, seg)) {
+        if (seg->type == SEG_TYPE_STRAIGHT) {
+            remaining += seg->len;
+        } else {
+            remaining += DEG2RAD(fabs(rel_hdg(seg->start_hdg,
+                seg->end_hdg))) * seg->turn.r;
+        }
+    }
+
+    return (remaining);
 }
 
 /*
@@ -2297,140 +2361,6 @@ telemetry_route_tracking(const seg_t *seg, const vehicle_pos_t *corr_pos)
     bp_telem.route_heading_error_deg = rel_hdg(corr_pos->hdg, route_hdg);
 }
 
-static const seg_t *
-tail_control_target_segment(const seg_t *current)
-{
-    const seg_t *target = current;
-
-    if (current->type == SEG_TYPE_STRAIGHT)
-        return (current);
-
-    for (const seg_t *candidate = current; candidate != NULL;
-        candidate = list_next(&bp.segs, candidate)) {
-        target = candidate;
-        if (candidate->user_placed)
-            break;
-    }
-    return (target);
-}
-
-static double
-control_deadband(double value, double deadband)
-{
-    if (fabs(value) <= deadband)
-        return (0);
-    return (value - copysign(deadband, value));
-}
-
-static double
-capture_weight(double fraction)
-{
-    fraction = MIN(MAX(fraction, 0), 1);
-    return (fraction * fraction * fraction *
-        (fraction * (fraction * 6 - 15) + 10));
-}
-
-/*
- * Smooth feed-forward curvature keeps the tug motion natural. Tail and
- * heading feedback close the loop against the exact pose selected in the
- * planner. On a straight, the tail follows that segment's centerline. In a
- * turn, feedback progressively captures the next user-placed aircraft pose,
- * mirroring a tug driver holding the nose angle and watching the tail swing.
- */
-static double
-automatic_steer_target(const seg_t *seg, double route_steer)
-{
-    const seg_t *control_target = tail_control_target_segment(seg);
-    double signed_turn = 0, total_distance = 0, direction = 0;
-    double profile_target = 0, capture_fraction = 1, feedback, target;
-    double path_correction, path_weight;
-    double tail_arm = aircraft_tail_arm();
-    double cross_track, heading_error, along_remaining;
-    vect2_t aircraft_dir = hdg2dir(bp.cur_pos.hdg);
-    vect2_t target_dir = hdg2dir(control_target->end_hdg);
-    vect2_t target_right = vect2_norm(target_dir, B_TRUE);
-    vect2_t travel_dir = (control_target->backward ?
-        vect2_neg(target_dir) : target_dir);
-    vect2_t main_pos = vect2_add(bp.cur_pos.pos,
-        vect2_scmul(aircraft_dir, -bp.acf.main_z));
-    vect2_t tail_pos = vect2_add(main_pos,
-        vect2_scmul(aircraft_dir, -tail_arm));
-    vect2_t target_tail_pos = vect2_add(control_target->end_pos,
-        vect2_scmul(target_dir, -tail_arm));
-
-    if (seg->type == SEG_TYPE_TURN) {
-        signed_turn = rel_hdg(seg->start_hdg, seg->end_hdg);
-        total_distance = DEG2RAD(fabs(signed_turn)) * seg->turn.r;
-        if (!bp.turn_profile_active ||
-            fabs(rel_hdg(bp.turn_profile_end_hdg, seg->end_hdg)) > 1e-6) {
-            bp.turn_profile_active = B_TRUE;
-            bp.turn_profile_distance = 0;
-            bp.turn_profile_end_hdg = seg->end_hdg;
-        }
-
-        bp.turn_profile_distance = MIN(bp.turn_profile_distance +
-            fabs(bp.cur_pos.spd) * bp.d_t, total_distance);
-        direction = (signed_turn >= 0 ? 1 : -1) *
-            (seg->backward ? -1 : 1);
-        profile_target = vehicle_turn_profile_steer(bp.veh.wheelbase,
-            seg->turn.r, total_distance, bp.turn_profile_distance,
-            TURN_PROFILE_TRANSITION_DIST, direction, bp.veh.max_steer);
-        /*
-         * Hold the planned turn through its first half. Start watching the
-         * terminal tail line during the second half, just as a driver waits
-         * for the tail to swing before deciding when to unwind.
-         */
-        capture_fraction = (total_distance > 0 ?
-            2 * (bp.turn_profile_distance / total_distance - 0.5) : 1);
-        capture_fraction = MIN(MAX(capture_fraction, 0), 1);
-
-        bp_telem.turn_profile_progress_m = bp.turn_profile_distance;
-        bp_telem.turn_profile_total_m = total_distance;
-    } else {
-        bp.turn_profile_active = B_FALSE;
-        bp.turn_profile_distance = 0;
-    }
-
-    cross_track = vect2_dotprod(vect2_sub(tail_pos, target_tail_pos),
-        target_right);
-    along_remaining = vect2_dotprod(vect2_sub(target_tail_pos, tail_pos),
-        travel_dir);
-    heading_error = rel_hdg(bp.cur_pos.hdg, control_target->end_hdg);
-    feedback = vehicle_tail_steer_correction(
-        control_deadband(cross_track, TAIL_CROSS_TRACK_DEADBAND),
-        control_deadband(heading_error, TAIL_HEADING_DEADBAND),
-        capture_fraction, TAIL_CROSS_TRACK_GAIN, TAIL_HEADING_GAIN,
-        TAIL_MAX_STEER_CORRECTION, seg->backward);
-    path_weight = vehicle_path_terminal_weight(along_remaining,
-        ROUTE_PATH_TERMINAL_FADE_DIST,
-        list_next(&bp.segs, seg) == NULL);
-    path_correction = vehicle_path_steer_correction(route_steer,
-        profile_target, ROUTE_PATH_STEER_DEADBAND,
-        ROUTE_PATH_MAX_CORRECTION, path_weight);
-    target = MIN(MAX(profile_target + path_correction + feedback,
-        -bp.veh.max_steer), bp.veh.max_steer);
-
-    bp_telem.turn_profile_target_deg = profile_target;
-    bp_telem.controller_target_steer_deg = target;
-    bp_telem.tail_feedback_steer_deg = feedback;
-    bp_telem.tail_feedback_weight = capture_weight(capture_fraction);
-    bp_telem.route_path_correction_deg = path_correction;
-    bp_telem.route_path_weight = path_weight;
-    bp_telem.planned_end_x_m = control_target->end_pos.x;
-    bp_telem.planned_end_z_m = control_target->end_pos.y;
-    bp_telem.planned_end_heading_deg = control_target->end_hdg;
-    bp_telem.main_gear_x_m = main_pos.x;
-    bp_telem.main_gear_z_m = main_pos.y;
-    bp_telem.tail_x_m = tail_pos.x;
-    bp_telem.tail_z_m = tail_pos.y;
-    bp_telem.target_tail_x_m = target_tail_pos.x;
-    bp_telem.target_tail_z_m = target_tail_pos.y;
-    bp_telem.tail_cross_track_m = cross_track;
-    bp_telem.tail_along_remaining_m = along_remaining;
-    bp_telem.final_heading_error_deg = heading_error;
-    return (target);
-}
-
 static bool_t
 bp_run_push(bool_t hold_requested) {
 
@@ -2442,7 +2372,7 @@ bp_run_push(bool_t hold_requested) {
         /*
          * The route and steering command are intentionally frozen after the
          * stationary hold is reached. Resume re-enters the normal route
-         * controller with its preserved segment and smoothed steering state.
+         * controller with its preserved segment and legacy steering state.
          */
         push_at_speed(0, bp.veh.max_decel, B_TRUE, B_TRUE);
         return (list_head(&bp.segs) != NULL);
@@ -2457,7 +2387,7 @@ bp_run_push(bool_t hold_requested) {
 
     while (seg != NULL) {
         double steer, speed;
-        bool_t decel = B_FALSE;
+        bool_t decel;
         vehicle_pos_t corr_pos;
 
         /* Pilot pressed brake pedals or set parking brake, stop */
@@ -2468,7 +2398,6 @@ bp_run_push(bool_t hold_requested) {
             dr_setf(&drs.axial_force, 0);
             dr_setf(&drs.rot_force_N, 0);
             bp.last_force = 0;
-            bp.push_accel_limit = 0;
             break;
         }
         /*
@@ -2476,7 +2405,6 @@ bp_run_push(bool_t hold_requested) {
          * the driver changing gear and flipping around.
          */
         if (bp.reverse_t != 0.0) {
-            bp.push_accel_limit = 0;
             if (bp.cur_t - bp.reverse_t < 2 * STATE_TRANS_DELAY) {
                 push_at_speed(0, bp.veh.max_accel, B_TRUE,
                               B_FALSE);
@@ -2487,16 +2415,21 @@ bp_run_push(bool_t hold_requested) {
         corr_pos = corr_acf_pos();
         if (drive_segs(&corr_pos, &bp.veh, &bp.segs,
                        &bp.last_mis_hdg, bp.d_t, &steer, &speed, &decel)) {
-            double nw_defl, target_steer;
+            double nw_defl;
 
             bp_telem.route_steer_cmd_deg = steer;
             telemetry_route_tracking(seg, &corr_pos);
-            target_steer = automatic_steer_target(seg, steer);
-            bp.smooth_steer_cmd = vehicle_steering_step(
-                bp.smooth_steer_cmd, target_steer,
-                TURN_PROFILE_STEER_RATE, bp.d_t);
-            bp_telem.applied_steer_cmd_deg = bp.smooth_steer_cmd;
-            turn_nosewheel(bp.smooth_steer_cmd);
+            if (!nearing_end()) {
+                bp_telem.applied_steer_cmd_deg = steer;
+                turn_nosewheel(steer);
+            } else {
+                /*
+                 * When nearing the end of the route, start neutralizing
+                 * steering early to avoid overshooting the final pose.
+                 */
+                bp_telem.applied_steer_cmd_deg = 0;
+                turn_nosewheel(0);
+            }
             /*
              * Since the drive_segs function returns a longitudinal
              * speed, but push_at_speed controls speed based on the
@@ -2507,32 +2440,20 @@ bp_run_push(bool_t hold_requested) {
             if (hold_requested) {
                 /*
                  * Keep running route and steering control while slowing so
-                 * segment progress and the turn profile remain continuous.
+                 * segment progress and legacy steering remain continuous.
                  * Only the longitudinal target is replaced with zero.
                  */
-                bp.push_accel_limit = 0;
                 push_at_speed(0, bp.veh.max_decel, B_TRUE, B_TRUE);
             } else {
-                bp.push_accel_limit = vehicle_accel_step(
-                    bp.push_accel_limit, bp.veh.max_accel,
-                    PUSH_START_JERK_LIMIT, bp.d_t);
-                push_at_speed(speed, bp.push_accel_limit, B_TRUE, decel);
+                push_at_speed(speed, bp.veh.max_accel, B_TRUE, decel);
             }
             break;
         }
         seg = list_head(&bp.segs);
         if (seg != NULL && seg->backward != last_backward) {
             bp.reverse_t = bp.cur_t;
-            bp.push_accel_limit = 0;
-            bp.turn_profile_active = B_FALSE;
-            bp.turn_profile_distance = 0;
             last_backward = seg->backward;
         }
-    }
-
-    if (seg == NULL) {
-        bp.turn_profile_active = B_FALSE;
-        bp.turn_profile_distance = 0;
     }
 
     return (seg != NULL);
@@ -3230,7 +3151,6 @@ pb_step_pushing(void) {
 
     if (dr_geti(&drs.landing_lights_on) != 0 ||
         dr_geti(&drs.taxi_light_on) != 0) {
-        bp.push_accel_limit = 0;
         if (!slave_mode)
             push_at_speed(0, bp.veh.max_accel, B_TRUE, B_TRUE);
         if (!bp.light_warn) {
@@ -4128,8 +4048,8 @@ tug_pos_update(vect2_t my_pos, double my_hdg, bool_t pos_only) {
 
     tug_spd = tug_speed();
 
-    radius = vehicle_turn_radius(bp_ls.tug->veh.wheelbase,
-        bp_ls.tug->cur_steer);
+    radius = tan(DEG2RAD(90 - bp_ls.tug->cur_steer)) *
+             bp_ls.tug->veh.wheelbase;
     if (pos_only) {
         tug_hdg = bp_ls.tug->pos.hdg;
     } else if (slave_mode) {

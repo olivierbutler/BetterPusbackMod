@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 
-#define    TUG_WHEELBASE(tug)    ((tug)->info->front_z - (tug)->info->rear_z)
+#define    TUG_WHEELBASE(tug)    ((tug)->info->rear_z - (tug)->info->front_z)
 
 /* Defines how the tug lifts the aircraft up. */
 typedef enum {
