@@ -1,7 +1,7 @@
 # Ground Operations UI Design
 
-Status: approved product direction; Phases 3 and 4 accepted
-Last updated: 2026-08-04
+Status: approved product direction; reconciled with owner review
+Last updated: 2026-09-04
 
 ## Purpose
 
@@ -43,8 +43,9 @@ cockpit.
   distinct operations.
 - **Offline first:** network connectivity must never prevent an ordinary
   manual pushback.
-- **No physics regression:** the tested push controller remains separate from
-  the UI and ground-operations workflow.
+- **No physics regression:** motion uses the upstream legacy planner,
+  `drive_segs` steering, turn/endpoint behavior, and tug approach geometry.
+  Ground Operations does not modify that path.
 
 ## Window modes
 
@@ -58,7 +59,8 @@ cockpit.
 ### Compact progress rail
 
 - Default active mode.
-- Nominal size at 100 percent UI scale: 58 by 244 boxels.
+- Nominal size on Windows/Linux: 58 by 244 boxels. macOS uses a proportional
+  1.35 scale (78 by 329), including text and hit targets.
 - Contains the same Tug, Connect, Comms, Push, and Clear nodes used by the
   expanded panel, without any additional dashboard content.
 - Completed stages are filled, the current stage is highlighted, and future
@@ -75,9 +77,8 @@ cockpit.
 
 ### Expanded panel
 
-- Nominal width at 100 percent UI scale: 292 boxels.
-- Allowed width after scaling: 280 to 340 boxels.
-- Content-driven height, normally 320 to 410 boxels.
+- Nominal fixed size on Windows/Linux: 292 by 420 boxels. macOS uses a
+  proportional 1.35 scale (394 by 567), including text and hit targets.
 - Narrow vertical layout with a five-stage rail on the left.
 - The upper-left grip/title region moves the window.
 - The upper-right control collapses directly to the compact rail.
@@ -121,15 +122,15 @@ Required behavior:
   exists.
 - Respect X-Plane UI scaling and high-DPI coordinates.
 
-Initial preference keys are expected to cover:
+Persisted UI state covers:
 
 - presentation mode: hidden, compact rail, or panel;
 - floating geometry;
 - popped-out operating-system geometry;
-- preferred monitor;
-- UI scale;
-- completed-operation auto-hide delay;
-- keep-compact-rail-visible option.
+- preferred monitor.
+
+Platform scale is selected at build time. Windows/Linux use 1.0; macOS uses
+1.35. A development build can enable `BP_EMULATE_MAC_UI_SCALE`.
 
 Exact key names are an implementation detail, but configuration migration must
 be backward compatible.
@@ -151,14 +152,14 @@ states into it. The UI must never infer motion merely from a caption string.
 | `PB_STEP_DRIVING_UP_CONNECT` | Connect | Positioning tug to connect | No |
 | `PB_STEP_GRABBING` | Connect | Securing the nose gear | No |
 | `PB_STEP_LIFTING` | Comms while awaiting plan, then Connect while lifting | Tug connected; plan the push, then Lifting the nose gear | Amber Plan push after capture and before lift |
-| `PB_STEP_CONNECTED` | Comms | Ready for brake release, or late plan required | Yes: release brake or complete plan |
+| `PB_STEP_CONNECTED` | Comms | Ready for brake release, or late plan required | Change plan while the parking brake is set; otherwise release brake or complete plan |
 | `PB_STEP_STARTING` | Push | Starting pushback | No |
 | `PB_STEP_PUSHING` | Push | Pushback in progress, Pausing, or Pushback paused | Pause/Resume plus confirmed End operation |
 | `PB_STEP_STOPPING` | Push | Stopping the aircraft | No |
 | `PB_STEP_STOPPED` | Push | Aircraft stopped | Yes: set parking brake |
 | `PB_STEP_LOWERING` | Clear | Lowering the nose gear | No |
 | `PB_STEP_UNGRABBING` | Clear | Releasing the nose gear | No |
-| `PB_STEP_WAITING4OK2DISCO` | Clear | Ready to disconnect | Yes: confirm tug disconnection |
+| `PB_STEP_WAITING4OK2DISCO` | Clear | Disconnecting the tug | No; disconnect is automatic |
 | `PB_STEP_MOVING_AWAY` | Clear | Tug moving clear | No |
 | `PB_STEP_CLOSING_CRADLE` | Clear | Closing the tug cradle | No |
 | `PB_STEP_STARTING2CLEAR` | Clear | Driver moving to clear | No |
@@ -235,7 +236,7 @@ The UI must not fabricate a flight identity or weather value.
   route slots are available per published gate and compatible aircraft profile.
 - An arbitrary or saved-situation start remains usable for the current session,
   but it cannot list, load, save, or modify persistent gate-route slots.
-- The planner's blue controller trajectory and magenta danger band remain visual
+- The planner's blue legacy route and magenta danger band remain visual
   review tools and do not claim automatic obstacle clearance.
 
 ### Brake release
@@ -343,13 +344,14 @@ state. The stationary hold freezes steering and cannot resume through a set
 parking brake. End operation uses the compatible terminating stop path and
 discards the route only after confirmation.
 
-The Ground Operations panel is the fork's only default operational interface.
+The Ground Operations panel is the fork's standard operational interface.
 The original four "magic squares" windows remain preserved in `bp.c`, but the
 build defaults `BP_ENABLE_LEGACY_MAGIC_SQUARES` to `OFF` so duplicate controls
 are not rendered. Configuring that CMake option `ON` restores the original
 windows for upstream compatibility. The switch affects presentation only:
 automatic beacon-triggered tug behavior is evaluated separately, and the
-planner, preferences, commands, and disconnect/reconnect prompts are unchanged.
+planner, preferences, and commands remain available. The final disconnection
+is automatic; the old disconnect/reconnect window source is dormant.
 
 ## Performance contract
 
@@ -367,9 +369,9 @@ planner, preferences, commands, and disconnect/reconnect prompts are unchanged.
 
 The Phase 3 implementation quantizes speed to 0.1 m/s and remaining distance to
 whole meters before comparing inputs. Metric-only changes update the snapshot
-without producing semantic transition logs. The optional
-`ground_ops_captions_enabled` preference mirrors an issued crew message only for
-that message's audio duration, including when simulator sound is disabled.
+without producing semantic transition logs. Captions are always enabled and
+mirror an issued crew message only for that message's audio duration, including
+when simulator sound is disabled.
 
 The late-plan pre-lift hold is exposed explicitly rather than inferred from
 `PB_STEP_LIFTING`: once nose-gear capture is complete, the UI advances to Comms

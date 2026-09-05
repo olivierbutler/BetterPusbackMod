@@ -21,4 +21,15 @@ done
 printf 'Running wing_walker_asset_test.py\n'
 python3 "$test_dir/wing_walker_asset_test.py"
 
+printf 'Running runtime telemetry disabled test\n'
+repo_dir=$(CDPATH= cd -- "$test_dir/.." && pwd)
+telemetry_test_dir=$(mktemp -d)
+trap 'rm -rf "$telemetry_test_dir"' EXIT HUP INT TERM
+cc -std=c99 -Wall -Wextra -Werror \
+    -I"$repo_dir/src" -I"$repo_dir/../libacfutils/src" \
+    "$repo_dir/src/telemetry.c" "$test_dir/telemetry_disabled_test.c" \
+    -lm -o "$telemetry_test_dir/telemetry_disabled_test"
+"$telemetry_test_dir/telemetry_disabled_test" \
+    "$telemetry_test_dir/must_not_exist.csv"
+
 printf 'All BetterPushback regression tests passed.\n'

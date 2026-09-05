@@ -15,10 +15,22 @@ test_contract_sizes(void)
 
     ground_ops_presentation_size(GROUND_OPS_PRESENTATION_ORB,
         &width, &height);
+#if APL || BP_EMULATE_MAC_UI_SCALE
+    assert(ground_ops_ui_scale() == 1.35);
+    assert(width == 78 && height == 329);
+#else
+    assert(ground_ops_ui_scale() == 1.0);
     assert(width == 58 && height == 244);
+#endif
     ground_ops_presentation_size(GROUND_OPS_PRESENTATION_PANEL,
         &width, &height);
+#if APL || BP_EMULATE_MAC_UI_SCALE
+    assert(width == 394 && height == 567);
+    assert(ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD) == 7);
+#else
     assert(width == 292 && height == 420);
+    assert(ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD) == 5);
+#endif
     assert(ground_ops_presentation_valid(GROUND_OPS_PRESENTATION_HIDDEN));
     assert(ground_ops_presentation_valid(GROUND_OPS_PRESENTATION_PANEL));
     assert(!ground_ops_presentation_valid(3));

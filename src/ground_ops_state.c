@@ -112,6 +112,7 @@ raw_equal(const ground_ops_raw_state_t *left,
         left->plan_complete == right->plan_complete &&
         left->planner_open == right->planner_open &&
         left->awaiting_plan == right->awaiting_plan &&
+        left->replan_available == right->replan_available &&
         left->pause_requested == right->pause_requested &&
         left->pause_held == right->pause_held &&
         strcmp(left->airport_ident, right->airport_ident) == 0 &&
@@ -145,6 +146,7 @@ semantic_equal(const ground_ops_raw_state_t *left,
         left->plan_complete == right->plan_complete &&
         left->planner_open == right->planner_open &&
         left->awaiting_plan == right->awaiting_plan &&
+        left->replan_available == right->replan_available &&
         left->pause_requested == right->pause_requested &&
         left->pause_held == right->pause_held &&
         strcmp(left->airport_ident, right->airport_ident) == 0 &&
@@ -163,6 +165,7 @@ normalize_raw(const ground_ops_raw_state_t *input)
         raw.step = PB_STEP_OFF;
         raw.prep_state_active = true;
         raw.awaiting_plan = false;
+        raw.replan_available = false;
         raw.pause_requested = false;
         raw.pause_held = false;
     }
@@ -238,7 +241,7 @@ map_prep(const ground_ops_raw_state_t *raw,
         snapshot->operation_complete = true;
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "COMPLETE",
             "Ground operation complete", "Aircraft and equipment are clear",
-            "Call tow assistance if the aircraft must return", false);
+            "Call tow assistance if the\naircraft must return", false);
         set_actions(snapshot, GROUND_OPS_ACTION_CALL_EMERGENCY_TOW,
             "Call tow back", GROUND_OPS_ACTION_NONE, "");
         break;
@@ -359,6 +362,10 @@ map_step(const ground_ops_raw_state_t *raw,
             set_view(snapshot, GROUND_OPS_STAGE_COMMS, "ACTION",
                 "Ready for brake release", "Tug connected and crew ready",
                 "Release the parking brake", true);
+            if (raw->replan_available) {
+                set_actions(snapshot, GROUND_OPS_ACTION_CHANGE_PLAN,
+                    "Change plan", GROUND_OPS_ACTION_NONE, "");
+            }
         }
         break;
     case PB_STEP_STARTING:
@@ -416,9 +423,9 @@ map_step(const ground_ops_raw_state_t *raw,
             "Wait for nose-gear release", false);
         break;
     case PB_STEP_WAITING4OK2DISCO:
-        set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTION",
-            "Ready to disconnect", "Ground crew is awaiting approval",
-            "Confirm tug disconnection", true);
+        set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
+            "Disconnecting the tug", "Disconnection is automatic",
+            "Wait for the tug to move clear", false);
         break;
     case PB_STEP_MOVING_AWAY:
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",

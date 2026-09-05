@@ -10,6 +10,7 @@
  */
 
 #include <cmath>
+#include <cfloat>
 #include <cstdio>
 #include <cstdint>
 #include <new>
@@ -54,6 +55,7 @@ enum class UiAction {
     CallTug,
     CallEmergencyTow,
     OpenPlanner,
+    ChangePlan,
     PausePush,
     ResumePush,
     ArmEndOperation,
@@ -89,6 +91,7 @@ static bool_t initialized = B_FALSE;
 static bool_t ui_enabled = B_TRUE;
 static bool_t captions_enabled = B_TRUE;
 static bool_t planner_suspended = B_FALSE;
+static bool_t legacy_gate_hidden = B_FALSE;
 static bool_t have_float_rect = B_FALSE;
 static bool_t have_os_rect = B_FALSE;
 static ground_ops_rect_t float_rect = {};
@@ -306,6 +309,7 @@ collect_raw_state(void)
     raw.plan_complete = (plan_complete != B_FALSE);
     raw.planner_open = (planner_open != B_FALSE);
     raw.awaiting_plan = (bp_is_awaiting_plan() != B_FALSE);
+    raw.replan_available = (bp_can_replan() != B_FALSE);
     raw.pause_requested = (bp_pause_is_requested() != B_FALSE);
     raw.pause_held = (bp_pause_is_held() != B_FALSE);
     ground_ops_data_format(&data_context, context_now_s(), &data);
@@ -426,7 +430,8 @@ recover_rect(ground_ops_rect_t *rect, int width, int height,
     MonitorCollection collection = collect_monitors(os_coordinates);
     bool recovered = ground_ops_rect_recover(rect, width, height,
         collection.monitors, collection.count, preferred_monitor,
-        GROUND_OPS_WINDOW_MARGIN, GROUND_OPS_VISIBLE_MINIMUM);
+        ground_ops_scaled_pixels(GROUND_OPS_WINDOW_MARGIN),
+        ground_ops_scaled_pixels(GROUND_OPS_VISIBLE_MINIMUM));
 
     if (recovered)
         geometry_recoveries++;
@@ -510,6 +515,16 @@ private:
     bool orb_press_active = false;
     ground_ops_rect_t orb_press_rect = {};
 
+    static float scaled(float value)
+    {
+        return (value * static_cast<float>(ground_ops_ui_scale()));
+    }
+
+    static ImVec2 point(float x, float y)
+    {
+        return (ImVec2(scaled(x), scaled(y)));
+    }
+
     void apply_presentation_contract()
     {
         int width, height;
@@ -519,7 +534,8 @@ private:
         if (current_presentation == GROUND_OPS_PRESENTATION_ORB)
             SetWindowDragArea(0, 0, width, height);
         else
-            SetWindowDragArea(0, 0, width - 90, 45);
+            SetWindowDragArea(0, 0, width - ground_ops_scaled_pixels(90),
+                ground_ops_scaled_pixels(45));
     }
 
     static void tooltip(const char *message)
@@ -533,21 +549,48 @@ private:
         if (message == nullptr || message[0] == '\0' ||
             !ImGui::IsItemHovered(hover_flags))
             return;
+        ImVec2 window_pos = ImGui::GetWindowPos();
+        ImVec2 window_size = ImGui::GetWindowSize();
+        float wrap_width = scaled(220.0f);
+        bool inside_panel = window_size.x >=
+            scaled(GROUND_OPS_PANEL_WIDTH - 1.0f);
+
+        if (inside_panel) {
+            wrap_width = window_size.x - scaled(32.0f);
+            ImGui::SetNextWindowPos(ImVec2(window_pos.x + scaled(8.0f),
+                window_pos.y + scaled(48.0f)), ImGuiCond_Always);
+        }
+        ImGui::SetNextWindowSizeConstraints(ImVec2(scaled(80.0f), 0),
+            ImVec2(wrap_width + scaled(16.0f), FLT_MAX));
         ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(wrap_width);
         ImGui::TextUnformatted(message);
+        ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
     }
 
     static void draw_text(ImDrawList *draw, float size, float x, float y,
         ImU32 color, const char *text)
     {
-        draw->AddText(ImGui::GetFont(), size, ImVec2(x, y), color, text);
+        draw->AddText(ImGui::GetFont(), scaled(size), point(x, y), color,
+            text);
+    }
+
+    static void draw_text_wrapped(ImDrawList *draw, float size, float x,
+        float y, float width, float height, ImU32 color, const char *text)
+    {
+        const ImVec2 start = point(x, y);
+
+        draw->PushClipRect(start, point(x + width, y + height), true);
+        draw->AddText(ImGui::GetFont(), scaled(size), start, color, text,
+            nullptr, scaled(width));
+        draw->PopClipRect();
     }
 
     static ImVec2 measure_text(float size, const char *text)
     {
-        return (ImGui::GetFont()->CalcTextSizeA(size, 10000.0f, 0.0f,
-            text));
+        return (ImGui::GetFont()->CalcTextSizeA(scaled(size),
+            scaled(10000.0f), 0.0f, text));
     }
 
     static void draw_text_centered(ImDrawList *draw, float size,
@@ -555,7 +598,8 @@ private:
     {
         ImVec2 measured = measure_text(size, text);
 
-        draw_text(draw, size, center_x - measured.x / 2.0f, y, color,
+        draw->AddText(ImGui::GetFont(), scaled(size),
+            ImVec2(scaled(center_x) - measured.x / 2.0f, scaled(y)), color,
             text);
     }
 
@@ -564,24 +608,27 @@ private:
     {
         ImVec2 measured = measure_text(size, text);
 
-        draw_text(draw, size, right - measured.x, y, color, text);
+        draw->AddText(ImGui::GetFont(), scaled(size),
+            ImVec2(scaled(right) - measured.x, scaled(y)), color, text);
     }
 
     static bool icon_button(ImDrawList *draw, const char *id, float x,
         float y, const char *icon, const char *help)
     {
-        const ImVec2 size(25.0f, 27.0f);
+        const ImVec2 size = point(25.0f, 27.0f);
         const ImU32 hovered = IM_COL32(41, 50, 58, 255);
         const ImU32 foreground = IM_COL32(181, 191, 199, 255);
 
-        ImGui::SetCursorPos(ImVec2(x, y));
+        ImGui::SetCursorPos(point(x, y));
         bool pressed = ImGui::InvisibleButton(id, size);
         if (ImGui::IsItemHovered())
-            draw->AddRectFilled(ImVec2(x, y), ImVec2(x + size.x,
-                y + size.y), hovered, 7.0f);
+            draw->AddRectFilled(point(x, y),
+                ImVec2(scaled(x) + size.x, scaled(y) + size.y), hovered,
+                scaled(7.0f));
         ImVec2 measured = measure_text(13.0f, icon);
-        draw_text(draw, 13.0f, x + (size.x - measured.x) / 2.0f,
-            y + (size.y - measured.y) / 2.0f, foreground, icon);
+        draw->AddText(ImGui::GetFont(), scaled(13.0f),
+            ImVec2(scaled(x) + (size.x - measured.x) / 2.0f,
+            scaled(y) + (size.y - measured.y) / 2.0f), foreground, icon);
         tooltip(help);
         return (pressed);
     }
@@ -590,7 +637,7 @@ private:
         float x, float y, float width, const char *label, bool destructive,
         const char *help)
     {
-        const ImVec2 size(width, 35.0f);
+        const ImVec2 size = point(width, 35.0f);
         ImU32 fill = destructive ? IM_COL32(76, 42, 38, 255) :
             IM_COL32(25, 67, 84, 255);
         ImU32 hovered = destructive ? IM_COL32(105, 52, 45, 255) :
@@ -600,12 +647,12 @@ private:
         ImU32 foreground = destructive ? IM_COL32(255, 210, 199, 255) :
             IM_COL32(220, 239, 247, 255);
 
-        ImGui::SetCursorPos(ImVec2(x, y));
+        ImGui::SetCursorPos(point(x, y));
         bool pressed = ImGui::InvisibleButton(id, size);
-        draw->AddRectFilled(ImVec2(x, y), ImVec2(x + width, y + size.y),
-            ImGui::IsItemHovered() ? hovered : fill, 6.0f);
-        draw->AddRect(ImVec2(x, y), ImVec2(x + width, y + size.y), border,
-            6.0f, 0, 1.0f);
+        draw->AddRectFilled(point(x, y), point(x + width, y + 35.0f),
+            ImGui::IsItemHovered() ? hovered : fill, scaled(6.0f));
+        draw->AddRect(point(x, y), point(x + width, y + 35.0f), border,
+            scaled(6.0f), 0, scaled(1.0f));
         draw_text_centered(draw, 10.5f, x + width / 2.0f, y + 10.0f,
             foreground, label);
         tooltip(help);
@@ -621,6 +668,8 @@ private:
             return (UiAction::CallEmergencyTow);
         case GROUND_OPS_ACTION_OPEN_PLANNER:
             return (UiAction::OpenPlanner);
+        case GROUND_OPS_ACTION_CHANGE_PLAN:
+            return (UiAction::ChangePlan);
         case GROUND_OPS_ACTION_PAUSE:
             return (UiAction::PausePush);
         case GROUND_OPS_ACTION_RESUME:
@@ -655,14 +704,15 @@ private:
         if (snapshot == nullptr)
             return;
 
-        draw->AddRectFilled(ImVec2(3, 4),
-            ImVec2(GROUND_OPS_ORB_WIDTH, GROUND_OPS_ORB_HEIGHT), shadow,
-            11.0f);
-        draw->AddRectFilled(ImVec2(1, 1),
-            ImVec2(GROUND_OPS_ORB_WIDTH - 2,
-            GROUND_OPS_ORB_HEIGHT - 2), background, 10.0f);
-        draw->AddRect(ImVec2(1, 1), ImVec2(GROUND_OPS_ORB_WIDTH - 2,
-            GROUND_OPS_ORB_HEIGHT - 2), border, 10.0f, 0, 1.0f);
+        draw->AddRectFilled(point(3, 4),
+            point(GROUND_OPS_ORB_WIDTH, GROUND_OPS_ORB_HEIGHT), shadow,
+            scaled(11.0f));
+        draw->AddRectFilled(point(1, 1),
+            point(GROUND_OPS_ORB_WIDTH - 2,
+            GROUND_OPS_ORB_HEIGHT - 2), background, scaled(10.0f));
+        draw->AddRect(point(1, 1), point(GROUND_OPS_ORB_WIDTH - 2,
+            GROUND_OPS_ORB_HEIGHT - 2), border, scaled(10.0f), 0,
+            scaled(1.0f));
 
         for (int index = 0; index < 5; index++) {
             float center_y = 18.0f + index * 47.0f;
@@ -672,38 +722,40 @@ private:
                 current_text : secondary;
 
             if (index != 0) {
-                draw->AddLine(ImVec2(29, center_y - 40),
-                    ImVec2(29, center_y - 7),
+                draw->AddLine(point(29, center_y - 40),
+                    point(29, center_y - 7),
                     snapshot->stages[index - 1] == GROUND_OPS_STAGE_COMPLETE ?
-                    complete : connector, 2.0f);
+                    complete : connector, scaled(2.0f));
             }
             if (progress == GROUND_OPS_STAGE_COMPLETE) {
-                draw->AddCircleFilled(ImVec2(29, center_y), 6, complete, 24);
-                draw->AddCircle(ImVec2(29, center_y), 7,
-                    complete_text, 24, 1.0f);
+                draw->AddCircleFilled(point(29, center_y), scaled(6),
+                    complete, 24);
+                draw->AddCircle(point(29, center_y), scaled(7),
+                    complete_text, 24, scaled(1.0f));
             } else if (progress == GROUND_OPS_STAGE_CURRENT) {
-                draw->AddCircleFilled(ImVec2(29, center_y), 6, current, 24);
-                draw->AddCircle(ImVec2(29, center_y), 7,
-                    current_text, 24, 1.0f);
+                draw->AddCircleFilled(point(29, center_y), scaled(6),
+                    current, 24);
+                draw->AddCircle(point(29, center_y), scaled(7),
+                    current_text, 24, scaled(1.0f));
                 if (snapshot->action_required) {
-                    draw->AddCircleFilled(ImVec2(47, center_y - 7), 6,
-                        amber, 20);
+                    draw->AddCircleFilled(point(47, center_y - 7),
+                        scaled(6), amber, 20);
                     draw_text_centered(draw, 9.0f, 47.0f, center_y - 12,
                         IM_COL32(31, 27, 18, 255), "!");
                 }
             } else {
-                draw->AddCircleFilled(ImVec2(29, center_y), 5,
+                draw->AddCircleFilled(point(29, center_y), scaled(5),
                     background, 20);
-                draw->AddCircle(ImVec2(29, center_y), 6, inactive, 20,
-                    2.0f);
+                draw->AddCircle(point(29, center_y), scaled(6), inactive,
+                    20, scaled(2.0f));
             }
             draw_text_centered(draw, 10.0f, 29.0f, center_y + 9.0f,
                 label, stages[index]);
         }
 
-        ImGui::SetCursorPos(ImVec2(0, 0));
+        ImGui::SetCursorPos(point(0, 0));
         bool pressed = ImGui::InvisibleButton("##ground_ops_stage_rail",
-            ImVec2(GROUND_OPS_ORB_WIDTH, GROUND_OPS_ORB_HEIGHT));
+            point(GROUND_OPS_ORB_WIDTH, GROUND_OPS_ORB_HEIGHT));
         if (ImGui::IsItemActivated()) {
             orb_press_active = true;
             orb_press_rect = to_rect(GetCurrentWindowGeometry());
@@ -714,7 +766,7 @@ private:
             int dy = current.top - orb_press_rect.top;
 
             if (ground_ops_click_is_activation(dx, dy,
-                GROUND_OPS_CLICK_DRAG_THRESHOLD)) {
+                ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD))) {
                 click_expansions++;
                 queue_action(UiAction::ShowPanel);
             } else {
@@ -752,33 +804,34 @@ private:
         if (snapshot == nullptr)
             return;
 
-        draw->AddRectFilled(ImVec2(3, 4),
-            ImVec2(GROUND_OPS_PANEL_WIDTH, GROUND_OPS_PANEL_HEIGHT),
-            IM_COL32(0, 0, 0, 105), 11.0f);
-        draw->AddRectFilled(ImVec2(1, 1),
-            ImVec2(GROUND_OPS_PANEL_WIDTH - 2,
-            GROUND_OPS_PANEL_HEIGHT - 2), background, 10.0f);
-        draw->AddRectFilled(ImVec2(2, 2),
-            ImVec2(GROUND_OPS_PANEL_WIDTH - 2, 45), top_bar, 9.0f);
-        draw->AddRectFilled(ImVec2(2, 12),
-            ImVec2(GROUND_OPS_PANEL_WIDTH - 2, 45), top_bar, 0.0f);
-        draw->AddRectFilled(ImVec2(2, 46),
-            ImVec2(GROUND_OPS_PANEL_WIDTH - 2, 99), section, 0.0f);
-        draw->AddRectFilled(ImVec2(2, 99), ImVec2(59, 350), section,
-            0.0f);
-        draw->AddRectFilled(ImVec2(2, 390),
-            ImVec2(GROUND_OPS_PANEL_WIDTH - 2,
+        draw->AddRectFilled(point(3, 4),
+            point(GROUND_OPS_PANEL_WIDTH, GROUND_OPS_PANEL_HEIGHT),
+            IM_COL32(0, 0, 0, 105), scaled(11.0f));
+        draw->AddRectFilled(point(1, 1),
+            point(GROUND_OPS_PANEL_WIDTH - 2,
+            GROUND_OPS_PANEL_HEIGHT - 2), background, scaled(10.0f));
+        draw->AddRectFilled(point(2, 2),
+            point(GROUND_OPS_PANEL_WIDTH - 2, 45), top_bar, scaled(9.0f));
+        draw->AddRectFilled(point(2, 12),
+            point(GROUND_OPS_PANEL_WIDTH - 2, 45), top_bar, 0.0f);
+        draw->AddRectFilled(point(2, 46),
+            point(GROUND_OPS_PANEL_WIDTH - 2, 99), section, 0.0f);
+        draw->AddRectFilled(point(2, 99), point(59, 350), section, 0.0f);
+        draw->AddRectFilled(point(2, 390),
+            point(GROUND_OPS_PANEL_WIDTH - 2,
             GROUND_OPS_PANEL_HEIGHT - 2), section, 0.0f);
-        draw->AddRect(ImVec2(1, 1),
-            ImVec2(GROUND_OPS_PANEL_WIDTH - 2,
-            GROUND_OPS_PANEL_HEIGHT - 2), border, 10.0f, 0, 1.0f);
-        draw->AddLine(ImVec2(2, 45), ImVec2(GROUND_OPS_PANEL_WIDTH - 2,
-            45), rule, 1.0f);
-        draw->AddLine(ImVec2(2, 99), ImVec2(GROUND_OPS_PANEL_WIDTH - 2,
-            99), rule, 1.0f);
-        draw->AddLine(ImVec2(59, 99), ImVec2(59, 350), rule, 1.0f);
-        draw->AddLine(ImVec2(2, 390), ImVec2(GROUND_OPS_PANEL_WIDTH - 2,
-            390), rule, 1.0f);
+        draw->AddRect(point(1, 1),
+            point(GROUND_OPS_PANEL_WIDTH - 2,
+            GROUND_OPS_PANEL_HEIGHT - 2), border, scaled(10.0f), 0,
+            scaled(1.0f));
+        draw->AddLine(point(2, 45), point(GROUND_OPS_PANEL_WIDTH - 2,
+            45), rule, scaled(1.0f));
+        draw->AddLine(point(2, 99), point(GROUND_OPS_PANEL_WIDTH - 2,
+            99), rule, scaled(1.0f));
+        draw->AddLine(point(59, 99), point(59, 350), rule,
+            scaled(1.0f));
+        draw->AddLine(point(2, 390), point(GROUND_OPS_PANEL_WIDTH - 2,
+            390), rule, scaled(1.0f));
 
         draw_text(draw, 11.0f, 10, 15, muted, "::");
         draw_text(draw, 14.0f, 30, 8, primary, "Ground operations");
@@ -809,37 +862,39 @@ private:
                 blue_text : muted;
 
             if (index != 0) {
-                draw->AddLine(ImVec2(30, center_y - 39),
-                    ImVec2(30, center_y - 7),
+                draw->AddLine(point(30, center_y - 39),
+                    point(30, center_y - 7),
                     snapshot->stages[index - 1] == GROUND_OPS_STAGE_COMPLETE ?
-                    green : rule, 2.0f);
+                    green : rule, scaled(2.0f));
             }
             if (progress == GROUND_OPS_STAGE_COMPLETE) {
-                draw->AddCircleFilled(ImVec2(30, center_y), 6, green, 24);
-                draw->AddCircle(ImVec2(30, center_y), 7,
-                    green_text, 24, 1.0f);
+                draw->AddCircleFilled(point(30, center_y), scaled(6), green,
+                    24);
+                draw->AddCircle(point(30, center_y), scaled(7), green_text,
+                    24, scaled(1.0f));
             } else if (progress == GROUND_OPS_STAGE_CURRENT) {
-                draw->AddCircleFilled(ImVec2(30, center_y), 6,
+                draw->AddCircleFilled(point(30, center_y), scaled(6),
                     IM_COL32(30, 111, 145, 255), 24);
-                draw->AddCircle(ImVec2(30, center_y), 7, blue_text, 24,
-                    1.0f);
+                draw->AddCircle(point(30, center_y), scaled(7), blue_text,
+                    24, scaled(1.0f));
                 if (snapshot->action_required) {
-                    draw->AddCircleFilled(ImVec2(49, center_y - 7), 6,
-                        amber, 20);
+                    draw->AddCircleFilled(point(49, center_y - 7),
+                        scaled(6), amber, 20);
                     draw_text_centered(draw, 9.0f, 49.0f, center_y - 12,
                         IM_COL32(31, 27, 18, 255), "!");
                 }
             } else {
-                draw->AddCircleFilled(ImVec2(30, center_y), 5, section, 20);
-                draw->AddCircle(ImVec2(30, center_y), 6,
-                    IM_COL32(78, 90, 100, 255), 20, 2.0f);
+                draw->AddCircleFilled(point(30, center_y), scaled(5),
+                    section, 20);
+                draw->AddCircle(point(30, center_y), scaled(6),
+                    IM_COL32(78, 90, 100, 255), 20, scaled(2.0f));
             }
             draw_text_centered(draw, 10.0f, 30.0f, center_y + 9.0f,
                 label, stages[index]);
         }
 
-        draw->AddRectFilled(ImVec2(73, 116), ImVec2(108, 151), blue_panel,
-            9.0f);
+        draw->AddRectFilled(point(73, 116), point(108, 151), blue_panel,
+            scaled(9.0f));
         draw_text_centered(draw, 13.0f, 90.5f, 126, blue_text,
             snapshot->stage == GROUND_OPS_STAGE_TUG ? "TG" :
             snapshot->stage == GROUND_OPS_STAGE_CONNECT ? "CN" :
@@ -857,18 +912,19 @@ private:
         draw_text(draw, 10.0f, 73, 253, secondary, snapshot->speed);
         draw_text(draw, 10.0f, 176, 253, secondary, snapshot->distance);
 
-        draw->AddRectFilled(ImVec2(73, 282), ImVec2(279, 327),
-            snapshot->action_required ? amber_panel : top_bar, 7.0f);
-        draw->AddRect(ImVec2(73, 282), ImVec2(279, 327), border, 7.0f,
-            0, 1.0f);
+        draw->AddRectFilled(point(73, 282), point(279, 327),
+            snapshot->action_required ? amber_panel : top_bar,
+            scaled(7.0f));
+        draw->AddRect(point(73, 282), point(279, 327), border,
+            scaled(7.0f), 0, scaled(1.0f));
         if (snapshot->action_required) {
-            draw->AddRectFilled(ImVec2(73, 282), ImVec2(77, 327), amber,
-                7.0f);
+            draw->AddRectFilled(point(73, 282), point(77, 327), amber,
+                scaled(7.0f));
         }
         draw_text(draw, 10.0f, 84, 291,
             snapshot->action_required ? amber : secondary,
             snapshot->action_required ? "PILOT ACTION" : "CURRENT TASK");
-        draw_text(draw, 11.0f, 84, 308, primary,
+        draw_text_wrapped(draw, 10.5f, 84, 304, 184, 23, primary,
             snapshot->current_task);
 
         if (end_confirmation_armed) {
@@ -971,11 +1027,9 @@ load_preferences(void)
     int saved_presentation = GROUND_OPS_PRESENTATION_HIDDEN;
     int saved_mode = GROUND_OPS_WINDOW_FLOAT;
 
+    /* Ground Operations and its captions are part of the standard UI. */
     ui_enabled = B_TRUE;
-    (void)conf_get_b(bp_conf, "ground_ops_ui_enabled", &ui_enabled);
     captions_enabled = B_TRUE;
-    (void)conf_get_b(bp_conf, "ground_ops_captions_enabled",
-        &captions_enabled);
     if (conf_get_i(bp_conf, "ground_ops_presentation", &saved_presentation) &&
         ground_ops_presentation_valid(saved_presentation)) {
         presentation = static_cast<ground_ops_presentation_t>(
@@ -1162,6 +1216,27 @@ hide_window(const char *reason)
 }
 
 static void
+apply_legacy_visibility(bool_t visible)
+{
+    bool_t hidden = visible ? B_FALSE : B_TRUE;
+
+    if (legacy_gate_hidden == hidden)
+        return;
+    legacy_gate_hidden = hidden;
+    if (!initialized || !ui_enabled || ground_window == nullptr ||
+        planner_suspended) {
+        return;
+    }
+
+    ground_window->SetVisible(visible);
+    if (manager_loop != nullptr) {
+        XPLMScheduleFlightLoop(manager_loop, visible ? -1.0f : 0.0f, 1);
+    }
+    logMsg(BP_INFO_LOG "Ground Ops UI %s by the legacy ground-speed gate",
+        visible ? "restored" : "temporarily hidden");
+}
+
+static void
 toggle_window_mode(void)
 {
     if (ground_window == nullptr)
@@ -1240,6 +1315,9 @@ process_action(UiAction action)
     case UiAction::OpenPlanner:
         XPLMCommandOnce(start_pb);
         break;
+    case UiAction::ChangePlan:
+        XPLMCommandOnce(start_pb);
+        break;
     case UiAction::PausePush:
     case UiAction::ResumePush:
         XPLMCommandOnce(pause_pb);
@@ -1273,7 +1351,8 @@ manager_callback(float elapsed, float elapsed_flight, int counter,
     pending_action = UiAction::None;
     if (action != UiAction::None)
         process_action(action);
-    if (ground_window != nullptr && !planner_suspended) {
+    if (ground_window != nullptr && !planner_suspended &&
+        !legacy_gate_hidden) {
         local_data_poll_elapsed += elapsed;
         if (local_data_poll_elapsed >= LOCAL_DATA_POLL_SECONDS) {
             (void)refresh_local_data_context();
@@ -1395,6 +1474,7 @@ ground_ops_ui_fini(void)
     qnh_ref = nullptr;
     pending_action = UiAction::None;
     planner_suspended = B_FALSE;
+    legacy_gate_hidden = B_FALSE;
     geometry_poll_elapsed = 0;
     local_data_poll_elapsed = LOCAL_DATA_POLL_SECONDS;
     local_data_logged = false;
@@ -1424,13 +1504,20 @@ ground_ops_ui_reset_context(void)
 extern "C" bool_t
 ground_ops_ui_is_enabled(void)
 {
-    return (ui_enabled);
+    return (B_TRUE);
 }
 
 extern "C" bool_t
 ground_ops_ui_is_visible(void)
 {
-    return (ground_window != nullptr && !planner_suspended);
+    return (ground_window != nullptr && !planner_suspended &&
+        !legacy_gate_hidden);
+}
+
+extern "C" void
+ground_ops_ui_set_legacy_visibility(bool_t visible)
+{
+    apply_legacy_visibility(visible);
 }
 
 extern "C" void
@@ -1477,8 +1564,8 @@ ground_ops_ui_resume_after_planner(void)
     planner_suspended = B_FALSE;
     (void)refresh_local_data_context();
     refresh_snapshot();
-    ground_window->SetVisible(B_TRUE);
-    if (manager_loop != nullptr)
+    ground_window->SetVisible(!legacy_gate_hidden);
+    if (manager_loop != nullptr && !legacy_gate_hidden)
         XPLMScheduleFlightLoop(manager_loop, -1.0f, 1);
     logMsg(BP_INFO_LOG "Ground Ops UI restored after planner close");
 }

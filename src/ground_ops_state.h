@@ -76,6 +76,7 @@ typedef enum {
     GROUND_OPS_ACTION_CALL_TUG,
     GROUND_OPS_ACTION_CALL_EMERGENCY_TOW,
     GROUND_OPS_ACTION_OPEN_PLANNER,
+    GROUND_OPS_ACTION_CHANGE_PLAN,
     GROUND_OPS_ACTION_PAUSE,
     GROUND_OPS_ACTION_RESUME,
     GROUND_OPS_ACTION_END_DISCONNECT
@@ -92,6 +93,7 @@ typedef struct {
     bool plan_complete;
     bool planner_open;
     bool awaiting_plan;
+    bool replan_available;
     bool pause_requested;
     bool pause_held;
     char airport_ident[8];

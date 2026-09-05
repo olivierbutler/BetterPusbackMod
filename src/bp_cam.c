@@ -63,8 +63,6 @@
 #include "gate_route_cache.h"
 #include "gate_route_slots.h"
 #include "planner_cache.h"
-#include "realism_config.h"
-#include "vehicle_physics.h"
 #include "xplane.h"
 #include "cfg.h"
 #include "msg.h"
@@ -72,11 +70,6 @@
 #define MAX_PRED_DISTANCE 10000 /* meters */
 #define ANGLE_DRAW_STEP 5
 #define ORIENTATION_LINE_LEN 200
-#define PREDICTION_DT 0.1
-#define PREDICTION_SAMPLE_DISTANCE 1.0
-#define MAX_PREDICTION_STEPS 120000
-#define MAX_PREDICTION_POINTS 20000
-#define DANGER_ZONE_CIRCLE_SEGMENTS 24
 #define PREDICTION_KEY_POSITION_EPSILON 0.01
 #define PREDICTION_KEY_HEADING_EPSILON 0.01
 #define INCR_SMALL 5
@@ -140,25 +133,6 @@ static bool_t force_root_win_focus = B_TRUE;
 static float saved_visibility;
 static int saved_cloud_types[3];
 
-typedef struct {
-    vect2_t pos;
-    double hdg;
-} planner_path_point_t;
-
-typedef struct {
-    bool_t turn_active;
-    double turn_distance;
-    double turn_end_hdg;
-    double steer;
-} planner_prediction_state_t;
-
-static planner_path_point_t planner_path[MAX_PREDICTION_POINTS];
-static float planner_path_height[MAX_PREDICTION_POINTS];
-static size_t planner_path_count;
-static bool_t planner_prediction_announced;
-static bool_t planner_prediction_failure_announced;
-static bool_t planner_band_failure_announced;
-static planner_cache_state_t planner_path_cache;
 static planner_prediction_key_t planner_pred_key;
 static gate_route_context_t planner_gate_context;
 
@@ -574,37 +548,6 @@ planner_committed_signature(void)
         UINT64_C(0x434f4d4d49545445)));
 }
 
-static uint64_t
-planner_prediction_signature(void)
-{
-    uint64_t hash = planner_committed_signature();
-
-    hash = planner_hash_segments(hash, &pred_segs,
-        UINT64_C(0x5052454449435444));
-    hash = planner_hash_double(hash, bp.veh.wheelbase);
-    hash = planner_hash_double(hash, bp.veh.fixed_z_off);
-    hash = planner_hash_double(hash, bp.veh.max_steer);
-    hash = planner_hash_double(hash, bp.veh.max_fwd_spd);
-    hash = planner_hash_double(hash, bp.veh.max_rev_spd);
-    hash = planner_hash_double(hash, bp.veh.max_fwd_ang_vel);
-    hash = planner_hash_double(hash, bp.veh.max_rev_ang_vel);
-    hash = planner_hash_double(hash, bp.veh.max_centr_accel);
-    hash = planner_hash_double(hash, bp.veh.max_accel);
-    hash = planner_hash_double(hash, bp.veh.max_decel);
-    hash = planner_hash_u64(hash, (uint64_t)bp.veh.use_rear_pos);
-    hash = planner_hash_double(hash, bp.acf.main_z);
-    if (bp_ls.outline != NULL) {
-        hash = planner_hash_u64(hash, UINT64_C(1));
-        hash = planner_hash_double(hash, bp_ls.outline->semispan);
-        hash = planner_hash_double(hash, bp_ls.outline->length);
-        hash = planner_hash_u64(hash,
-            (uint64_t)bp_ls.outline->num_pts);
-    } else {
-        hash = planner_hash_u64(hash, UINT64_C(0));
-    }
-    return (hash);
-}
-
 static vect2_t
 planner_aircraft_gear_position(double gear_z)
 {
@@ -617,22 +560,9 @@ planner_aircraft_gear_position(double gear_z)
 }
 
 static vect2_t
-planner_main_gear_position(void)
-{
-    return planner_aircraft_gear_position(bp.acf.main_z);
-}
-
-static vect2_t
 planner_nosewheel_position(void)
 {
     return planner_aircraft_gear_position(bp.acf.nw_z);
-}
-
-static vect2_t
-planner_nosewheel_from_main_gear(vect2_t main_gear, double heading)
-{
-    return vect2_add(main_gear,
-        vect2_scmul(hdg2dir(heading), bp.veh.wheelbase));
 }
 
 static bool_t
@@ -711,8 +641,8 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
     }
     else
     {
-        /* The steering route is referenced to the aircraft main gear. */
-        start_pos = planner_main_gear_position();
+        start_pos = VECT2(dr_getf(&drs.local_x),
+            -dr_getf(&drs.local_z)); /* inverted X-Plane Z */
         start_hdg = dr_getf(&drs.hdg);
     }
 
@@ -750,6 +680,8 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
     return (1);
 }
 
+#if 0
+/* Retained for reference only; live and preview steering use legacy paths. */
 static double
 planner_tail_arm(void)
 {
@@ -1179,6 +1111,7 @@ draw_controller_path(void)
     glEnd();
     return (B_TRUE);
 }
+#endif
 
 static void
 draw_segment(const seg_t *seg)
@@ -1195,7 +1128,6 @@ draw_segment(const seg_t *seg)
     {
         float h1, h2;
         vect2_t wing_l, wing_r, p;
-        vect2_t nose_start, nose_end;
 
         // VERIFY3U(XPLMProbeTerrainXYZ(probe, seg->start_pos.x, 0,
         //                              -seg->start_pos.y, &info), ==, xplm_ProbeHitTerrain);
@@ -1220,12 +1152,8 @@ draw_segment(const seg_t *seg)
         glColor3f(0, 0, 1);
         glLineWidth(3);
         glBegin(GL_LINES);
-        nose_start = planner_nosewheel_from_main_gear(seg->start_pos,
-            seg->start_hdg);
-        nose_end = planner_nosewheel_from_main_gear(seg->end_pos,
-            seg->end_hdg);
-        glVertex3f(nose_start.x, h1, -nose_start.y);
-        glVertex3f(nose_end.x, h2, -nose_end.y);
+        glVertex3f(seg->start_pos.x, h1, -seg->start_pos.y);
+        glVertex3f(seg->end_pos.x, h2, -seg->end_pos.y);
         glEnd();
 
         wing_l = vect2_rot(wing_off_l, seg->start_hdg);
@@ -1285,15 +1213,8 @@ draw_segment(const seg_t *seg)
             glColor3f(0, 0, 1);
             glLineWidth(3);
             glBegin(GL_LINES);
-            {
-                vect2_t nose1 = planner_nosewheel_from_main_gear(p1,
-                    seg->start_hdg + a);
-                vect2_t nose2 = planner_nosewheel_from_main_gear(p2,
-                    seg->start_hdg + a + step);
-
-                glVertex3f(nose1.x, info.locationY, -nose1.y);
-                glVertex3f(nose2.x, info.locationY, -nose2.y);
-            }
+            glVertex3f(p1.x, info.locationY, -p1.y);
+            glVertex3f(p2.x, info.locationY, -p2.y);
             glEnd();
 
             glColor3f(1, 0.25, 1);
@@ -1417,21 +1338,13 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon)
 
     XPLMSetGraphicsState(0, 0, 0, 0, 0, 0, 0);
 
-    /*
-     * The blue centerline and magenta danger-zone band now come from the same
-     * controller model used during pushback. Retain the geometric segment
-     * renderer as a safe fallback if a very long or invalid route cannot be
-     * predicted completely.
-     */
-    if (!draw_controller_path()) {
-        for (seg = list_head(&bp.segs); seg != NULL;
-             seg = list_next(&bp.segs, seg))
-            draw_segment(seg);
+    for (seg = list_head(&bp.segs); seg != NULL;
+         seg = list_next(&bp.segs, seg))
+        draw_segment(seg);
 
-        for (seg = list_head(&pred_segs); seg != NULL;
-             seg = list_next(&pred_segs, seg))
-            draw_segment(seg);
-    }
+    for (seg = list_head(&pred_segs); seg != NULL;
+         seg = list_next(&pred_segs, seg))
+        draw_segment(seg);
 
     if ((seg = list_tail(&pred_segs)) != NULL)
     {
@@ -2532,15 +2445,11 @@ bp_cam_start(void)
     XPLMTakeKeyboardFocus(fake_win);
 
     list_create(&pred_segs, sizeof(seg_t), offsetof(seg_t, node));
-    planner_cache_init(&planner_path_cache);
     planner_prediction_key_init(&planner_pred_key);
-    planner_prediction_announced = B_FALSE;
-    planner_prediction_failure_announced = B_FALSE;
-    planner_band_failure_announced = B_FALSE;
     planner_cursor_solve_count = 0;
     planner_cursor_reuse_count = 0;
     planner_gate_route_state_reset();
-    logMsg(BP_INFO_LOG "Planner trajectory cache initialized");
+    logMsg(BP_INFO_LOG "Legacy planner trajectory initialized");
     force_root_win_focus = B_TRUE;
     cam_height = 15 * bp.veh.wheelbase;
     /* We keep the camera position in our coordinates for ease of manip */
@@ -2690,22 +2599,10 @@ bp_cam_stop(void)
         XPLMUnloadObject(cam_lamp_obj);
     cam_lamp_obj = NULL;
 
-    logMsg(BP_INFO_LOG "Planner cache summary: route revisions %llu, path "
-        "builds %llu, path cache hits %llu, cursor solves %llu, cursor reuse "
-        "%llu, failures %llu, terrain probes %llu, average build %.2f ms, "
-        "maximum build %.2f ms, last path points %u",
-        (unsigned long long)planner_path_cache.revision,
-        (unsigned long long)planner_path_cache.build_count,
-        (unsigned long long)planner_path_cache.cache_hit_count,
+    logMsg(BP_INFO_LOG "Legacy planner summary: cursor solves %llu, "
+        "cursor reuse %llu",
         (unsigned long long)planner_cursor_solve_count,
-        (unsigned long long)planner_cursor_reuse_count,
-        (unsigned long long)planner_path_cache.failure_count,
-        (unsigned long long)planner_path_cache.terrain_probe_count,
-        planner_path_cache.build_count != 0 ?
-        (double)planner_path_cache.total_build_us /
-        planner_path_cache.build_count / 1000.0 : 0,
-        planner_path_cache.max_build_us / 1000.0,
-        (unsigned)planner_path_cache.point_count);
+        (unsigned long long)planner_cursor_reuse_count);
     if (!slave_mode && list_head(&bp.segs) != NULL) {
         if (!emergency_tow_allows_persistent_routes()) {
             logMsg(BP_INFO_LOG "Emergency Tow route accepted for this "

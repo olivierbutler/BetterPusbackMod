@@ -5,12 +5,34 @@ only after all of its exit gates have evidence. New ideas are added to the
 traceability table before they are scheduled so agreed requirements are not
 lost.
 
-Status date: 2026-08-04
+Status date: 2026-09-04
+
+## Owner-review reconciliation
+
+The 2026-09-04 owner review supersedes older experimental-controller text in
+this roadmap. The release candidate must:
+
+- use upstream's legacy route construction, `drive_segs` steering, turn
+  tracking, planned-route stopping, and tug approach geometry;
+- retain only configured loaded tug speed limits from the physics experiment;
+- pause longitudinal motion without replacing legacy steering, resume the
+  same accepted route, and let **Stop Here** disconnect without a planned-end
+  correction;
+- disconnect automatically and never create the old disconnect/reconnect
+  windows, while keeping their source available;
+- always enable Ground Operations and captions, with the obsolete preference
+  rows removed and the original ACF Plugin Exclusion restored;
+- offer **Change plan** only while connected and held by the parking brake;
+- scale Ground Operations proportionally to 1.35 on macOS, with a matching
+  Windows/Linux development-emulation build for review.
+
+Automated source tests cover the default and emulated platform scales. Final
+visual acceptance still requires the owner's macOS simulator check.
 
 ## Non-negotiable guardrails
 
-1. Preserve the smooth, controller-matched push trajectory already validated in
-   live tests.
+1. Preserve the upstream legacy planner and push trajectory exactly; UI and
+   telemetry must remain observational.
 2. Preserve endpoint accuracy within the tested operational margin.
 3. Do not add frame-rate-bound business logic, networking, parsing, or planner
    simulation.
@@ -33,10 +55,10 @@ Status date: 2026-08-04
 | 3 | State progression, pilot-called connection, and captions | Complete | Phase 2 |
 | 4 | Controlled Pause/Resume and End/Disconnect | Complete | Phase 3 |
 | 5 | Simulator-local flight and weather context | Complete | Phase 3 |
-| 6 | Ground-crew scheduling and communications workflow | Pending | Phases 3, 5 |
-| 7 | Manual planner restoration and route-cache correction | In progress | Phase 1 |
-| 8 | Configurable disconnect and tug-driver presentation | Pending | Phases 3, 6 |
-| 9 | Compatibility, performance, and long-session hardening | Pending | Phases 1-8 |
+| 6 | Ground-crew scheduling and communications workflow | Complete | Phases 3, 5 |
+| 7 | Manual planner and legacy motion restoration | Complete | Phase 1 |
+| 8 | Automatic disconnect and tug-driver presentation | In progress | Phases 3, 6 |
+| 9 | Compatibility, performance, and long-session hardening | In progress | Phases 1-8 |
 | 10 | Release candidate, documentation, and packaging | Pending | Phase 9 |
 
 Detailed UI behavior is defined in `GROUND_OPS_UI_DESIGN.md`.
@@ -59,54 +81,39 @@ Detailed UI behavior is defined in `GROUND_OPS_UI_DESIGN.md`.
 - [x] Full roadmap is tracked in the repository.
 - [x] README links to both documents.
 
-## Phase 1 — Planner caching and performance foundation
+## Phase 1 — Legacy planner caching and performance foundation
 
 ### Problem
 
-The controller-matched planner currently rebuilds its prediction during drawing.
-That work can copy and allocate route segments, simulate many controller steps,
-and terrain-probe every generated point. Draw callbacks can run more than once
-per frame, so this must be eliminated before adding another UI surface.
+The legacy planner must not allocate a replacement cursor route while the
+cursor and accepted route are unchanged. Draw callbacks can run more than once
+per frame, so unchanged geometry is reused without changing its construction.
 
 ### Implementation
 
-- Add a monotonically increasing route revision.
-- Increment the revision when:
-  - a predicted segment changes with the cursor;
-  - predicted segments are committed;
-  - a segment is rotated or deleted;
-  - all segments are cleared;
-  - a route is loaded or restored;
-  - aircraft geometry or controller parameters change;
-  - the planner starts or the local scenery reference changes.
-- Store the last successfully built revision and aircraft-geometry revision.
-- Rebuild the controller path only when one of those revisions changes.
-- Create one terrain probe per rebuild and cache all path heights.
-- Reuse the preallocated controller-path storage and retain route segment
-  allocation only when the cursor solution actually changes.
-- Remove plugin-owned segment allocation from the steady draw path.
-- Draw the cached blue centerline and magenta band without simulation or probes.
-- Cache a bounded failure result so an invalid route does not retry every draw.
-- Add rebuild count, point count, duration, and failure reason to diagnostic
-  logging without logging every frame.
+- Reuse the last legacy `compute_segs` cursor result when its inputs are
+  unchanged.
+- Invalidate that cache on cursor, route, aircraft geometry, or local-reference
+  changes.
+- Draw the legacy segment centerline and clearance band without running a
+  second motion controller.
+- Keep all caching observational: accepted segment coordinates and live
+  `drive_segs` inputs remain upstream-compatible.
 
 ### Tests
 
 - Unit-test invalidation decisions and revision changes.
 - Unit-test that an unchanged route does not rebuild.
-- Compare cached and uncached path endpoints and sampled geometry.
+- Compare cached and uncached legacy segment endpoints.
 - Exercise add, rotate, delete, clear, reopen, and aircraft reload.
-- Test geometric fallback with an intentionally invalid or overlong route.
-- Confirm no terrain probes or segment allocations occur during unchanged
-  planner draws.
+- Confirm no segment allocations occur during unchanged planner draws.
 
 ### Exit gates
 
 - [x] Centerline and danger-zone appearance remain unchanged.
-- [x] Endpoint prediction remains within the validated tolerance.
+- [x] Cached and uncached legacy endpoints match.
 - [x] An unchanged route and cursor produce zero prediction rebuilds during
       repeated draw callbacks.
-- [x] An unchanged route produces zero terrain probes during drawing.
 - [x] Planner open/close and every edit operation remain stable.
 - [x] Automated tests and Windows build pass.
 - [x] Live planner FPS comparison shows no regression.
@@ -127,7 +134,9 @@ per frame, so this must be eliminated before adding another UI surface.
 - Persist floating and operating-system geometry separately.
 - Add show/hide and expand/collapse X-Plane commands and menu entries.
 - Render static placeholders only; do not mutate tug or aircraft state.
-- Add an option to disable the new UI and use classic commands only.
+- Keep Ground Operations enabled while preserving classic menu commands.
+- Apply one proportional 1.35 macOS scale to window geometry, text, and hit
+  targets, plus a development emulation build on Windows/Linux.
 
 ### Tests
 
@@ -164,7 +173,7 @@ per frame, so this must be eliminated before adding another UI surface.
   when the snapshot changes.
 - Drive the five compact-rail nodes from the snapshot.
 - Show the amber action marker only when pilot input is required.
-- Mirror existing crew messages as optional on-screen captions.
+- Mirror existing crew messages as always-enabled on-screen captions.
 - Collapse and restore correctly around the overhead planner.
 - Add bounded transition logging for telemetry and troubleshooting.
 
@@ -300,7 +309,7 @@ per frame, so this must be eliminated before adding another UI surface.
 - [ ] No automatic action occurs earlier than its configured readiness rule.
 - [ ] Door/GPU/ASU and brake mismatches are explained without forcing aircraft
       systems.
-- [ ] Reconnect and abort paths remain valid.
+- [ ] Emergency Tow and abort paths remain valid after automatic disconnect.
 - [x] A completed operation can call an isolated Emergency Tow and return to a
       normal cold-start workflow without changing any gate-route cache file.
 
@@ -315,7 +324,7 @@ dedicated implementation were removed on 2026-08-05.
 - [x] Restore planner startup to the original manual-placement workflow.
 - [x] Remove wind/runway inference, automatic segment seeding, proposal UI text,
       and proposal-specific input handling.
-- [x] Keep the blue controller trajectory and magenta danger band as visual
+- [x] Keep the legacy blue planner route and magenta danger band as visual
       review tools for the pilot-drawn route.
 - [x] Preserve a route explicitly drawn in the current planner session.
 - [x] Keep persistent route loading and saving disabled while its alignment
@@ -352,7 +361,8 @@ dedicated implementation were removed on 2026-08-05.
 - [ ] Driver is visible from representative left-seat cockpit positions.
 - [ ] Tug does not cross the aircraft footprint during repositioning.
 - [ ] Disconnect cannot hang if the preferred presentation route is invalid.
-- [ ] Existing auto-disconnect and reconnect settings remain compatible.
+- [x] Final disconnection is automatic and creates no disconnect/reconnect
+      decision windows.
 
 ## Phase 9 — Hardening and compatibility
 
@@ -385,7 +395,8 @@ dedicated implementation were removed on 2026-08-05.
 - [ ] No measurable idle FPS regression beyond the documented budget.
 - [ ] No unbounded memory growth.
 - [ ] Every external failure has a tested fallback.
-- [ ] Telemetry contains enough context to reproduce motion defects.
+- [ ] Opt-in diagnostic telemetry contains enough context to reproduce motion
+  defects, while normal builds create no telemetry files.
 
 ## Phase 10 — Release candidate
 

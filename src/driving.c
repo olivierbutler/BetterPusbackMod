@@ -36,7 +36,6 @@
 #include <XPLMUtilities.h>
 
 #include "driving.h"
-#include "vehicle_physics.h"
 #include "xplane.h"
 
 #define    SEG_TURN_MULT        0.9    /* leave 10% for oversteer */
@@ -188,8 +187,8 @@ compute_segs_impl(const vehicle_t *veh, vect2_t start_pos, double start_hdg,
      * SEG_TURN_MULT), to allow for some oversteering correction.
      * Also limit the radius to something sensible (MIN_TURN_RADIUS).
      */
-    min_radius = MAX(fabs(vehicle_turn_radius(veh->wheelbase,
-        veh->max_steer * SEG_TURN_MULT)), MIN_TURN_RADIUS);
+    min_radius = MAX(tan(DEG2RAD(90 - (veh->max_steer * SEG_TURN_MULT))) *
+                     veh->wheelbase, MIN_TURN_RADIUS);
 
     /*
      * If the amount of heading change is tiny, just project the desired
@@ -504,12 +503,8 @@ straight_run_speed(const vehicle_t *veh, list_t *segs, double rmng_d,
     cruise_spd = (backward ? veh->max_rev_spd : veh->max_fwd_spd);
     crawl_spd = CRAWL_SPEED(bp_xp_ver, veh);
 
-    if (rmng_d < crawl_spd) {
-        spd = MAX(next_spd, crawl_spd);
-        if (out_decelerating != NULL)
-            *out_decelerating = (spd < cruise_spd);
-        return (spd);
-    }
+    if (rmng_d < crawl_spd)
+        return (MAX(next_spd, crawl_spd));
 
     /*
      * Pretend we have less distance left so as to reach our target speed
@@ -684,9 +679,7 @@ ang_vel_speed_limit(const vehicle_t *veh, double steer, double speed) {
 
     if (speed == 0)
         return (0);
-    if (ABS(steer) < 1e-6)
-        return (speed);
-    turn_radius = fabs(vehicle_turn_radius(veh->wheelbase, steer));
+    turn_radius = tan(DEG2RAD(90 - ABS(steer))) * veh->wheelbase;
     ang_vel = RAD2DEG(ABS(speed) / turn_radius);
     if (speed >= 0)
         speed *= MIN(veh->max_fwd_ang_vel / ang_vel, 1);

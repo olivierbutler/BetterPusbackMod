@@ -1,11 +1,16 @@
 # Pushback telemetry
 
-This build records each pushback so tug behavior can be measured while the
-motion model is tuned.
+Normal builds do not record pushback telemetry. This prevents routine simulator
+use from accumulating a new CSV file after every operation.
+
+Telemetry remains available for short, controlled diagnostic sessions while
+tug behavior is being investigated. Build with `./build_xpl.sh -t`, or pass
+`-DBP_ENABLE_RUNTIME_TELEMETRY=ON` to CMake, to enable it. Do not use a
+telemetry-enabled binary as a normal distribution build.
 
 ## Output
 
-One CSV file is created per pushback in:
+When explicitly enabled, one CSV file is created per pushback in:
 
 ```text
 <X-Plane folder>\Output\BetterPushback\telemetry

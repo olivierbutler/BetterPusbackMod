@@ -413,7 +413,8 @@ route_initial_pose_matches(const gate_route_context_t *context,
 
     if (first == NULL)
         return B_FALSE;
-    gate_route_point_from_relative(0, -context->wheelbase,
+    /* Legacy planner segments begin at the aircraft reference point. */
+    gate_route_point_from_relative(0, context->nw_z,
         context->anchor_local.x, context->anchor_local.y,
         context->frame_hdg, &expected_x, &expected_y);
     return hypot(first->start_pos.x - expected_x,

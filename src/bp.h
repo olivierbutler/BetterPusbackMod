@@ -95,11 +95,6 @@ typedef struct {
 
     double last_steer;
     double last_force;
-    double push_accel_limit;
-    double turn_profile_distance;
-    double turn_profile_end_hdg;
-    double smooth_steer_cmd;
-    bool_t turn_profile_active;
     bool_t pause_requested;
     bool_t pause_hold;
     bool_t stop_from_pause_hold;
@@ -181,6 +176,8 @@ bool_t bp_pause_is_requested(void);
 bool_t bp_pause_is_held(void);
 
 bool_t bp_is_awaiting_plan(void);
+
+bool_t bp_can_replan(void);
 
 void bp_get_ground_ops_metrics(double *speed_mps, bool_t *speed_valid,
     double *distance_remaining_m, bool_t *distance_valid);

@@ -61,6 +61,11 @@ bool_t
 bp_telemetry_open(bp_telemetry_t *telemetry, const char *filename,
     const bp_telemetry_metadata_t *metadata, double sample_hz)
 {
+    if (!BP_ENABLE_RUNTIME_TELEMETRY) {
+        if (telemetry != NULL)
+            memset(telemetry, 0, sizeof(*telemetry));
+        return (B_FALSE);
+    }
     if (telemetry == NULL || filename == NULL || metadata == NULL ||
         sample_hz <= 0)
         return (B_FALSE);
