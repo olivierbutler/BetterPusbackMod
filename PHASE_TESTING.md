@@ -1881,3 +1881,69 @@ prepared sibling dependency tree was supplied. A second Linux build with
 `BP_ENABLE_LEGACY_MAGIC_SQUARES=ON` also passed. Dependency bootstrap remains a
 clean-machine setup requirement, but it does not block branch publication or
 upstream source review.
+
+## Owner-feedback reconciliation validation
+
+Date completed: 2026-09-04
+Status: **Accepted on Windows after two complete simulator operations**
+
+Source commits validated:
+
+- `532c3bb58158870e691ff38de2a7e370e1a98fb4` — Ground Operations UI and
+  packaging corrections.
+- `5957b9468e6bffe0ff31c79ace2d706ee8b6cf30` — runtime telemetry disabled by
+  default.
+
+Corrections validated:
+
+- The wing-walker OBJ, diffuse texture, LIT texture, and attribution are all
+  included in the test package and the worker renders through the expected
+  hidden, STOP, STANDBY, CLEAR, hidden signal sequence.
+- The completed-operation CURRENT TASK text is constrained to exactly two
+  lines and bounded by the task card.
+- The Ground Operations window remains visible during an active operation,
+  hides after completion at the legacy 1 m/s ground-speed threshold, and
+  restores the same presentation below that threshold.
+- Normal builds no longer create per-pushback telemetry CSV files. Diagnostic
+  telemetry remains available only through the explicit
+  `BP_ENABLE_RUNTIME_TELEMETRY=ON` build option.
+
+Automated and build verification:
+
+| Check | Result |
+| --- | --- |
+| Complete regression suite, including telemetry-disabled contract | Passed |
+| Address/undefined-behavior sanitizer telemetry tests | Passed |
+| Windows native-scale warnings-as-errors release build | Passed |
+| Windows macOS-scale emulation warnings-as-errors release build | Passed |
+| Explicit telemetry-enabled diagnostic build | Passed |
+| Distribution audit: 481 non-empty files and all required assets | Passed |
+| `git diff --check` | Passed |
+
+Accepted Windows binary evidence:
+
+- Native-scale XPL SHA-256:
+  `A869B7E9407F30F3CC552A2EB46AF2E787AA87A1CB6F7A1410311D0DE743D97A`.
+- macOS-scale emulation XPL SHA-256:
+  `F08898B1A1CD627A94C545E35AADDEDC2BDC1F334D73801B67DD9816C249D78C`.
+
+Simulator validation used the ToLiss A321 V1.9.1 and AST-3F tug in two fresh
+X-Plane 12 sessions:
+
+- The first complete operation validated the restored wing walker, bounded
+  CURRENT TASK text, and repeated legacy speed-gate hide/restore behavior.
+  Panel drawing averaged 0.017 ms and peaked at 0.212 ms.
+- The second complete operation used the telemetry-disabled build. It produced
+  36 unique Ground Operations state transitions, the full wing-walker signal
+  sequence, correct speed-gate hide/restore behavior, and a clean plugin
+  shutdown. Panel drawing averaged 0.017 ms and peaked at 0.107 ms.
+- The telemetry directory remained at 62 CSV files, with its newest file still
+  dated 16:30:47 from the earlier diagnostic build. The corrected normal build
+  created no file and emitted no telemetry-recording message.
+- BetterPushback logged no errors or assertions. The existing aircraft-loading
+  and disabled `stop_planner` warnings did not affect either operation.
+
+Native macOS compilation and visual confirmation remain maintainer-side review
+items; Windows macOS-scale emulation passed before publication.
+
+Commit criterion: **Passed for upstream correction review**.
