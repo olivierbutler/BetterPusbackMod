@@ -423,9 +423,12 @@ map_step(const ground_ops_raw_state_t *raw,
             "Wait for nose-gear release", false);
         break;
     case PB_STEP_WAITING4OK2DISCO:
-        set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
-            "Disconnecting the tug", "Disconnection is automatic",
-            "Wait for the tug to move clear", false);
+        set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "READY",
+            "Ready to disconnect", "Ground crew is awaiting approval",
+            "Verify tug disconnection", true);
+        set_actions(snapshot, GROUND_OPS_ACTION_DISCONNECT_TUG,
+            "Disconnect tug", GROUND_OPS_ACTION_RECONNECT_TUG,
+            "Reconnect");
         break;
     case PB_STEP_MOVING_AWAY:
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
