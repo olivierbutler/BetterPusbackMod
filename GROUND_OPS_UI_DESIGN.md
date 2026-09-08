@@ -159,7 +159,7 @@ states into it. The UI must never infer motion merely from a caption string.
 | `PB_STEP_STOPPED` | Push | Aircraft stopped | Yes: set parking brake |
 | `PB_STEP_LOWERING` | Clear | Lowering the nose gear | No |
 | `PB_STEP_UNGRABBING` | Clear | Releasing the nose gear | No |
-| `PB_STEP_WAITING4OK2DISCO` | Clear | Disconnecting the tug | No; disconnect is automatic |
+| `PB_STEP_WAITING4OK2DISCO` | Clear | Ready to disconnect | **Disconnect tug** or **Reconnect** in the Ground Operations panel |
 | `PB_STEP_MOVING_AWAY` | Clear | Tug moving clear | No |
 | `PB_STEP_CLOSING_CRADLE` | Clear | Closing the tug cradle | No |
 | `PB_STEP_STARTING2CLEAR` | Clear | Driver moving to clear | No |
@@ -350,8 +350,9 @@ build defaults `BP_ENABLE_LEGACY_MAGIC_SQUARES` to `OFF` so duplicate controls
 are not rendered. Configuring that CMake option `ON` restores the original
 windows for upstream compatibility. The switch affects presentation only:
 automatic beacon-triggered tug behavior is evaluated separately, and the
-planner, preferences, and commands remain available. The final disconnection
-is automatic; the old disconnect/reconnect window source is dormant.
+planner, preferences, and commands remain available. At the final disconnect
+gate, the panel exposes **Disconnect tug** and **Reconnect** through the same
+legacy command handlers without restoring separate floating windows.
 
 ## Performance contract
 
@@ -409,13 +410,19 @@ These are acceptance ceilings, not targets to consume. Lower is expected.
 ## Accessibility and usability
 
 - High-DPI and X-Plane UI scaling supported.
-- Status never depends on color alone; icons and text provide the meaning.
+- Status never depends on color alone; stage labels and text provide the
+  meaning. Completed stages are green, the current stage is yellow, and future
+  stages are cyan. No separate warning badge is drawn.
 - Essential controls remain labeled in the panel.
+- Every variable status, detail, caption, task, metric, and action label is
+  measured against its drawing rectangle. Text wraps where appropriate and
+  reduces to a bounded fallback size before drawing so it cannot run outside
+  the panel or its card.
 - Compact-rail hover text provides the current status.
 - Menu commands exist for show/hide, expand/collapse, pause/resume, and safety
   stop so pilots can bind hardware or keyboard shortcuts.
-- The panel avoids automatic expansion; amber status and voice/caption prompts
-  request attention without stealing screen space.
+- The panel avoids automatic expansion; the yellow current-stage label and
+  voice/caption prompts request attention without implying an error.
 - Text localization uses the existing translation system.
 
 ## Explicitly out of scope for the first UI phases

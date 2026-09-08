@@ -58,6 +58,8 @@ enum class UiAction {
     ChangePlan,
     PausePush,
     ResumePush,
+    DisconnectTug,
+    ReconnectTug,
     ArmEndOperation,
     CancelEndOperation,
     ConfirmEndOperation
@@ -87,6 +89,8 @@ static XPLMDataRef wind_direction_ref = nullptr;
 static XPLMDataRef wind_speed_ref = nullptr;
 static XPLMDataRef temperature_ref = nullptr;
 static XPLMDataRef qnh_ref = nullptr;
+static XPLMCommandRef disconnect_tug_cmd = nullptr;
+static XPLMCommandRef reconnect_tug_cmd = nullptr;
 static bool_t initialized = B_FALSE;
 static bool_t ui_enabled = B_TRUE;
 static bool_t captions_enabled = B_TRUE;
@@ -569,21 +573,35 @@ private:
         ImGui::EndTooltip();
     }
 
-    static void draw_text(ImDrawList *draw, float size, float x, float y,
-        ImU32 color, const char *text)
+    static float fit_text_size(float preferred_size, float minimum_size,
+        float width, float height, const char *text, bool wrap)
     {
-        draw->AddText(ImGui::GetFont(), scaled(size), point(x, y), color,
-            text);
+        const float scaled_width = scaled(width);
+        const float scaled_height = scaled(height);
+        const float wrap_width = wrap ? scaled_width : 0.0f;
+
+        for (float size = preferred_size; size >= minimum_size;
+            size -= 0.5f) {
+            ImVec2 measured = ImGui::GetFont()->CalcTextSizeA(scaled(size),
+                FLT_MAX, wrap_width, text);
+
+            if (measured.x <= scaled_width && measured.y <= scaled_height)
+                return (size);
+        }
+        return (minimum_size);
     }
 
-    static void draw_text_wrapped(ImDrawList *draw, float size, float x,
-        float y, float width, float height, ImU32 color, const char *text)
+    static void draw_text_fitted(ImDrawList *draw, float preferred_size,
+        float minimum_size, float x, float y, float width, float height,
+        ImU32 color, const char *text, bool wrap = false)
     {
         const ImVec2 start = point(x, y);
+        const float size = fit_text_size(preferred_size, minimum_size, width,
+            height, text, wrap);
 
         draw->PushClipRect(start, point(x + width, y + height), true);
         draw->AddText(ImGui::GetFont(), scaled(size), start, color, text,
-            nullptr, scaled(width));
+            nullptr, wrap ? scaled(width) : 0.0f);
         draw->PopClipRect();
     }
 
@@ -603,13 +621,36 @@ private:
             text);
     }
 
-    static void draw_text_right(ImDrawList *draw, float size, float right,
-        float y, ImU32 color, const char *text)
+    static void draw_text_centered_fitted(ImDrawList *draw,
+        float preferred_size, float minimum_size, float center_x, float y,
+        float width, float height, ImU32 color, const char *text)
     {
-        ImVec2 measured = measure_text(size, text);
+        const float size = fit_text_size(preferred_size, minimum_size, width,
+            height, text, false);
+        const ImVec2 measured = measure_text(size, text);
+        const ImVec2 top_left = point(center_x - width / 2.0f, y);
 
+        draw->PushClipRect(top_left,
+            point(center_x + width / 2.0f, y + height), true);
+        draw->AddText(ImGui::GetFont(), scaled(size),
+            ImVec2(scaled(center_x) - measured.x / 2.0f, scaled(y)), color,
+            text);
+        draw->PopClipRect();
+    }
+
+    static void draw_text_right_fitted(ImDrawList *draw,
+        float preferred_size, float minimum_size, float right, float y,
+        float width, float height, ImU32 color, const char *text)
+    {
+        const float size = fit_text_size(preferred_size, minimum_size, width,
+            height, text, false);
+        const ImVec2 measured = measure_text(size, text);
+
+        draw->PushClipRect(point(right - width, y), point(right, y + height),
+            true);
         draw->AddText(ImGui::GetFont(), scaled(size),
             ImVec2(scaled(right) - measured.x, scaled(y)), color, text);
+        draw->PopClipRect();
     }
 
     static bool icon_button(ImDrawList *draw, const char *id, float x,
@@ -653,7 +694,8 @@ private:
             ImGui::IsItemHovered() ? hovered : fill, scaled(6.0f));
         draw->AddRect(point(x, y), point(x + width, y + 35.0f), border,
             scaled(6.0f), 0, scaled(1.0f));
-        draw_text_centered(draw, 10.5f, x + width / 2.0f, y + 10.0f,
+        draw_text_centered_fitted(draw, 10.5f, 7.0f,
+            x + width / 2.0f, y + 10.0f, width - 12.0f, 14.0f,
             foreground, label);
         tooltip(help);
         return (pressed);
@@ -674,6 +716,10 @@ private:
             return (UiAction::PausePush);
         case GROUND_OPS_ACTION_RESUME:
             return (UiAction::ResumePush);
+        case GROUND_OPS_ACTION_DISCONNECT_TUG:
+            return (UiAction::DisconnectTug);
+        case GROUND_OPS_ACTION_RECONNECT_TUG:
+            return (UiAction::ReconnectTug);
         case GROUND_OPS_ACTION_END_DISCONNECT:
             return (UiAction::ArmEndOperation);
         case GROUND_OPS_ACTION_NONE:
@@ -690,14 +736,13 @@ private:
         const ImU32 shadow = IM_COL32(0, 0, 0, 105);
         const ImU32 background = IM_COL32(21, 26, 31, 246);
         const ImU32 border = IM_COL32(52, 64, 74, 255);
-        const ImU32 inactive = IM_COL32(78, 90, 100, 255);
         const ImU32 connector = IM_COL32(55, 65, 73, 255);
         const ImU32 complete = IM_COL32(23, 128, 95, 255);
         const ImU32 complete_text = IM_COL32(120, 188, 159, 255);
-        const ImU32 current = IM_COL32(30, 111, 145, 255);
-        const ImU32 current_text = IM_COL32(112, 192, 223, 255);
-        const ImU32 amber = IM_COL32(230, 166, 61, 255);
-        const ImU32 secondary = IM_COL32(121, 134, 145, 255);
+        const ImU32 current = IM_COL32(230, 166, 61, 255);
+        const ImU32 current_text = IM_COL32(245, 190, 88, 255);
+        const ImU32 future = IM_COL32(30, 111, 145, 255);
+        const ImU32 future_text = IM_COL32(112, 192, 223, 255);
         static const char *stages[] = {"Tug", "Connect", "Comms", "Push",
             "Clear"};
 
@@ -719,7 +764,7 @@ private:
             ground_ops_stage_progress_t progress = snapshot->stages[index];
             ImU32 label = progress == GROUND_OPS_STAGE_COMPLETE ?
                 complete_text : progress == GROUND_OPS_STAGE_CURRENT ?
-                current_text : secondary;
+                current_text : future_text;
 
             if (index != 0) {
                 draw->AddLine(point(29, center_y - 40),
@@ -737,16 +782,10 @@ private:
                     current, 24);
                 draw->AddCircle(point(29, center_y), scaled(7),
                     current_text, 24, scaled(1.0f));
-                if (snapshot->action_required) {
-                    draw->AddCircleFilled(point(47, center_y - 7),
-                        scaled(6), amber, 20);
-                    draw_text_centered(draw, 9.0f, 47.0f, center_y - 12,
-                        IM_COL32(31, 27, 18, 255), "!");
-                }
             } else {
                 draw->AddCircleFilled(point(29, center_y), scaled(5),
-                    background, 20);
-                draw->AddCircle(point(29, center_y), scaled(6), inactive,
+                    future, 20);
+                draw->AddCircle(point(29, center_y), scaled(6), future_text,
                     20, scaled(2.0f));
             }
             draw_text_centered(draw, 10.0f, 29.0f, center_y + 9.0f,
@@ -798,11 +837,15 @@ private:
         const ImU32 blue_text = IM_COL32(112, 192, 223, 255);
         const ImU32 amber = IM_COL32(230, 166, 61, 255);
         const ImU32 amber_panel = IM_COL32(57, 45, 27, 255);
+        const ImU32 cyan = IM_COL32(30, 111, 145, 255);
+        bool highlight_task;
         static const char *stages[] = {"Tug", "Connect", "Comms", "Push",
             "Clear"};
 
         if (snapshot == nullptr)
             return;
+        highlight_task = snapshot->action_required &&
+            snapshot->primary_action != GROUND_OPS_ACTION_DISCONNECT_TUG;
 
         draw->AddRectFilled(point(3, 4),
             point(GROUND_OPS_PANEL_WIDTH, GROUND_OPS_PANEL_HEIGHT),
@@ -833,9 +876,10 @@ private:
         draw->AddLine(point(2, 390), point(GROUND_OPS_PANEL_WIDTH - 2,
             390), rule, scaled(1.0f));
 
-        draw_text(draw, 11.0f, 10, 15, muted, "::");
-        draw_text(draw, 14.0f, 30, 8, primary, "Ground operations");
-        draw_text(draw, 10.0f, 30, 26, secondary,
+        draw_text_fitted(draw, 11.0f, 9.0f, 10, 15, 14, 13, muted, "::");
+        draw_text_fitted(draw, 14.0f, 10.0f, 30, 8, 168, 18, primary,
+            "Ground operations");
+        draw_text_fitted(draw, 10.0f, 7.0f, 30, 26, 168, 12, secondary,
             snapshot->flight);
 
         if (icon_button(draw, "##ground_ops_popout", 205, 9,
@@ -850,16 +894,19 @@ private:
             "X", "Hide Ground Operations"))
             queue_action(UiAction::Hide);
 
-        draw_text(draw, 13.0f, 11, 56, primary, snapshot->airport);
-        draw_text(draw, 10.5f, 11, 70, secondary, snapshot->weather);
-        draw_text(draw, 10.5f, 11, 84, secondary, snapshot->pressure);
+        draw_text_fitted(draw, 13.0f, 8.0f, 11, 56, 270, 15, primary,
+            snapshot->airport);
+        draw_text_fitted(draw, 10.5f, 7.0f, 11, 70, 270, 12, secondary,
+            snapshot->weather);
+        draw_text_fitted(draw, 10.5f, 7.0f, 11, 84, 270, 12, secondary,
+            snapshot->pressure);
 
         for (int index = 0; index < 5; index++) {
             float center_y = 117.0f + index * 46.0f;
             ground_ops_stage_progress_t progress = snapshot->stages[index];
             ImU32 label = progress == GROUND_OPS_STAGE_COMPLETE ?
                 green_text : progress == GROUND_OPS_STAGE_CURRENT ?
-                blue_text : muted;
+                amber : blue_text;
 
             if (index != 0) {
                 draw->AddLine(point(30, center_y - 39),
@@ -874,20 +921,14 @@ private:
                     24, scaled(1.0f));
             } else if (progress == GROUND_OPS_STAGE_CURRENT) {
                 draw->AddCircleFilled(point(30, center_y), scaled(6),
-                    IM_COL32(30, 111, 145, 255), 24);
-                draw->AddCircle(point(30, center_y), scaled(7), blue_text,
+                    amber, 24);
+                draw->AddCircle(point(30, center_y), scaled(7), amber,
                     24, scaled(1.0f));
-                if (snapshot->action_required) {
-                    draw->AddCircleFilled(point(49, center_y - 7),
-                        scaled(6), amber, 20);
-                    draw_text_centered(draw, 9.0f, 49.0f, center_y - 12,
-                        IM_COL32(31, 27, 18, 255), "!");
-                }
             } else {
                 draw->AddCircleFilled(point(30, center_y), scaled(5),
-                    section, 20);
+                    cyan, 20);
                 draw->AddCircle(point(30, center_y), scaled(6),
-                    IM_COL32(78, 90, 100, 255), 20, scaled(2.0f));
+                    blue_text, 20, scaled(2.0f));
             }
             draw_text_centered(draw, 10.0f, 30.0f, center_y + 9.0f,
                 label, stages[index]);
@@ -900,40 +941,43 @@ private:
             snapshot->stage == GROUND_OPS_STAGE_CONNECT ? "CN" :
             snapshot->stage == GROUND_OPS_STAGE_COMMS ? "CM" :
             snapshot->stage == GROUND_OPS_STAGE_PUSH ? "PB" : "OK");
-        draw_text(draw, 10.0f, 73, 164,
-            snapshot->action_required ? amber : secondary,
-            snapshot->eyebrow);
-        draw_text(draw, 16.0f, 73, 182, primary, snapshot->status);
-        draw_text(draw, 12.0f, 73, 211, secondary, snapshot->detail);
+        draw_text_fitted(draw, 10.0f, 8.0f, 73, 161, 206, 13,
+            highlight_task ? amber : secondary, snapshot->eyebrow);
+        draw_text_fitted(draw, 16.0f, 8.0f, 73, 179, 206, 34, primary,
+            snapshot->status, true);
+        draw_text_fitted(draw, 12.0f, 7.0f, 73, 214, 206, 28, secondary,
+            snapshot->detail, true);
         if (snapshot->caption_visible) {
-            draw_text(draw, 11.0f, 73, 232, green_text,
-                snapshot->caption);
+            draw_text_fitted(draw, 10.5f, 6.5f, 73, 243, 206, 24,
+                green_text, snapshot->caption, true);
         }
-        draw_text(draw, 10.0f, 73, 253, secondary, snapshot->speed);
-        draw_text(draw, 10.0f, 176, 253, secondary, snapshot->distance);
+        draw_text_fitted(draw, 10.0f, 6.0f, 73, 268, 95, 12, secondary,
+            snapshot->speed);
+        draw_text_fitted(draw, 10.0f, 6.0f, 176, 268, 103, 12,
+            secondary, snapshot->distance);
 
-        draw->AddRectFilled(point(73, 282), point(279, 327),
-            snapshot->action_required ? amber_panel : top_bar,
+        draw->AddRectFilled(point(73, 283), point(279, 334),
+            highlight_task ? amber_panel : top_bar,
             scaled(7.0f));
-        draw->AddRect(point(73, 282), point(279, 327), border,
+        draw->AddRect(point(73, 283), point(279, 334), border,
             scaled(7.0f), 0, scaled(1.0f));
-        if (snapshot->action_required) {
-            draw->AddRectFilled(point(73, 282), point(77, 327), amber,
+        if (highlight_task) {
+            draw->AddRectFilled(point(73, 283), point(77, 334), amber,
                 scaled(7.0f));
         }
-        draw_text(draw, 10.0f, 84, 291,
-            snapshot->action_required ? amber : secondary,
-            snapshot->action_required ? "PILOT ACTION" : "CURRENT TASK");
-        draw_text_wrapped(draw, 10.5f, 84, 304, 184, 23, primary,
-            snapshot->current_task);
+        draw_text_fitted(draw, 10.0f, 8.0f, 84, 290, 184, 12,
+            highlight_task ? amber : secondary,
+            highlight_task ? "PILOT ACTION" : "CURRENT TASK");
+        draw_text_fitted(draw, 10.5f, 6.5f, 84, 304, 184, 27, primary,
+            snapshot->current_task, true);
 
         if (end_confirmation_armed) {
-            if (action_button(draw, "##ground_ops_keep", 73, 337, 99,
+            if (action_button(draw, "##ground_ops_keep", 73, 342, 99,
                 "Keep operation", false,
                 "Cancel; keep the route and tug connected")) {
                 queue_action(UiAction::CancelEndOperation);
             }
-            if (action_button(draw, "##ground_ops_confirm_end", 180, 337,
+            if (action_button(draw, "##ground_ops_confirm_end", 180, 342,
                 99, "Confirm end", true,
                 "Stop completely, discard the route, and disconnect")) {
                 queue_action(UiAction::ConfirmEndOperation);
@@ -943,26 +987,35 @@ private:
                 GROUND_OPS_ACTION_NONE;
             float primary_width = have_secondary ? 99.0f : 206.0f;
 
-            if (action_button(draw, "##ground_ops_primary", 73, 337,
+            if (action_button(draw, "##ground_ops_primary", 73, 342,
                 primary_width, snapshot->primary_action_label, false,
                 snapshot->primary_action == GROUND_OPS_ACTION_PAUSE ?
                 "Controlled stop; route and steering state are retained" :
                 snapshot->primary_action == GROUND_OPS_ACTION_RESUME ?
                 "Continue the accepted route from the hold" :
+                snapshot->primary_action ==
+                GROUND_OPS_ACTION_DISCONNECT_TUG ?
+                "Disconnect the tug and continue to the hand signal" :
                 snapshot->current_task)) {
                 queue_action(ui_action_for(snapshot->primary_action));
             }
             if (have_secondary && action_button(draw,
-                "##ground_ops_secondary", 180, 337, 99,
-                snapshot->secondary_action_label, true,
+                "##ground_ops_secondary", 180, 342, 99,
+                snapshot->secondary_action_label,
+                snapshot->secondary_action ==
+                GROUND_OPS_ACTION_END_DISCONNECT,
+                snapshot->secondary_action ==
+                GROUND_OPS_ACTION_RECONNECT_TUG ?
+                "Reconnect the tug and return to route planning" :
                 "Stop completely, discard the route, and disconnect")) {
                 queue_action(ui_action_for(snapshot->secondary_action));
             }
         }
 
-        draw_text(draw, 10.0f, 10, 400, muted, snapshot->source);
-        draw_text_right(draw, 10.0f, 281, 400, green_text,
-            "Interactive | Offline safe");
+        draw_text_fitted(draw, 10.0f, 6.0f, 10, 400, 150, 12, muted,
+            snapshot->source);
+        draw_text_right_fitted(draw, 10.0f, 6.0f, 281, 400, 116, 12,
+            green_text, "Interactive | Offline safe");
     }
 };
 
@@ -1322,6 +1375,18 @@ process_action(UiAction action)
     case UiAction::ResumePush:
         XPLMCommandOnce(pause_pb);
         break;
+    case UiAction::DisconnectTug:
+        if (disconnect_tug_cmd != nullptr)
+            XPLMCommandOnce(disconnect_tug_cmd);
+        else
+            logMsg(BP_ERROR_LOG "Ground Ops disconnect command unavailable");
+        break;
+    case UiAction::ReconnectTug:
+        if (reconnect_tug_cmd != nullptr)
+            XPLMCommandOnce(reconnect_tug_cmd);
+        else
+            logMsg(BP_ERROR_LOG "Ground Ops reconnect command unavailable");
+        break;
     case UiAction::ArmEndOperation:
         end_confirmation_armed = true;
         break;
@@ -1390,6 +1455,12 @@ ground_ops_ui_init(void)
         return (B_TRUE);
 
     load_preferences();
+    disconnect_tug_cmd = XPLMFindCommand("BetterPushback/disconnect");
+    reconnect_tug_cmd = XPLMFindCommand("BetterPushback/reconnect");
+    if (disconnect_tug_cmd == nullptr || reconnect_tug_cmd == nullptr) {
+        logMsg(BP_ERROR_LOG "Ground Ops disconnect controls unavailable: "
+            "BetterPushback commands were not registered");
+    }
     ground_ops_data_init(&data_context);
     ground_ops_state_init(&state_cache);
     refresh_snapshot();
@@ -1472,6 +1543,8 @@ ground_ops_ui_fini(void)
     wind_speed_ref = nullptr;
     temperature_ref = nullptr;
     qnh_ref = nullptr;
+    disconnect_tug_cmd = nullptr;
+    reconnect_tug_cmd = nullptr;
     pending_action = UiAction::None;
     planner_suspended = B_FALSE;
     legacy_gate_hidden = B_FALSE;

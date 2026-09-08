@@ -1947,3 +1947,55 @@ Native macOS compilation and visual confirmation remain maintainer-side review
 items; Windows macOS-scale emulation passed before publication.
 
 Commit criterion: **Passed for upstream correction review**.
+
+## Owner feedback pass 2 - bounded text and manual disconnect
+
+Date prepared: 2026-09-07
+Date accepted: 2026-09-08
+Status: **Accepted after automated, Windows build, and online simulator
+validation**
+
+Corrections under test:
+
+- Every variable Ground Operations string is fitted to a fixed drawing
+  rectangle. Long status, detail, caption, CURRENT TASK, metric, and button text
+  wraps where appropriate and reduces to a bounded fallback size.
+- The stage rail now uses green for completed stages, yellow for the current
+  stage, and cyan for future stages. The separate yellow exclamation badge has
+  been removed.
+- `PB_STEP_WAITING4OK2DISCO` is a manual gate. Its neutral task card offers
+  **Disconnect tug** and **Reconnect** inside the Ground Operations panel and
+  invokes the established BetterPushback command handlers.
+- Choosing **Reconnect** returns to the connection sequence. Choosing
+  **Disconnect tug** continues the established clear-signal and tug-departure
+  sequence. The dormant floating legacy windows remain disabled by default.
+
+Automated and build verification:
+
+| Check | Result |
+| --- | --- |
+| Complete regression suite, including telemetry-disabled contract | Passed |
+| Windows native-scale warnings-as-errors release build | Passed |
+| Windows enlarged-scale warnings-as-errors release build | Passed |
+| `git diff --check` | Passed |
+
+Prepared Windows binary evidence:
+
+- Native-scale XPL SHA-256:
+  `5CCFEE273150A87EA0C95B8CF713097B63FDB5DA603962E9C83EEAD8F3BDE7A5`.
+- Enlarged-scale emulation XPL SHA-256:
+  `298F226BFC2B1688430B677B3ACE445CD60306D2EC6E3F865B2EDD684F2CC188`.
+
+Simulator validation:
+
+- The tester completed the requested native-scale online X-Plane sequence and
+  reported a full pass on 2026-09-08.
+- Normal-operation panel progressions remained bounded without clipped text.
+- Stage colors progressed from cyan to yellow to green without the separate
+  exclamation badge.
+- The neutral final gate displayed both in-panel controls, and the reconnect
+  and disconnect paths completed successfully.
+- Enlarged-scale visual confirmation remains a maintainer-side review item;
+  the enlarged-scale warnings-as-errors Windows build passed.
+
+Commit criterion: **Passed for upstream correction review**.

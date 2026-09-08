@@ -94,9 +94,28 @@ test_action_markers(void)
     assert(snapshot_for_step(PB_STEP_WAITING_FOR_PBRAKE).action_required);
     assert(snapshot_for_step(PB_STEP_CONNECTED).action_required);
     assert(snapshot_for_step(PB_STEP_STOPPED).action_required);
-    assert(!snapshot_for_step(PB_STEP_WAITING4OK2DISCO).action_required);
+    assert(snapshot_for_step(PB_STEP_WAITING4OK2DISCO).action_required);
     assert(!snapshot_for_step(PB_STEP_PUSHING).action_required);
     assert(!snapshot_for_step(PB_STEP_MOVING_AWAY).action_required);
+}
+
+static void
+test_disconnect_gate_exposes_both_pilot_choices(void)
+{
+    ground_ops_snapshot_t snapshot =
+        snapshot_for_step(PB_STEP_WAITING4OK2DISCO);
+
+    assert(snapshot.stage == GROUND_OPS_STAGE_CLEAR);
+    assert(snapshot.action_required);
+    assert(strcmp(snapshot.status, "Ready to disconnect") == 0);
+    assert(strcmp(snapshot.detail,
+        "Ground crew is awaiting approval") == 0);
+    assert(strcmp(snapshot.current_task,
+        "Verify tug disconnection") == 0);
+    assert(snapshot.primary_action == GROUND_OPS_ACTION_DISCONNECT_TUG);
+    assert(strcmp(snapshot.primary_action_label, "Disconnect tug") == 0);
+    assert(snapshot.secondary_action == GROUND_OPS_ACTION_RECONNECT_TUG);
+    assert(strcmp(snapshot.secondary_action_label, "Reconnect") == 0);
 }
 
 static void
@@ -425,6 +444,7 @@ main(void)
     test_every_controller_step_maps();
     test_stage_progression();
     test_action_markers();
+    test_disconnect_gate_exposes_both_pilot_choices();
     test_prep_states_are_separate_from_controller();
     test_formatting_only_changes_for_display_values();
     test_captions_follow_message_state();
