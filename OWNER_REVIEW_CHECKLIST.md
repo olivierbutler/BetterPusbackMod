@@ -15,6 +15,12 @@ visual and motion checks require X-Plane.
   inside the panel.
 - Confirm every CURRENT TASK message remains inside its card. The completed
   operation message must render on exactly two lines.
+- Visit every normal and Emergency Tow panel state at both normal and enlarged
+  UI scale. Confirm status, detail, caption, task, metric, and button text wraps
+  or reduces in size without clipping or crossing a panel/card boundary.
+- Confirm the stage rail uses green for completed stages, yellow for the current
+  stage, and cyan for future stages. No separate yellow exclamation badge may
+  appear.
 - Confirm the installed package contains the wing-walker OBJ, diffuse texture,
   LIT texture, and attribution file under `objects/wing_walker`.
 - Confirm a normal build does not log `Recording pushback telemetry` and does
@@ -39,8 +45,12 @@ visual and motion checks require X-Plane.
 - Use **End operation** while moving and while held. Confirm the aircraft stops
   and disconnects at the current position without returning to the planned
   endpoint.
-- Complete the operation. Confirm disconnect occurs automatically and no
-  separate disconnect or reconnect windows appear.
+- At **Ready to disconnect**, confirm the task card uses the normal neutral
+  styling and offers **Disconnect tug** and **Reconnect** inside the Ground
+  Operations panel. Confirm no separate disconnect or reconnect windows appear.
+- Choose **Reconnect** once and confirm the controller returns to the connection
+  sequence. Return to the disconnect gate, choose **Disconnect tug**, and
+  confirm the normal clear-signal and tug-departure sequence completes.
 - Confirm Ground Operations remains visible throughout an active operation.
   After completion, taxi at or above the legacy 1 m/s threshold and confirm
   the UI hides; slow below 1 m/s while on the ground and confirm the same

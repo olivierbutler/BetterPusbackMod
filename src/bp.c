@@ -258,6 +258,7 @@ static void main_intf_show(void);
 void main_intf_hide(void);
 
 static int disco_handler(XPLMCommandRef, XPLMCommandPhase, void *);
+static int recon_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static bool_t bp_run_push_manual(void);
 
@@ -300,8 +301,8 @@ static const char *const bp_step_names[] = {
 };
 
 static XPLMCommandRef disco_cmd = NULL;
-#if 0
 static XPLMCommandRef recon_cmd = NULL;
+#if 0
 static button_t disco_buttons[] = {
         {.filename = "disconnect.png", .vk = -1, .tex = 0, .tex_data = NULL},
         {.filename = "reconnect.png", .vk = -1, .tex = 0, .tex_data = NULL},
@@ -1772,10 +1773,8 @@ void
 bp_boot_init(void) {
     disco_cmd = XPLMCreateCommand("BetterPushback/disconnect",
                                   _("Disconnect tow + headset and switch to hand signals."));
-#if 0
     recon_cmd = XPLMCreateCommand("BetterPushback/reconnect",
                                   _("Reconnect tow and await further instructions."));
-#endif
 
     DCR_CREATE_F(NULL, &bp.anim.nosewheel_rot_spd, false, "bp/anim/nosewheel_rotation_speed_rad_sec");
 }
@@ -1950,6 +1949,7 @@ bp_init(void) {
     fdr_find(&drs.joystick, "sim/joystick/joy_mapped_axis_value");
 
     XPLMRegisterCommandHandler(disco_cmd, disco_handler, 1, NULL);
+    XPLMRegisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
 
     /*
      * We do this check before attempting to read gear info, because
@@ -1992,6 +1992,7 @@ bp_init(void) {
     return (B_TRUE);
     errout:
     XPLMUnregisterCommandHandler(disco_cmd, disco_handler, 1, NULL);
+    XPLMUnregisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
     msg_fini();
     unload_buttons();
     if (bp_ls.outline != NULL) {
@@ -2197,6 +2198,7 @@ bp_fini(void) {
     }
 
     XPLMUnregisterCommandHandler(disco_cmd, disco_handler, 1, NULL);
+    XPLMUnregisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
 
     msg_fini();
     bp_complete();
@@ -3468,7 +3470,6 @@ disco_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     return (1);
 }
 
-#if 0
 static int
 recon_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     UNUSED(cmd);
@@ -3492,6 +3493,7 @@ recon_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     return (1);
 }
 
+#if 0
 static int
 disco_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
                 void *inRefcon) {
@@ -3878,12 +3880,7 @@ main_intf(bool_t force_hide) {
 static void
 pb_step_waiting4ok2disco(void) {
     if (!bp.ok2disco) {
-        if (!slave_mode) {
-            XPLMCommandOnce(disco_cmd);
-            return;
-        }
-
-        /* Wait for the master to advance the shared operation state. */
+        /* Start the post-approval delay only after the pilot chooses. */
         bp.step_start_t = bp.cur_t;
         return;
     }
