@@ -98,7 +98,6 @@
 #define    PB_START_DELAY        5    /* seconds */
 #define    PB_LIFT_TE        0.075    /* fraction */
 #define    STATE_TRANS_DELAY    2    /* seconds, state transition delay */
-#define    CLEAR_SIGNAL_DELAY    15    /* seconds */
 #define    TUG_DRIVE_AWAY_DIST    80    /* meters */
 #define    MAX_DRIVING_AWAY_DELAY    30    /* seconds */
 
@@ -258,6 +257,7 @@ static void main_intf_show(void);
 void main_intf_hide(void);
 
 static int disco_handler(XPLMCommandRef, XPLMCommandPhase, void *);
+static int clear_ack_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 static int recon_handler(XPLMCommandRef, XPLMCommandPhase, void *);
 
 static bool_t bp_run_push_manual(void);
@@ -301,6 +301,7 @@ static const char *const bp_step_names[] = {
 };
 
 static XPLMCommandRef disco_cmd = NULL;
+static XPLMCommandRef clear_ack_cmd = NULL;
 static XPLMCommandRef recon_cmd = NULL;
 #if 0
 static button_t disco_buttons[] = {
@@ -1775,6 +1776,8 @@ bp_boot_init(void) {
                                   _("Disconnect tow + headset and switch to hand signals."));
     recon_cmd = XPLMCreateCommand("BetterPushback/reconnect",
                                   _("Reconnect tow and await further instructions."));
+    clear_ack_cmd = XPLMCreateCommand("BetterPushback/acknowledge_clear",
+        _("Acknowledge the displayed pin and clear signal."));
 
     DCR_CREATE_F(NULL, &bp.anim.nosewheel_rot_spd, false, "bp/anim/nosewheel_rotation_speed_rad_sec");
 }
@@ -1949,6 +1952,7 @@ bp_init(void) {
     fdr_find(&drs.joystick, "sim/joystick/joy_mapped_axis_value");
 
     XPLMRegisterCommandHandler(disco_cmd, disco_handler, 1, NULL);
+    XPLMRegisterCommandHandler(clear_ack_cmd, clear_ack_handler, 1, NULL);
     XPLMRegisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
 
     /*
@@ -1992,6 +1996,7 @@ bp_init(void) {
     return (B_TRUE);
     errout:
     XPLMUnregisterCommandHandler(disco_cmd, disco_handler, 1, NULL);
+    XPLMUnregisterCommandHandler(clear_ack_cmd, clear_ack_handler, 1, NULL);
     XPLMUnregisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
     msg_fini();
     unload_buttons();
@@ -2201,6 +2206,7 @@ bp_fini(void) {
     XPLMUnregisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
 
     msg_fini();
+    XPLMUnregisterCommandHandler(clear_ack_cmd, clear_ack_handler, 1, NULL);
     bp_complete();
 
     /* segs have been released in bp_complete */
@@ -3471,6 +3477,20 @@ disco_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
 }
 
 static int
+clear_ack_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
+{
+    UNUSED(cmd);
+    UNUSED(refcon);
+    if (!bp_started || bp.step != PB_STEP_CLEAR_SIGNAL)
+        return (0);
+    if (phase == xplm_CommandBegin &&
+        bp_clear_signal_acknowledge(&bp.clear_signal_gate, true)) {
+        logMsg(BP_INFO_LOG "Pilot acknowledged the pin and clear signal");
+    }
+    return (1);
+}
+
+static int
 recon_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     UNUSED(cmd);
     UNUSED(phase);
@@ -3966,8 +3986,11 @@ pb_step_clear_signal(void) {
     vect2_t acf2start, acfdir;
 
     tug_set_clear_signal(B_TRUE, tug_clear_is_right());
+    bp.clear_signal_gate.displayed = true;
 
-    if (bp.cur_t - bp.step_start_t < CLEAR_SIGNAL_DELAY)
+    /* Preserve the legacy minimum display time, but never auto-acknowledge. */
+    if (!bp_clear_signal_can_depart(&bp.clear_signal_gate,
+        bp.cur_t - bp.step_start_t))
         return;
 
     /*
@@ -4419,6 +4442,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
         case PB_STEP_MOVING2CLEAR:
             bp_hint_status_str = _("Moving to the side of the aircraft");
             if (tug_is_stopped(bp_ls.tug)) {
+                bp_clear_signal_reset(&bp.clear_signal_gate);
                 bp.step++;
                 bp.step_start_t = bp.cur_t;
             }

@@ -26,6 +26,13 @@ extern "C" {
 #define GROUND_OPS_VISIBLE_MINIMUM 40
 #define GROUND_OPS_WINDOW_MARGIN 24
 #define GROUND_OPS_CLICK_DRAG_THRESHOLD 5
+#define GROUND_OPS_COLLAPSE_DWELL_SECONDS 1.0
+
+typedef struct {
+    bool tracking;
+    bool fired;
+    double entered;
+} ground_ops_dwell_t;
 
 #ifndef APL
 #define APL 0
@@ -85,6 +92,17 @@ int ground_ops_rect_monitor(const ground_ops_rect_t *rect,
     const ground_ops_monitor_t *monitors, size_t monitor_count);
 bool ground_ops_click_is_activation(int horizontal_displacement,
     int vertical_displacement, int threshold);
+bool ground_ops_dwell_update(ground_ops_dwell_t *state, bool eligible,
+    double now);
+bool ground_ops_rect_nearest_right(const ground_ops_rect_t *rect,
+    const ground_ops_monitor_t *monitor);
+void ground_ops_rect_clamp(ground_ops_rect_t *rect,
+    const ground_ops_monitor_t *monitor, int margin);
+void ground_ops_rect_dock(ground_ops_rect_t *rect, int width, int height,
+    const ground_ops_monitor_t *monitor, const ground_ops_rect_t *rest_offset);
+bool ground_ops_rect_restore_compact(ground_ops_rect_t *rect, int width, int height,
+    const ground_ops_monitor_t *monitor, const ground_ops_rect_t *expanded,
+    const ground_ops_rect_t *compact);
 
 #ifdef __cplusplus
 }

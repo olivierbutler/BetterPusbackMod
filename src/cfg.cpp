@@ -35,6 +35,7 @@
 #include "cfg.h"
 #include "msg.h"
 #include "ui_runtime.h"
+#include "ui_click_sound.h"
 #include "xplane.h"
 
 #include "xp_img_window.h"
@@ -629,6 +630,24 @@ void SettingsWindow::buildInterface() {
                          bp_ground_crew_audio_volume);
     }
 
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Button click volume"));
+    Tooltip(_("Ground Operations button clicks only. 0% mutes clicks.\n"
+              "Changes apply immediately; use Save preferences to keep them.\n"
+              "Release the slider to preview the selected volume."));
+
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(combowithWidth);
+    float click_percent = static_cast<float>(bp_ui_click_get_volume() * 100.0);
+    if (ImGui::SliderFloat("##ground_ops_click_volume", &click_percent, 0, 100,
+                          "%.0f %%",
+                          ImGuiSliderFlags_AlwaysClamp)) {
+      bp_ui_click_set_volume(click_percent / 100.0);
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit())
+      bp_ui_click_play();
 
     if (monitor_list.list_size) {
       ImGui::TableNextRow();

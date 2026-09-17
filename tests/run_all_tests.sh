@@ -9,6 +9,8 @@ for runner in \
     run_gate_route_slots_tests.sh \
     run_ground_ops_data_tests.sh \
     run_ground_ops_state_tests.sh \
+    run_ground_ops_text_fit_tests.sh \
+    run_ui_click_sound_tests.sh \
     run_ground_ops_window_state_tests.sh \
     run_planner_cache_tests.sh \
     run_vehicle_physics_tests.sh \

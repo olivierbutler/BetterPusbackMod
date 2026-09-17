@@ -81,8 +81,15 @@ typedef enum {
     GROUND_OPS_ACTION_RESUME,
     GROUND_OPS_ACTION_DISCONNECT_TUG,
     GROUND_OPS_ACTION_RECONNECT_TUG,
-    GROUND_OPS_ACTION_END_DISCONNECT
+    GROUND_OPS_ACTION_END_DISCONNECT,
+    GROUND_OPS_ACTION_ACKNOWLEDGE_CLEAR
 } ground_ops_action_t;
+
+typedef enum {
+    GROUND_OPS_BUTTON_SECONDARY,
+    GROUND_OPS_BUTTON_REQUIRED,
+    GROUND_OPS_BUTTON_DESTRUCTIVE
+} ground_ops_button_style_t;
 
 typedef struct {
     bool operation_active;
@@ -98,6 +105,9 @@ typedef struct {
     bool replan_available;
     bool pause_requested;
     bool pause_held;
+    bool clear_signal_displayed;
+    bool clear_signal_acknowledged;
+    bool disconnect_approved;
     char airport_ident[8];
     char flight[GROUND_OPS_FLIGHT_LEN];
     char schedule[GROUND_OPS_SCHEDULE_LEN];
@@ -164,6 +174,8 @@ const ground_ops_snapshot_t *ground_ops_state_get(
 const char *ground_ops_stage_name(ground_ops_stage_t stage);
 const char *ground_ops_step_name(pushback_step_t step);
 const char *ground_ops_prep_name(ground_ops_prep_state_t prep);
+ground_ops_button_style_t ground_ops_button_style(
+    const ground_ops_snapshot_t *snapshot, ground_ops_action_t action);
 
 #ifdef __cplusplus
 }

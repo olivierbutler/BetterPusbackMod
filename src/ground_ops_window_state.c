@@ -10,6 +10,7 @@
  */
 
 #include <stdlib.h>
+#include <math.h>
 
 #include "ground_ops_window_state.h"
 
@@ -203,4 +204,78 @@ ground_ops_click_is_activation(int horizontal_displacement,
 {
     return (abs(horizontal_displacement) <= threshold &&
         abs(vertical_displacement) <= threshold);
+}
+
+bool
+ground_ops_dwell_update(ground_ops_dwell_t *state, bool eligible, double now)
+{
+    if (!eligible || !isfinite(now) || (state->tracking && now < state->entered)) {
+        *state = (ground_ops_dwell_t){0};
+        return false;
+    }
+    if (!state->tracking) {
+        state->tracking = true;
+        state->entered = now;
+    }
+    if (!state->fired && now - state->entered >= GROUND_OPS_COLLAPSE_DWELL_SECONDS) {
+        state->fired = true;
+        return true;
+    }
+    return false;
+}
+
+bool
+ground_ops_rect_nearest_right(const ground_ops_rect_t *rect,
+    const ground_ops_monitor_t *monitor)
+{
+    return abs(monitor->bounds.right - rect->right) <
+        abs(rect->left - monitor->bounds.left);
+}
+
+void
+ground_ops_rect_clamp(ground_ops_rect_t *rect,
+    const ground_ops_monitor_t *monitor, int margin)
+{
+    const ground_ops_rect_t *b = &monitor->bounds;
+    int width = maximum(1, rect->right - rect->left);
+    int height = maximum(1, rect->top - rect->bottom);
+    /* A screen smaller than the fixed UI cannot contain it: retain its top
+     * and left controls instead of oscillating between opposing edges. */
+    int max_left = maximum(b->left + margin, b->right - margin - width);
+    int min_top = minimum(b->top - margin, b->bottom + margin + height);
+    rect->left = maximum(b->left + margin, minimum(rect->left, max_left));
+    rect->top = minimum(b->top - margin, maximum(rect->top, min_top));
+    rect->right = rect->left + width;
+    rect->bottom = rect->top - height;
+}
+
+void
+ground_ops_rect_dock(ground_ops_rect_t *rect, int width, int height,
+    const ground_ops_monitor_t *monitor, const ground_ops_rect_t *rest_offset)
+{
+    bool right = ground_ops_rect_nearest_right(rect, monitor);
+    if (rest_offset != NULL) {
+        rect->left = monitor->bounds.left + rest_offset->left;
+        rect->top = monitor->bounds.top - rest_offset->top;
+    } else {
+        rect->left = right ? monitor->bounds.right - width : monitor->bounds.left;
+    }
+    rect->right = rect->left + width;
+    rect->bottom = rect->top - height;
+    ground_ops_rect_clamp(rect, monitor, 0);
+}
+
+bool
+ground_ops_rect_restore_compact(ground_ops_rect_t *rect, int width, int height,
+    const ground_ops_monitor_t *monitor, const ground_ops_rect_t *expanded,
+    const ground_ops_rect_t *compact)
+{
+    if (rect->left != expanded->left || rect->top != expanded->top ||
+        rect->right != expanded->right || rect->bottom != expanded->bottom)
+        return false;
+    *rect = *compact;
+    rect->right = rect->left + width;
+    rect->bottom = rect->top - height;
+    ground_ops_rect_clamp(rect, monitor, 0);
+    return true;
 }

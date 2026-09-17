@@ -115,6 +115,9 @@ raw_equal(const ground_ops_raw_state_t *left,
         left->replan_available == right->replan_available &&
         left->pause_requested == right->pause_requested &&
         left->pause_held == right->pause_held &&
+        left->clear_signal_displayed == right->clear_signal_displayed &&
+        left->clear_signal_acknowledged == right->clear_signal_acknowledged &&
+        left->disconnect_approved == right->disconnect_approved &&
         strcmp(left->airport_ident, right->airport_ident) == 0 &&
         strcmp(left->flight, right->flight) == 0 &&
         strcmp(left->schedule, right->schedule) == 0 &&
@@ -130,6 +133,30 @@ raw_equal(const ground_ops_raw_state_t *left,
         left->speed_tenths_mps == right->speed_tenths_mps &&
         left->distance_valid == right->distance_valid &&
         left->distance_m == right->distance_m);
+}
+
+ground_ops_button_style_t
+ground_ops_button_style(const ground_ops_snapshot_t *snapshot,
+    ground_ops_action_t action)
+{
+    if (action == GROUND_OPS_ACTION_END_DISCONNECT)
+        return (GROUND_OPS_BUTTON_DESTRUCTIVE);
+    if (snapshot == NULL || !snapshot->action_required ||
+        action != snapshot->primary_action)
+        return (GROUND_OPS_BUTTON_SECONDARY);
+
+    /* Only the action that advances the current task is required. For
+     * example, Change plan is optional while brake release is required. */
+    switch (action) {
+    case GROUND_OPS_ACTION_CALL_TUG:
+    case GROUND_OPS_ACTION_OPEN_PLANNER:
+    case GROUND_OPS_ACTION_RESUME:
+    case GROUND_OPS_ACTION_DISCONNECT_TUG:
+    case GROUND_OPS_ACTION_ACKNOWLEDGE_CLEAR:
+        return (GROUND_OPS_BUTTON_REQUIRED);
+    default:
+        return (GROUND_OPS_BUTTON_SECONDARY);
+    }
 }
 
 static bool
@@ -149,6 +176,9 @@ semantic_equal(const ground_ops_raw_state_t *left,
         left->replan_available == right->replan_available &&
         left->pause_requested == right->pause_requested &&
         left->pause_held == right->pause_held &&
+        left->clear_signal_displayed == right->clear_signal_displayed &&
+        left->clear_signal_acknowledged == right->clear_signal_acknowledged &&
+        left->disconnect_approved == right->disconnect_approved &&
         strcmp(left->airport_ident, right->airport_ident) == 0 &&
         left->captions_enabled == right->captions_enabled &&
         left->caption_active == right->caption_active &&
@@ -171,6 +201,12 @@ normalize_raw(const ground_ops_raw_state_t *input)
     }
     if (raw.step < PB_STEP_OFF || raw.step >= PB_STEP_COUNT)
         raw.step = PB_STEP_OFF;
+    if (raw.step != PB_STEP_CLEAR_SIGNAL) {
+        raw.clear_signal_displayed = false;
+        raw.clear_signal_acknowledged = false;
+    }
+    if (raw.step != PB_STEP_WAITING4OK2DISCO)
+        raw.disconnect_approved = false;
     if (raw.prep_state < GROUND_OPS_PREP_AIRPORT_DATA ||
         raw.prep_state > GROUND_OPS_PREP_COMPLETE)
         raw.prep_state = GROUND_OPS_PREP_AIRPORT_DATA;
@@ -423,9 +459,15 @@ map_step(const ground_ops_raw_state_t *raw,
             "Wait for nose-gear release", false);
         break;
     case PB_STEP_WAITING4OK2DISCO:
+        if (raw->disconnect_approved) {
+            set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "CONFIRMED",
+                "Disconnect confirmed", "Ground crew is preparing to move",
+                "Wait for tug clearance", false);
+            break;
+        }
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "READY",
             "Ready to disconnect", "Ground crew is awaiting approval",
-            "Verify tug disconnection", true);
+            "Cleared to disconnect", true);
         set_actions(snapshot, GROUND_OPS_ACTION_DISCONNECT_TUG,
             "Disconnect tug", GROUND_OPS_ACTION_RECONNECT_TUG,
             "Reconnect");
@@ -447,14 +489,25 @@ map_step(const ground_ops_raw_state_t *raw,
             "Monitor ground crew", false);
         break;
     case PB_STEP_CLEAR_SIGNAL:
-        set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "CLEAR",
-            "Clear signal displayed", "Pin and equipment are clear",
-            "Verify the clear signal", false);
+        if (raw->clear_signal_acknowledged) {
+            set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "CONFIRMED",
+                "Clear signal acknowledged", "Ground crew will depart shortly",
+                "Wait for tug departure", false);
+        } else {
+            set_view(snapshot, GROUND_OPS_STAGE_CLEAR,
+                raw->clear_signal_displayed ? "PILOT ACTION" : "CLEAR",
+                "Clear signal displayed", "Pin and equipment are clear",
+                "Verify the clear signal", raw->clear_signal_displayed);
+            if (raw->clear_signal_displayed) {
+                set_actions(snapshot, GROUND_OPS_ACTION_ACKNOWLEDGE_CLEAR,
+                    "Acknowledge", GROUND_OPS_ACTION_NONE, "");
+            }
+        }
         break;
     case PB_STEP_DRIVING_AWAY:
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
             "Tug returning to station", "Aircraft area is being cleared",
-            "Monitor final tug clearance", false);
+            "Finalize cockpit checklist", false);
         break;
     case PB_STEP_OFF:
     default:
@@ -500,14 +553,14 @@ build_snapshot(const ground_ops_raw_state_t *raw,
         (void)snprintf(snapshot->speed, sizeof(snapshot->speed),
             "Speed %.1f m/s", raw->speed_tenths_mps / 10.0);
     } else {
-        copy_text(snapshot->speed, sizeof(snapshot->speed), "Speed —");
+        copy_text(snapshot->speed, sizeof(snapshot->speed), "Speed --");
     }
     if (raw->distance_valid) {
         (void)snprintf(snapshot->distance, sizeof(snapshot->distance),
             "Remaining %d m", raw->distance_m);
     } else {
         copy_text(snapshot->distance, sizeof(snapshot->distance),
-            "Remaining —");
+            "Remaining --");
     }
 
     snapshot->caption_visible = raw->caption_active;

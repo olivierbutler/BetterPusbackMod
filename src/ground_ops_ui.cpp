@@ -31,8 +31,10 @@
 #include "ground_ops_state.h"
 #include "ground_ops_ui.h"
 #include "ground_ops_window_state.h"
+#include "ground_ops_text_fit.h"
 #include "msg.h"
 #include "ui_runtime.h"
+#include "ui_click_sound.h"
 #include "xplane.h"
 
 namespace {
@@ -60,6 +62,7 @@ enum class UiAction {
     ResumePush,
     DisconnectTug,
     ReconnectTug,
+    AcknowledgeClear,
     ArmEndOperation,
     CancelEndOperation,
     ConfirmEndOperation
@@ -91,6 +94,7 @@ static XPLMDataRef temperature_ref = nullptr;
 static XPLMDataRef qnh_ref = nullptr;
 static XPLMCommandRef disconnect_tug_cmd = nullptr;
 static XPLMCommandRef reconnect_tug_cmd = nullptr;
+static XPLMCommandRef acknowledge_clear_cmd = nullptr;
 static bool_t initialized = B_FALSE;
 static bool_t ui_enabled = B_TRUE;
 static bool_t captions_enabled = B_TRUE;
@@ -117,6 +121,20 @@ static ground_ops_data_snapshot_t data_context = {};
 static bool local_data_logged = false;
 static bool end_confirmation_armed = false;
 static char airport_ident[8] = {};
+
+struct CompactRest {
+    bool valid = false;
+    int mode = 0, monitor = 0, side = 0;
+    ground_ops_rect_t offset = {};
+};
+static CompactRest compact_rest[64];
+struct ExpansionOrigin {
+    bool valid = false;
+    ground_ops_rect_t compact = {}, expanded = {};
+};
+static ExpansionOrigin expansion_origin[2];
+static ground_ops_rect_t last_polled_rect = {};
+static bool have_polled_rect = false;
 
 static void queue_action(UiAction action);
 static void note_draw(ground_ops_presentation_t mode, uint64_t elapsed_us);
@@ -316,6 +334,9 @@ collect_raw_state(void)
     raw.replan_available = (bp_can_replan() != B_FALSE);
     raw.pause_requested = (bp_pause_is_requested() != B_FALSE);
     raw.pause_held = (bp_pause_is_held() != B_FALSE);
+    raw.clear_signal_displayed = bp.clear_signal_gate.displayed;
+    raw.clear_signal_acknowledged = bp.clear_signal_gate.acknowledged;
+    raw.disconnect_approved = bp.ok2disco != B_FALSE;
     ground_ops_data_format(&data_context, context_now_s(), &data);
     (void)std::snprintf(raw.airport_ident, sizeof(raw.airport_ident), "%s",
         airport_ident);
@@ -439,6 +460,21 @@ recover_rect(ground_ops_rect_t *rect, int width, int height,
 
     if (recovered)
         geometry_recoveries++;
+    int monitor_id = ground_ops_rect_monitor(rect, collection.monitors, collection.count);
+    bool clamped = false;
+    for (size_t i = 0; i < collection.count; ++i) {
+        if (collection.monitors[i].id == monitor_id) {
+            ground_ops_rect_clamp(rect, &collection.monitors[i], 0);
+            clamped = true;
+            break;
+        }
+    }
+    if (!clamped && collection.count != 0) {
+        size_t target = 0;
+        for (size_t i = 0; i < collection.count; ++i)
+            if (collection.monitors[i].id == preferred_monitor) target = i;
+        ground_ops_rect_clamp(rect, &collection.monitors[target], 0);
+    }
     return (recovered ? B_TRUE : B_FALSE);
 }
 
@@ -465,6 +501,66 @@ update_preferred_monitor(const ground_ops_rect_t &rect,
         preferred_monitor = monitor;
 }
 
+static const ground_ops_monitor_t *
+rect_monitor(const ground_ops_rect_t &rect, const MonitorCollection &collection)
+{
+    int id = ground_ops_rect_monitor(&rect, collection.monitors, collection.count);
+    for (size_t i = 0; i < collection.count; ++i)
+        if (collection.monitors[i].id == id) return &collection.monitors[i];
+    for (size_t i = 0; i < collection.count; ++i)
+        if (collection.monitors[i].id == preferred_monitor) return &collection.monitors[i];
+    return collection.count ? &collection.monitors[0] : nullptr;
+}
+
+static CompactRest *
+find_rest(int mode, int monitor, int side, bool create)
+{
+    CompactRest *empty = nullptr;
+    for (auto &rest : compact_rest) {
+        if (rest.valid && rest.mode == mode && rest.monitor == monitor && rest.side == side)
+            return &rest;
+        if (!rest.valid && empty == nullptr) empty = &rest;
+    }
+    if (!create || empty == nullptr) return nullptr;
+    empty->valid = true;
+    empty->mode = mode;
+    empty->monitor = monitor;
+    empty->side = side;
+    return empty;
+}
+
+static void
+remember_compact_rest(const ground_ops_rect_t &rect, bool os_coordinates)
+{
+    if (presentation != GROUND_OPS_PRESENTATION_ORB) return;
+    MonitorCollection collection = collect_monitors(os_coordinates);
+    const ground_ops_monitor_t *monitor = rect_monitor(rect, collection);
+    if (monitor == nullptr) return;
+    CompactRest *rest = find_rest(os_coordinates ? 1 : 0, monitor->id,
+        ground_ops_rect_nearest_right(&rect, monitor), true);
+    if (rest == nullptr) return;
+    rest->offset = {rect.left - monitor->bounds.left,
+        monitor->bounds.top - rect.top, 0, 0};
+}
+
+static void
+collapse_rect(ground_ops_rect_t &rect, int width, int height, bool os_coordinates)
+{
+    MonitorCollection collection = collect_monitors(os_coordinates);
+    const ground_ops_monitor_t *monitor = rect_monitor(rect, collection);
+    if (monitor == nullptr) return;
+    const ExpansionOrigin &origin = expansion_origin[os_coordinates ? 1 : 0];
+    // Expansion alone must not move a remembered rail across the midpoint.
+    if (origin.valid && ground_ops_rect_restore_compact(&rect, width, height,
+        monitor, &origin.expanded, &origin.compact)) {
+        return;
+    }
+    CompactRest *rest = find_rest(os_coordinates ? 1 : 0, monitor->id,
+        ground_ops_rect_nearest_right(&rect, monitor), false);
+    ground_ops_rect_dock(&rect, width, height, monitor,
+        rest != nullptr ? &rest->offset : nullptr);
+}
+
 class GroundOpsWindow : public XPImgWindow {
 public:
     GroundOpsWindow(ground_ops_presentation_t initial_presentation,
@@ -482,16 +578,36 @@ public:
 
     void set_presentation(ground_ops_presentation_t next)
     {
+        reset_interaction();
         current_presentation = next;
         apply_presentation_contract();
     }
 
     void set_popped_out(bool value)
     {
+        reset_interaction();
         popped_out = value;
     }
 
+    void SetVisible(bool visible) override
+    {
+        reset_interaction();
+        XPImgWindow::SetVisible(visible);
+    }
+
 protected:
+    void constrainWindowDrag(int x, int y, int &left, int &top,
+        int &right, int &bottom) override
+    {
+        MonitorCollection collection = collect_monitors(false);
+        ground_ops_rect_t pointer = {x, y, x, y};
+        const ground_ops_monitor_t *monitor = rect_monitor(pointer, collection);
+        if (monitor == nullptr) return;
+        ground_ops_rect_t rect = {left, top, right, bottom};
+        ground_ops_rect_clamp(&rect, monitor, 0);
+        left = rect.left; top = rect.top; right = rect.right; bottom = rect.bottom;
+    }
+
     ImGuiWindowFlags_ beforeBegin() override
     {
         ImGui::SetNextWindowBgAlpha(0.0f);
@@ -518,6 +634,15 @@ private:
     bool popped_out;
     bool orb_press_active = false;
     ground_ops_rect_t orb_press_rect = {};
+    ground_ops_dwell_t collapse_dwell = {};
+    bool hover_needs_leave = true;
+
+    void reset_interaction()
+    {
+        orb_press_active = false;
+        collapse_dwell = {};
+        hover_needs_leave = true;
+    }
 
     static float scaled(float value)
     {
@@ -576,19 +701,9 @@ private:
     static float fit_text_size(float preferred_size, float minimum_size,
         float width, float height, const char *text, bool wrap)
     {
-        const float scaled_width = scaled(width);
-        const float scaled_height = scaled(height);
-        const float wrap_width = wrap ? scaled_width : 0.0f;
-
-        for (float size = preferred_size; size >= minimum_size;
-            size -= 0.5f) {
-            ImVec2 measured = ImGui::GetFont()->CalcTextSizeA(scaled(size),
-                FLT_MAX, wrap_width, text);
-
-            if (measured.x <= scaled_width && measured.y <= scaled_height)
-                return (size);
-        }
-        return (minimum_size);
+        return ground_ops_fit_text_size(ImGui::GetFont(),
+            static_cast<float>(ground_ops_ui_scale()), preferred_size,
+            minimum_size, width, height, text, wrap);
     }
 
     static void draw_text_fitted(ImDrawList *draw, float preferred_size,
@@ -653,7 +768,7 @@ private:
         draw->PopClipRect();
     }
 
-    static bool icon_button(ImDrawList *draw, const char *id, float x,
+    bool icon_button(ImDrawList *draw, const char *id, float x,
         float y, const char *icon, const char *help)
     {
         const ImVec2 size = point(25.0f, 27.0f);
@@ -661,41 +776,88 @@ private:
         const ImU32 foreground = IM_COL32(181, 191, 199, 255);
 
         ImGui::SetCursorPos(point(x, y));
-        bool pressed = ImGui::InvisibleButton(id, size);
-        if (ImGui::IsItemHovered())
+        bool pressed = ImGui::InvisibleButton(id, size) &&
+            pointerTravelPixels() <= ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD);
+        if (ImGui::IsItemHovered() || ImGui::IsItemActive())
             draw->AddRectFilled(point(x, y),
-                ImVec2(scaled(x) + size.x, scaled(y) + size.y), hovered,
+                ImVec2(scaled(x) + size.x, scaled(y) + size.y),
+                ImGui::IsItemActive() ? IM_COL32(61, 92, 110, 255) : hovered,
                 scaled(7.0f));
-        ImVec2 measured = measure_text(13.0f, icon);
-        draw->AddText(ImGui::GetFont(), scaled(13.0f),
-            ImVec2(scaled(x) + (size.x - measured.x) / 2.0f,
-            scaled(y) + (size.y - measured.y) / 2.0f), foreground, icon);
+        if (icon[0] == 'O' || icon[0] == 'I') {
+            draw->AddRect(point(x + 6, y + 10), point(x + 17, y + 21),
+                foreground, 0, 0, scaled(1.3f));
+            ImVec2 a = point(x + 11, y + 15), b = point(x + 20, y + 6);
+            draw->AddLine(a, b, foreground, scaled(1.3f));
+            if (icon[0] == 'O') {
+                draw->AddLine(point(x + 14, y + 6), b, foreground, scaled(1.3f));
+                draw->AddLine(b, point(x + 20, y + 12), foreground, scaled(1.3f));
+            } else {
+                draw->AddLine(a, point(x + 11, y + 9), foreground, scaled(1.3f));
+                draw->AddLine(a, point(x + 17, y + 15), foreground, scaled(1.3f));
+            }
+        } else if (icon[0] == '-') {
+            draw->AddLine(point(x + 7, y + 15), point(x + 19, y + 15),
+                foreground, scaled(1.5f));
+            bool hover = ImGui::IsItemHovered();
+            if (!hover) hover_needs_leave = false;
+            bool eligible = hover && !hover_needs_leave &&
+                !ImGui::IsAnyMouseDown() && pending_action == UiAction::None;
+            if (ground_ops_dwell_update(&collapse_dwell, eligible, context_now_s()))
+                queue_action(UiAction::ShowOrb); // Hover alone is deliberately silent.
+            if (collapse_dwell.tracking && !collapse_dwell.fired) {
+                float progress = static_cast<float>((context_now_s() -
+                    collapse_dwell.entered) / GROUND_OPS_COLLAPSE_DWELL_SECONDS);
+                draw->AddLine(point(x + 4, y + 25), point(x + 4 + 17 * progress, y + 25),
+                    foreground, scaled(1.2f));
+            }
+        } else {
+            draw->AddLine(point(x + 8, y + 10), point(x + 17, y + 19), foreground, scaled(1.3f));
+            draw->AddLine(point(x + 17, y + 10), point(x + 8, y + 19), foreground, scaled(1.3f));
+        }
+        if (pressed) bp_ui_click_play();
         tooltip(help);
         return (pressed);
     }
 
-    static bool action_button(ImDrawList *draw, const char *id,
-        float x, float y, float width, const char *label, bool destructive,
+    bool action_button(ImDrawList *draw, const char *id,
+        float x, float y, float width, const char *label,
+        ground_ops_button_style_t style,
         const char *help)
     {
         const ImVec2 size = point(width, 35.0f);
-        ImU32 fill = destructive ? IM_COL32(76, 42, 38, 255) :
+        const bool required = style == GROUND_OPS_BUTTON_REQUIRED;
+        const bool destructive = style == GROUND_OPS_BUTTON_DESTRUCTIVE;
+        ImU32 fill = required ? IM_COL32(244, 197, 66, 255) :
+            destructive ? IM_COL32(76, 42, 38, 255) :
             IM_COL32(25, 67, 84, 255);
-        ImU32 hovered = destructive ? IM_COL32(105, 52, 45, 255) :
-            IM_COL32(31, 88, 110, 255);
-        ImU32 border = destructive ? IM_COL32(210, 107, 83, 255) :
+        ImU32 hovered = required ? IM_COL32(255, 220, 108, 255) :
+            destructive ? IM_COL32(133, 68, 56, 255) :
+            IM_COL32(40, 113, 142, 255);
+        ImU32 active = required ? IM_COL32(218, 164, 37, 255) :
+            destructive ? IM_COL32(165, 85, 62, 255) :
+            IM_COL32(61, 145, 170, 255);
+        ImU32 border = required ? IM_COL32(255, 223, 122, 255) :
+            destructive ? IM_COL32(210, 107, 83, 255) :
             IM_COL32(79, 151, 180, 255);
-        ImU32 foreground = destructive ? IM_COL32(255, 210, 199, 255) :
+        ImU32 foreground = required ? IM_COL32(30, 29, 23, 255) :
+            destructive ? IM_COL32(255, 210, 199, 255) :
             IM_COL32(220, 239, 247, 255);
 
         ImGui::SetCursorPos(point(x, y));
-        bool pressed = ImGui::InvisibleButton(id, size);
+        bool pressed = ImGui::InvisibleButton(id, size) &&
+            pointerTravelPixels() <= ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD);
+        ImGuiID feedback_id = ImGui::GetID(id);
+        if (pressed) {
+            ImGui::GetStateStorage()->SetFloat(feedback_id, static_cast<float>(ImGui::GetTime() + 0.18));
+            bp_ui_click_play();
+        }
+        bool lit = ImGui::IsItemActive() || ImGui::GetStateStorage()->GetFloat(feedback_id) > ImGui::GetTime();
         draw->AddRectFilled(point(x, y), point(x + width, y + 35.0f),
-            ImGui::IsItemHovered() ? hovered : fill, scaled(6.0f));
+            lit ? active : ImGui::IsItemHovered() ? hovered : fill, scaled(6.0f));
         draw->AddRect(point(x, y), point(x + width, y + 35.0f), border,
-            scaled(6.0f), 0, scaled(1.0f));
+            scaled(6.0f), 0, scaled(lit ? 2.0f : 1.0f));
         draw_text_centered_fitted(draw, 10.5f, 7.0f,
-            x + width / 2.0f, y + 10.0f, width - 12.0f, 14.0f,
+            x + width / 2.0f, y + (ImGui::IsItemActive() ? 11.0f : 10.0f), width - 12.0f, 14.0f,
             foreground, label);
         tooltip(help);
         return (pressed);
@@ -720,6 +882,8 @@ private:
             return (UiAction::DisconnectTug);
         case GROUND_OPS_ACTION_RECONNECT_TUG:
             return (UiAction::ReconnectTug);
+        case GROUND_OPS_ACTION_ACKNOWLEDGE_CLEAR:
+            return (UiAction::AcknowledgeClear);
         case GROUND_OPS_ACTION_END_DISCONNECT:
             return (UiAction::ArmEndOperation);
         case GROUND_OPS_ACTION_NONE:
@@ -767,7 +931,7 @@ private:
                 current_text : future_text;
 
             if (index != 0) {
-                draw->AddLine(point(29, center_y - 40),
+                draw->AddLine(point(29, center_y - 26),
                     point(29, center_y - 7),
                     snapshot->stages[index - 1] == GROUND_OPS_STAGE_COMPLETE ?
                     complete : connector, scaled(2.0f));
@@ -805,8 +969,10 @@ private:
             int dy = current.top - orb_press_rect.top;
 
             if (ground_ops_click_is_activation(dx, dy,
-                ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD))) {
+                ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD)) &&
+                pointerTravelPixels() <= ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD)) {
                 click_expansions++;
+                bp_ui_click_play();
                 queue_action(UiAction::ShowPanel);
             } else {
                 drag_suppressions++;
@@ -815,7 +981,7 @@ private:
         }
         if (!ImGui::IsMouseDown(0) && !pressed)
             orb_press_active = false;
-        tooltip(snapshot->hover);
+        // Compact view intentionally has no tooltip; the rail is too narrow.
     }
 
     void draw_panel()
@@ -844,8 +1010,7 @@ private:
 
         if (snapshot == nullptr)
             return;
-        highlight_task = snapshot->action_required &&
-            snapshot->primary_action != GROUND_OPS_ACTION_DISCONNECT_TUG;
+        highlight_task = snapshot->action_required;
 
         draw->AddRectFilled(point(3, 4),
             point(GROUND_OPS_PANEL_WIDTH, GROUND_OPS_PANEL_HEIGHT),
@@ -888,7 +1053,7 @@ private:
             "Pop out to an operating-system window"))
             queue_action(UiAction::ToggleWindowMode);
         if (icon_button(draw, "##ground_ops_collapse", 234, 9,
-            "^", "Collapse to the five-stage progress rail"))
+            "-", "Click, or hover here for one second, to collapse"))
             queue_action(UiAction::ShowOrb);
         if (icon_button(draw, "##ground_ops_hide", 263, 9,
             "X", "Hide Ground Operations"))
@@ -909,7 +1074,7 @@ private:
                 amber : blue_text;
 
             if (index != 0) {
-                draw->AddLine(point(30, center_y - 39),
+                draw->AddLine(point(30, center_y - 25),
                     point(30, center_y - 7),
                     snapshot->stages[index - 1] == GROUND_OPS_STAGE_COMPLETE ?
                     green : rule, scaled(2.0f));
@@ -933,6 +1098,14 @@ private:
             draw_text_centered(draw, 10.0f, 30.0f, center_y + 9.0f,
                 label, stages[index]);
         }
+
+        ImGui::SetCursorPos(point(2, 99));
+        if (ImGui::InvisibleButton("##ground_ops_panel_rail", point(57, 251)) &&
+            pointerTravelPixels() <= ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD)) {
+            bp_ui_click_play();
+            queue_action(UiAction::ShowOrb);
+        }
+        tooltip("Click the progress rail to collapse Ground Operations");
 
         draw->AddRectFilled(point(73, 116), point(108, 151), blue_panel,
             scaled(9.0f));
@@ -967,18 +1140,18 @@ private:
         }
         draw_text_fitted(draw, 10.0f, 8.0f, 84, 290, 184, 12,
             highlight_task ? amber : secondary,
-            highlight_task ? "PILOT ACTION" : "CURRENT TASK");
+            snapshot->action_required ? "PILOT ACTION" : "CURRENT TASK");
         draw_text_fitted(draw, 10.5f, 6.5f, 84, 304, 184, 27, primary,
             snapshot->current_task, true);
 
         if (end_confirmation_armed) {
             if (action_button(draw, "##ground_ops_keep", 73, 342, 99,
-                "Keep operation", false,
+                "Keep operation", GROUND_OPS_BUTTON_SECONDARY,
                 "Cancel; keep the route and tug connected")) {
                 queue_action(UiAction::CancelEndOperation);
             }
             if (action_button(draw, "##ground_ops_confirm_end", 180, 342,
-                99, "Confirm end", true,
+                99, "Confirm end", GROUND_OPS_BUTTON_DESTRUCTIVE,
                 "Stop completely, discard the route, and disconnect")) {
                 queue_action(UiAction::ConfirmEndOperation);
             }
@@ -988,7 +1161,8 @@ private:
             float primary_width = have_secondary ? 99.0f : 206.0f;
 
             if (action_button(draw, "##ground_ops_primary", 73, 342,
-                primary_width, snapshot->primary_action_label, false,
+                primary_width, snapshot->primary_action_label,
+                ground_ops_button_style(snapshot, snapshot->primary_action),
                 snapshot->primary_action == GROUND_OPS_ACTION_PAUSE ?
                 "Controlled stop; route and steering state are retained" :
                 snapshot->primary_action == GROUND_OPS_ACTION_RESUME ?
@@ -1002,8 +1176,7 @@ private:
             if (have_secondary && action_button(draw,
                 "##ground_ops_secondary", 180, 342, 99,
                 snapshot->secondary_action_label,
-                snapshot->secondary_action ==
-                GROUND_OPS_ACTION_END_DISCONNECT,
+                ground_ops_button_style(snapshot, snapshot->secondary_action),
                 snapshot->secondary_action ==
                 GROUND_OPS_ACTION_RECONNECT_TUG ?
                 "Reconnect the tug and return to route planning" :
@@ -1103,6 +1276,41 @@ load_preferences(void)
         "ground_ops_float_bottom", &float_rect);
     have_os_rect = load_rect("ground_ops_os_left", "ground_ops_os_top",
         "ground_ops_os_right", "ground_ops_os_bottom", &os_rect);
+    for (int mode = 0; mode < 2; ++mode) {
+        ExpansionOrigin &origin = expansion_origin[mode];
+        origin = {};
+        int values[8] = {};
+        bool found = true;
+        for (int field = 0; field < 8; ++field) {
+            char key[64];
+            std::snprintf(key, sizeof(key), "ground_ops_expansion_%d_%d", mode, field);
+            found = conf_get_i(bp_conf, key, &values[field]) && found;
+            if (values[field] < -100000 || values[field] > 100000) found = false;
+        }
+        if (found && values[2] > values[0] && values[1] > values[3] &&
+            values[6] > values[4] && values[5] > values[7]) {
+            origin.valid = true;
+            origin.compact = {values[0], values[1], values[2], values[3]};
+            origin.expanded = {values[4], values[5], values[6], values[7]};
+        }
+    }
+    for (size_t i = 0; i < 64; ++i) {
+        compact_rest[i] = {};
+        char key[64];
+        int values[5] = {};
+        bool found = true;
+        for (int field = 0; field < 5; ++field) {
+            std::snprintf(key, sizeof(key), "ground_ops_rest_%u_%d", static_cast<unsigned>(i), field);
+            found = conf_get_i(bp_conf, key, &values[field]) && found;
+        }
+        if (found && ground_ops_window_mode_valid(values[0]) &&
+            values[2] >= 0 && values[2] <= 1 &&
+            values[3] >= 0 && values[3] < 100000 && values[4] >= 0 && values[4] < 100000) {
+            CompactRest &rest = compact_rest[i];
+            rest.valid = true; rest.mode = values[0]; rest.monitor = values[1]; rest.side = values[2];
+            rest.offset = {values[3], values[4], 0, 0};
+        }
+    }
 }
 
 static void
@@ -1126,6 +1334,28 @@ persist_preferences(bool write_file)
         (void)conf_set_i(bp_conf, "ground_ops_os_bottom", os_rect.bottom);
     }
     /* Do not turn hiding the UI into an implicit Save Preferences action. */
+    for (int mode = 0; mode < 2; ++mode) {
+        const ExpansionOrigin &origin = expansion_origin[mode];
+        if (!origin.valid) continue;
+        const int values[] = {origin.compact.left, origin.compact.top,
+            origin.compact.right, origin.compact.bottom, origin.expanded.left,
+            origin.expanded.top, origin.expanded.right, origin.expanded.bottom};
+        for (int field = 0; field < 8; ++field) {
+            char key[64];
+            std::snprintf(key, sizeof(key), "ground_ops_expansion_%d_%d", mode, field);
+            (void)conf_set_i(bp_conf, key, values[field]);
+        }
+    }
+    for (size_t i = 0; i < 64; ++i) {
+        const CompactRest &rest = compact_rest[i];
+        if (!rest.valid) continue;
+        const int values[] = {rest.mode, rest.monitor, rest.side, rest.offset.left, rest.offset.top};
+        for (int field = 0; field < 5; ++field) {
+            char key[64];
+            std::snprintf(key, sizeof(key), "ground_ops_rest_%u_%d", static_cast<unsigned>(i), field);
+            (void)conf_set_i(bp_conf, key, values[field]);
+        }
+    }
     if (write_file && !get_pref_widget_status())
         (void)bp_conf_save();
 }
@@ -1137,6 +1367,8 @@ capture_geometry(void)
         return;
     ground_ops_rect_t current = to_rect(
         ground_window->GetCurrentWindowGeometry());
+    if (ground_window->IsInVR()) return;
+    remember_compact_rest(current, window_mode == GROUND_OPS_WINDOW_POPOUT);
 
     if (window_mode == GROUND_OPS_WINDOW_POPOUT) {
         os_rect = current;
@@ -1169,9 +1401,12 @@ apply_presentation_geometry(ground_ops_presentation_t next)
 {
     int old_width, old_height, new_width, new_height;
 
-    if (ground_window == nullptr)
+    if (ground_window == nullptr || presentation == next)
         return;
     capture_geometry();
+    bool expanding = presentation == GROUND_OPS_PRESENTATION_ORB &&
+        next == GROUND_OPS_PRESENTATION_PANEL;
+    ground_ops_rect_t origin_rect = window_mode == GROUND_OPS_WINDOW_POPOUT ? os_rect : float_rect;
     ground_ops_presentation_size(presentation, &old_width, &old_height);
     ground_ops_presentation_size(next, &new_width, &new_height);
 
@@ -1182,6 +1417,11 @@ apply_presentation_geometry(ground_ops_presentation_t next)
      */
     presentation = next;
     ground_window->set_presentation(next);
+    have_polled_rect = false;
+    if (ground_window->IsInVR()) {
+        ground_window->SetWindowGeometryVR(new_width, new_height);
+        return;
+    }
 
     if (window_mode == GROUND_OPS_WINDOW_POPOUT) {
         int pixel_width = os_rect.right - os_rect.left;
@@ -1195,15 +1435,25 @@ apply_presentation_geometry(ground_ops_presentation_t next)
         int next_pixel_height = static_cast<int>(std::lround(
             new_height * vertical_scale));
 
-        (void)resize_rect_visible(&os_rect, next_pixel_width,
-            next_pixel_height, true, 0);
+        if (next == GROUND_OPS_PRESENTATION_ORB)
+            collapse_rect(os_rect, next_pixel_width, next_pixel_height, true);
+        else
+            (void)resize_rect_visible(&os_rect, next_pixel_width, next_pixel_height, true, 0);
         ground_window->SetWindowGeometryOS(os_rect.left, os_rect.top,
             os_rect.right, os_rect.bottom);
     } else {
-        (void)resize_rect_visible(&float_rect, new_width, new_height, false,
-            0);
+        if (next == GROUND_OPS_PRESENTATION_ORB)
+            collapse_rect(float_rect, new_width, new_height, false);
+        else
+            (void)resize_rect_visible(&float_rect, new_width, new_height, false, 0);
         ground_window->SetWindowGeometry(float_rect.left, float_rect.top,
             float_rect.right, float_rect.bottom);
+    }
+    if (expanding) {
+        ExpansionOrigin &origin = expansion_origin[window_mode];
+        origin.valid = true;
+        origin.compact = origin_rect;
+        origin.expanded = window_mode == GROUND_OPS_WINDOW_POPOUT ? os_rect : float_rect;
     }
 }
 
@@ -1300,11 +1550,12 @@ toggle_window_mode(void)
         window_mode = GROUND_OPS_WINDOW_POPOUT;
         ground_window->set_popped_out(true);
         if (have_os_rect) {
-            int width = os_rect.right - os_rect.left;
-            int height = os_rect.top - os_rect.bottom;
+            ground_ops_rect_t newly_popped = to_rect(ground_window->GetCurrentWindowGeometry());
+            int width = newly_popped.right - newly_popped.left;
+            int height = newly_popped.top - newly_popped.bottom;
 
             if (width > 0 && height > 0) {
-                recover_rect(&os_rect, width, height, true);
+                (void)resize_rect_visible(&os_rect, width, height, true, 0);
                 ground_window->SetWindowGeometryOS(os_rect.left, os_rect.top,
                     os_rect.right, os_rect.bottom);
             }
@@ -1318,6 +1569,7 @@ toggle_window_mode(void)
         ground_window->SetWindowGeometry(float_rect.left, float_rect.top,
             float_rect.right, float_rect.bottom);
     }
+    have_polled_rect = false;
     persist_preferences(false);
     logMsg(BP_INFO_LOG "Ground Ops UI moved to %s mode",
         window_mode == GROUND_OPS_WINDOW_POPOUT ? "popout" : "floating");
@@ -1387,6 +1639,12 @@ process_action(UiAction action)
         else
             logMsg(BP_ERROR_LOG "Ground Ops reconnect command unavailable");
         break;
+    case UiAction::AcknowledgeClear:
+        if (acknowledge_clear_cmd != nullptr)
+            XPLMCommandOnce(acknowledge_clear_cmd);
+        else
+            logMsg(BP_ERROR_LOG "Ground Ops acknowledgement command unavailable");
+        break;
     case UiAction::ArmEndOperation:
         end_confirmation_armed = true;
         break;
@@ -1426,6 +1684,30 @@ manager_callback(float elapsed, float elapsed_flight, int counter,
         refresh_snapshot();
         geometry_poll_elapsed += elapsed;
         if (geometry_poll_elapsed >= GEOMETRY_POLL_SECONDS) {
+            if (!ground_window->IsInVR()) {
+                ground_ops_rect_t rect = to_rect(ground_window->GetCurrentWindowGeometry());
+                bool settled = have_polled_rect &&
+                    rect.left == last_polled_rect.left && rect.top == last_polled_rect.top &&
+                    rect.right == last_polled_rect.right && rect.bottom == last_polled_rect.bottom;
+                last_polled_rect = rect;
+                have_polled_rect = true;
+                /* Native OS dragging is left to X-Plane; recover after it settles,
+                 * so crossing a physical monitor boundary is never trapped. */
+                if (window_mode != GROUND_OPS_WINDOW_POPOUT || settled) {
+                    MonitorCollection collection = collect_monitors(window_mode == GROUND_OPS_WINDOW_POPOUT);
+                    const ground_ops_monitor_t *monitor = rect_monitor(rect, collection);
+                    if (monitor != nullptr) {
+                        ground_ops_rect_clamp(&rect, monitor, 0);
+                        if (rect.left != last_polled_rect.left || rect.top != last_polled_rect.top) {
+                            if (window_mode == GROUND_OPS_WINDOW_POPOUT)
+                                ground_window->SetWindowGeometryOS(rect.left, rect.top, rect.right, rect.bottom);
+                            else
+                                ground_window->SetWindowGeometry(rect.left, rect.top, rect.right, rect.bottom);
+                            geometry_recoveries++;
+                        }
+                    }
+                }
+            }
             capture_geometry();
             geometry_poll_elapsed = 0;
         }
@@ -1455,8 +1737,10 @@ ground_ops_ui_init(void)
         return (B_TRUE);
 
     load_preferences();
+    bp_ui_click_init();
     disconnect_tug_cmd = XPLMFindCommand("BetterPushback/disconnect");
     reconnect_tug_cmd = XPLMFindCommand("BetterPushback/reconnect");
+    acknowledge_clear_cmd = XPLMFindCommand("BetterPushback/acknowledge_clear");
     if (disconnect_tug_cmd == nullptr || reconnect_tug_cmd == nullptr) {
         logMsg(BP_ERROR_LOG "Ground Ops disconnect controls unavailable: "
             "BetterPushback commands were not registered");
@@ -1517,6 +1801,7 @@ ground_ops_ui_init(void)
 extern "C" void
 ground_ops_ui_fini(void)
 {
+    bp_ui_click_fini();
     if (!initialized)
         return;
     if (ground_window != nullptr) {
@@ -1545,6 +1830,8 @@ ground_ops_ui_fini(void)
     qnh_ref = nullptr;
     disconnect_tug_cmd = nullptr;
     reconnect_tug_cmd = nullptr;
+    acknowledge_clear_cmd = nullptr;
+    have_polled_rect = false;
     pending_action = UiAction::None;
     planner_suspended = B_FALSE;
     legacy_gate_hidden = B_FALSE;
