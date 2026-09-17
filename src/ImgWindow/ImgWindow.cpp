@@ -455,6 +455,10 @@ ImgWindow::HandleMouseClickGeneric(int x, int y, XPLMMouseStatus inMouse, int bu
             
         case xplm_MouseDrag:
             io.MouseDown[button] = true;
+            if (button == 0) {
+                pointerTravel = std::max(pointerTravel,
+                    std::max(std::abs(x - pointerDownX), std::abs(y - pointerDownY)));
+            }
 
             // Any kind of self-dragging/resizing only happens with a floating window in the sim
             if (button == 0 &&              // left button
@@ -499,6 +503,7 @@ ImgWindow::HandleMouseClickGeneric(int x, int y, XPLMMouseStatus inMouse, int bu
                 }
 
                 // Change window geometry
+                constrainWindowDrag(x, y, mLeft, mTop, mRight, mBottom);
                 SetWindowGeometry(mLeft, mTop, mRight, mBottom);
                 // now that the window has moved under the mouse we need to update relative mouse pos
                 translateToImguiSpace(x, y, io.MousePos.x, io.MousePos.y);
@@ -510,6 +515,11 @@ ImgWindow::HandleMouseClickGeneric(int x, int y, XPLMMouseStatus inMouse, int bu
 
         case xplm_MouseDown:
             io.MouseDown[button] = true;
+            if (button == 0) {
+                pointerDownX = x;
+                pointerDownY = y;
+                pointerTravel = 0;
+            }
             
             // Which part of the window would we drag, if any?
             dragWhat.clear();

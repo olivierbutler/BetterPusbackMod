@@ -1,7 +1,11 @@
 # Ground Operations UI Design
 
-Status: approved product direction; reconciled with owner review
-Last updated: 2026-09-04
+Status: contributor-tested corrections; final owner review pending
+Last updated: 2026-09-16
+
+Final local test evidence and platform limitations are recorded in
+`OWNER_REVIEW_CHECKLIST.md`. SDK modernization remains a separate advisory
+proposal in `SDK_440_REVIEW.md`; it is not implemented by these UI changes.
 
 ## Purpose
 
@@ -19,10 +23,10 @@ The approved interaction is:
 5. The existing overhead planner opens only when route review or editing is
    requested.
 
-The startup workflow is fixed: display parsed airport context and an amber
+The startup workflow is fixed: display parsed airport context and a yellow
 **Call tug** action immediately. There is no artificial dispatch timer. When
 the pilot presses the button, the ground crew approaches and captures the nose
-gear automatically, then stops before lift at the amber **Plan push** gate.
+gear automatically, then stops before lift at the yellow **Plan push** gate.
 Accepting a plan releases the controller into the lift and push sequence.
 
 The pilot always controls whether the information panel is expanded. Normal
@@ -53,8 +57,9 @@ cockpit.
 
 - No visible X-Plane window and no UI draw callback.
 - Available before a ground operation through the plugin menu and a command.
-- Automatically returns after the completed-operation timeout unless the pilot
-  has selected "keep compact rail visible."
+- The legacy visibility gate keeps the UI visible during an active operation.
+  After completion it hides when the aircraft is no longer on the ground below
+  1 m/s, and restores the same presentation when that condition is met again.
 
 ### Compact progress rail
 
@@ -69,8 +74,7 @@ cockpit.
 - A click expands the narrow panel.
 - Dragging moves the rail without expanding it. The implementation must use a
   small movement threshold to distinguish a click from a drag.
-- Hover text gives the full current status for pilots who do not want to expand
-  the panel.
+- Compact mode has no tooltips and never expands from hover; click to expand.
 - A red safety treatment may replace the normal current-stage highlight only
   while the tug is holding because of a safety stop or blocking condition.
 - No timer-based animation may imply progress while the operation is waiting.
@@ -81,11 +85,15 @@ cockpit.
   proportional 1.35 scale (394 by 567), including text and hit targets.
 - Narrow vertical layout with a five-stage rail on the left.
 - The upper-left grip/title region moves the window.
-- The upper-right control collapses directly to the compact rail.
-- The panel and compact rail share one saved anchor position.
+- Drawn pop-out/in, minus and close controls do not depend on font glyphs.
+- Click minus, dwell over minus for one uninterrupted second, or click the
+  progress rail to collapse. Brief flyovers/dragging do not collapse the panel.
+- First collapse docks to the nearest left/right edge. Compact resting
+  positions are movable and remembered per window mode, monitor and side.
 - When the rail touches the left edge, the panel expands rightward. When it
-  touches the right edge, the panel expands leftward. The complete title-bar
-  drag area must always remain visible.
+  touches the right edge, the panel expands leftward. The whole window is
+  constrained to the available monitor bounds when it fits. Native pop-out
+  recovery waits for the geometry to settle so cross-monitor dragging works.
 - Only the content for the current state is rendered.
 
 The panel is divided into:
@@ -164,14 +172,14 @@ states into it. The UI must never infer motion merely from a caption string.
 | `PB_STEP_CLOSING_CRADLE` | Clear | Closing the tug cradle | No |
 | `PB_STEP_STARTING2CLEAR` | Clear | Driver moving to clear | No |
 | `PB_STEP_MOVING2CLEAR` | Clear | Driver moving to clear | No |
-| `PB_STEP_CLEAR_SIGNAL` | Clear | Clear signal displayed | No |
-| `PB_STEP_DRIVING_AWAY` | Clear | Tug returning to station | No |
+| `PB_STEP_CLEAR_SIGNAL` | Clear | Clear signal displayed | Acknowledge the displayed pin/clear signal; departure also requires the original 15-second minimum |
+| `PB_STEP_DRIVING_AWAY` | Clear | Tug returning to station | Informational: Finalize cockpit checklist |
 
 Pre-push presentation remains separate from `bp.step`:
 
 | Pre-push state | UI stage | Live status |
 | --- | --- | --- |
-| Airport data | Tug | Parsed airport identifier; amber Call tug action |
+| Airport data | Tug | Parsed airport identifier; yellow Call tug action |
 | Planner review | Comms | Reviewing pushback plan |
 | Operation complete | Clear | All five stages complete |
 
@@ -194,7 +202,7 @@ The Phase 5 local-provider slice parses and displays the nearest airport,
 standard simulator Flight ID when available, and current simulator wind,
 temperature, and QNH. It labels the source and freshness explicitly. EOBT,
 METAR, and ATIS are not part of the active Ground Operations presentation. The
-UI immediately turns amber for the pilot's **Call tug** action. After that call,
+UI immediately offers the yellow **Call tug** action. After that call,
 approach and capture proceed with no second pilot gate until the controller is
 holding before lift.
 
@@ -207,7 +215,7 @@ control and stage labels so it does not depend on an icon font. Helper text
 requires a stationary delayed hover, uses no shared hover delay, and is removed
 on the first frame after the pointer leaves the control.
 
-Unavailable active data uses an em dash or an explicit "Unavailable" label.
+Unavailable active data uses ASCII `--` or an explicit "Unavailable" label.
 The UI must not fabricate a flight identity or weather value.
 
 ### Tug staged
@@ -266,8 +274,23 @@ confirmation because it can terminate the operation.
 - Driver presentation setting: left, ahead, or right.
 - Equipment-clear completion.
 
-After completion, all five rail stages are filled for the configured delay and
-then the rail hides by default.
+Disconnect approval uses the highlighted **PILOT ACTION** card with the task
+**Cleared to disconnect**, a yellow **Disconnect tug** button and secondary
+**Reconnect**. The clear-signal card retains **Verify the clear signal**, with a
+yellow **Acknowledge** button. Required task cards use an amber background,
+yellow heading and left accent. Optional controls retain secondary styling;
+destructive End operation confirmation retains its separate warning treatment.
+
+During departure, the neutral **CURRENT TASK** is **Finalize cockpit checklist**.
+After completion all five stages are green; visibility follows the legacy
+ground/speed gate, not an invented completion timer.
+
+Buttons provide hover, pressed and short activation feedback. Preferences has
+a **Button click volume** slider (0-100%, zero mutes), with preview on release.
+Adjustments apply immediately; Save preferences keeps them across reloads.
+Unset volume defaults to 35%; saved values and legacy mute take precedence.
+Click audio uses optional SDK sound functions and does not change crew/tug
+audio. Preferences remains unavailable during an active pushback.
 
 ### Emergency return tow
 
@@ -376,7 +399,7 @@ when simulator sound is disabled.
 
 The late-plan pre-lift hold is exposed explicitly rather than inferred from
 `PB_STEP_LIFTING`: once nose-gear capture is complete, the UI advances to Comms
-and shows the amber **Plan push** gate while lift position remains zero. After
+and shows the yellow **Plan push** gate while lift position remains zero. After
 plan acceptance, the same legacy enum continues into the physical lift.
 - Any worker thread blocks on a condition variable or timed job and never busy
   waits.

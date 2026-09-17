@@ -26,6 +26,7 @@
 #include <acfutils/types.h>
 
 #include "acf_outline.h"
+#include "clear_signal_gate.h"
 #include "driving.h"
 #include "pushback_step.h"
 #include "tug.h"
@@ -109,6 +110,7 @@ typedef struct {
 
     bool_t ok2disco;    /* user has ok'd disconnection */
     bool_t reconnect;    /* user has requested reconnection */
+    bp_clear_signal_gate_t clear_signal_gate;
 
     vect2_t start_pos;    /* where the pushback originated */
     double start_hdg;    /* which way we were facing at start */

@@ -254,6 +254,9 @@ protected:
      * X-Plane window draw call back returns
      * in case you want to do something that otherwise would conflict with rendering. */
     virtual void afterRendering() {}
+    // Optional application-specific bounds. Other ImgWindow users are unchanged.
+    virtual void constrainWindowDrag(int, int, int&, int&, int&, int&) {}
+    int pointerTravelPixels() const { return pointerTravel; }
 
     /** onShow() is called before making the Window visible.  It provides an
      * opportunity to prevent the window being shown.
@@ -377,6 +380,7 @@ private:
     /** Last (processed) mouse drag pos while moving/resizing */
     int lastMouseDragX  = -1;
     int lastMouseDragY  = -1;
+    int pointerDownX = 0, pointerDownY = 0, pointerTravel = 0;
     
     /** What are we dragging right now? */
     struct DragTy {

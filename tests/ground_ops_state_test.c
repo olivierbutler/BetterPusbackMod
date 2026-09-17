@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "ground_ops_state.h"
+#include "clear_signal_gate.h"
 
 static ground_ops_raw_state_t
 idle_raw(void)
@@ -111,7 +112,7 @@ test_disconnect_gate_exposes_both_pilot_choices(void)
     assert(strcmp(snapshot.detail,
         "Ground crew is awaiting approval") == 0);
     assert(strcmp(snapshot.current_task,
-        "Verify tug disconnection") == 0);
+        "Cleared to disconnect") == 0);
     assert(snapshot.primary_action == GROUND_OPS_ACTION_DISCONNECT_TUG);
     assert(strcmp(snapshot.primary_action_label, "Disconnect tug") == 0);
     assert(snapshot.secondary_action == GROUND_OPS_ACTION_RECONNECT_TUG);
@@ -438,12 +439,125 @@ test_emergency_tow_labels_and_actions(void)
     assert(strcmp(state.snapshot.primary_action_label, "Resume tow") == 0);
 }
 
+static void
+test_button_roles_follow_the_task(void)
+{
+    ground_ops_snapshot_t snapshot = {0};
+    /* Exercise every action both as a primary and as an alternative. */
+    for (int action = GROUND_OPS_ACTION_NONE;
+        action <= GROUND_OPS_ACTION_ACKNOWLEDGE_CLEAR; action++) {
+        snapshot.primary_action = (ground_ops_action_t)action;
+        snapshot.action_required = true;
+        ground_ops_button_style_t expected = GROUND_OPS_BUTTON_SECONDARY;
+        switch (action) {
+        case GROUND_OPS_ACTION_CALL_TUG:
+        case GROUND_OPS_ACTION_OPEN_PLANNER:
+        case GROUND_OPS_ACTION_RESUME:
+        case GROUND_OPS_ACTION_DISCONNECT_TUG:
+        case GROUND_OPS_ACTION_ACKNOWLEDGE_CLEAR:
+            expected = GROUND_OPS_BUTTON_REQUIRED;
+            break;
+        case GROUND_OPS_ACTION_END_DISCONNECT:
+            expected = GROUND_OPS_BUTTON_DESTRUCTIVE;
+            break;
+        }
+        assert(ground_ops_button_style(&snapshot,
+            (ground_ops_action_t)action) == expected);
+        snapshot.action_required = false;
+        assert(ground_ops_button_style(&snapshot,
+            (ground_ops_action_t)action) ==
+            (action == GROUND_OPS_ACTION_END_DISCONNECT ?
+            GROUND_OPS_BUTTON_DESTRUCTIVE : GROUND_OPS_BUTTON_SECONDARY));
+        snapshot.action_required = true;
+        snapshot.primary_action = GROUND_OPS_ACTION_NONE;
+        assert(ground_ops_button_style(&snapshot,
+            (ground_ops_action_t)action) != GROUND_OPS_BUTTON_REQUIRED);
+    }
+
+    snapshot = snapshot_for_step(PB_STEP_WAITING4OK2DISCO);
+    assert(ground_ops_button_style(&snapshot, snapshot.primary_action) ==
+        GROUND_OPS_BUTTON_REQUIRED);
+    assert(ground_ops_button_style(&snapshot, snapshot.secondary_action) ==
+        GROUND_OPS_BUTTON_SECONDARY);
+    snapshot = snapshot_for_step(PB_STEP_CONNECTED);
+    snapshot.primary_action = GROUND_OPS_ACTION_CHANGE_PLAN;
+    assert(snapshot.action_required); /* Required brake release != Change plan. */
+    assert(ground_ops_button_style(&snapshot, snapshot.primary_action) ==
+        GROUND_OPS_BUTTON_SECONDARY);
+}
+
+static void
+test_tug_return_is_an_informational_checklist_reminder(void)
+{
+    ground_ops_snapshot_t snapshot = snapshot_for_step(PB_STEP_DRIVING_AWAY);
+
+    assert(strcmp(snapshot.status, "Tug returning to station") == 0);
+    assert(strcmp(snapshot.current_task, "Finalize cockpit checklist") == 0);
+    assert(!snapshot.action_required);
+    assert(snapshot.primary_action == GROUND_OPS_ACTION_NONE);
+    assert(snapshot.secondary_action == GROUND_OPS_ACTION_NONE);
+    assert(snapshot.stage == GROUND_OPS_STAGE_CLEAR);
+}
+
 int
 main(void)
 {
+    bp_clear_signal_gate_t gate = {0};
+    assert(!bp_clear_signal_acknowledge(&gate, false));
+    assert(!bp_clear_signal_acknowledge(&gate, true));
+    gate.displayed = true;
+    assert(!bp_clear_signal_can_depart(&gate, 3600.0));
+    assert(!bp_clear_signal_acknowledge(&gate, false));
+    assert(bp_clear_signal_acknowledge(&gate, true));
+    assert(!bp_clear_signal_acknowledge(&gate, true));
+    assert(!bp_clear_signal_can_depart(&gate, 14.999));
+    assert(bp_clear_signal_can_depart(&gate, 15.0));
+    bp_clear_signal_reset(&gate);
+    assert(!bp_clear_signal_can_depart(&gate, 3600.0));
+
+    ground_ops_state_t ack_state;
+    ground_ops_raw_state_t ack_raw = idle_raw();
+    ground_ops_state_init(&ack_state);
+    assert(ground_ops_state_update(&ack_state, &ack_raw));
+    assert(strcmp(ack_state.snapshot.speed, "Speed --") == 0);
+    assert(strcmp(ack_state.snapshot.distance, "Remaining --") == 0);
+    ack_raw.operation_active = true;
+    ack_raw.step = PB_STEP_CLEAR_SIGNAL;
+    assert(ground_ops_state_update(&ack_state, &ack_raw));
+    assert(ack_state.snapshot.primary_action == GROUND_OPS_ACTION_NONE);
+    ack_raw.clear_signal_displayed = true;
+    assert(ground_ops_state_update(&ack_state, &ack_raw));
+    assert(ack_state.snapshot.action_required);
+    assert(strcmp(ack_state.snapshot.current_task, "Verify the clear signal") == 0);
+    assert(strcmp(ack_state.snapshot.primary_action_label, "Acknowledge") == 0);
+    assert(ack_state.snapshot.primary_action == GROUND_OPS_ACTION_ACKNOWLEDGE_CLEAR);
+    assert(ack_state.snapshot.secondary_action == GROUND_OPS_ACTION_NONE);
+    assert(ack_state.snapshot.stages[4] == GROUND_OPS_STAGE_CURRENT);
+    ack_raw.clear_signal_acknowledged = true;
+    ack_raw.speed_valid = ack_raw.distance_valid = true;
+    assert(ground_ops_state_update(&ack_state, &ack_raw));
+    assert(!ack_state.snapshot.action_required);
+    assert(ack_state.snapshot.primary_action == GROUND_OPS_ACTION_NONE);
+    assert(strcmp(ack_state.snapshot.status, "Clear signal acknowledged") == 0);
+    assert(strcmp(ack_state.snapshot.speed, "Speed 0.0 m/s") == 0);
+    assert(strcmp(ack_state.snapshot.distance, "Remaining 0 m") == 0);
+    ack_raw.step = PB_STEP_WAITING4OK2DISCO;
+    ack_raw.disconnect_approved = true;
+    assert(ground_ops_state_update(&ack_state, &ack_raw));
+    assert(strcmp(ack_state.snapshot.status, "Disconnect confirmed") == 0);
+    assert(!ack_state.snapshot.action_required);
+    assert(ack_state.snapshot.primary_action == GROUND_OPS_ACTION_NONE);
+    ack_raw.operation_active = false;
+    assert(ground_ops_state_update(&ack_state, &ack_raw));
+    assert(!ack_state.previous_raw.clear_signal_displayed);
+    assert(!ack_state.previous_raw.clear_signal_acknowledged);
+    assert(!ack_state.previous_raw.disconnect_approved);
+
     test_every_controller_step_maps();
     test_stage_progression();
     test_action_markers();
+    test_button_roles_follow_the_task();
+    test_tug_return_is_an_informational_checklist_reminder();
     test_disconnect_gate_exposes_both_pilot_choices();
     test_prep_states_are_separate_from_controller();
     test_formatting_only_changes_for_display_values();

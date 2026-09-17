@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "ground_ops_window_state.h"
 
@@ -111,6 +112,59 @@ test_click_drag_threshold(void)
 int
 main(void)
 {
+    ground_ops_dwell_t dwell = {0};
+    assert(!ground_ops_dwell_update(&dwell, true, 10.0));
+    assert(!ground_ops_dwell_update(&dwell, true, 10.999));
+    assert(ground_ops_dwell_update(&dwell, true, 11.0));
+    assert(!ground_ops_dwell_update(&dwell, true, 20.0));
+    assert(!ground_ops_dwell_update(&dwell, false, 21.0));
+    assert(!ground_ops_dwell_update(&dwell, true, 22.0));
+    assert(!ground_ops_dwell_update(&dwell, false, 22.5));
+    assert(!ground_ops_dwell_update(&dwell, true, 22.6));
+    assert(!ground_ops_dwell_update(&dwell, true, 23.0));
+    assert(ground_ops_dwell_update(&dwell, true, 23.7));
+    assert(!ground_ops_dwell_update(&dwell, true, NAN));
+    assert(!ground_ops_dwell_update(&dwell, true, 50.0));
+    assert(!ground_ops_dwell_update(&dwell, true, 1.0));
+
+    ground_ops_rect_t rect = {300, 850, 592, 430};
+    ground_ops_rect_dock(&rect, 58, 244, &monitors[0], NULL);
+    assert(rect.left == 0 && rect.right == 58 && rect.top == 850);
+    rect = (ground_ops_rect_t){1400, 800, 1692, 380};
+    ground_ops_rect_dock(&rect, 58, 244, &monitors[0], NULL);
+    assert(rect.right == 1920 && rect.left == 1862);
+    ground_ops_rect_t rest = {111, 300, 0, 0};
+    ground_ops_rect_dock(&rect, 58, 244, &monitors[0], &rest);
+    assert(rect.left == 111 && rect.top == 780);
+    rest = (ground_ops_rect_t){99999, 99999, 0, 0};
+    ground_ops_rect_dock(&rect, 58, 244, &monitors[0], &rest);
+    assert(rect.right == 1920 && rect.bottom == 0);
+    rect = (ground_ops_rect_t){-18, 1100, 40, 856};
+    ground_ops_rect_clamp(&rect, &monitors[0], 0);
+    assert(rect.left == 0 && rect.top == 1080);
+    rect = (ground_ops_rect_t){1900, 100, 1958, -144};
+    ground_ops_rect_clamp(&rect, &monitors[0], 0);
+    assert(rect.right == 1920 && rect.bottom == 0);
+    /* Selecting the monitor under the pointer permits dragging across the seam. */
+    ground_ops_rect_clamp(&rect, &monitors[1], 0);
+    assert(rect.left == 1920);
+    const ground_ops_monitor_t negative = {2, {-1920, 1080, 0, 0}};
+    rect = (ground_ops_rect_t){-100, 700, 192, 280};
+    ground_ops_rect_dock(&rect, 78, 329, &negative, NULL);
+    assert(rect.right == 0 && rect.left == -78 && rect.top == 700);
+    const ground_ops_rect_t compact = {900, 800, 958, 556};
+    const ground_ops_rect_t expanded = {900, 800, 1192, 380};
+    rect = expanded;
+    assert(ground_ops_rect_nearest_right(&rect, &monitors[0]));
+    assert(ground_ops_rect_restore_compact(&rect, 58, 244, &monitors[0],
+        &expanded, &compact));
+    assert(rect.left == 900 && rect.top == 800 && rect.right == 958);
+    rect = expanded;
+    rect.left += 50;
+    rect.right += 50;
+    assert(!ground_ops_rect_restore_compact(&rect, 58, 244, &monitors[0],
+        &expanded, &compact));
+
     test_contract_sizes();
     test_anchor_and_visibility();
     test_edge_aware_expansion();
