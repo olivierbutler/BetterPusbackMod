@@ -135,6 +135,28 @@ raw_equal(const ground_ops_raw_state_t *left,
         left->distance_m == right->distance_m);
 }
 
+ground_ops_stage_visual_t
+ground_ops_stage_visual(const ground_ops_snapshot_t *snapshot,
+    ground_ops_stage_t stage)
+{
+    if (snapshot == NULL || stage < GROUND_OPS_STAGE_TUG ||
+        stage > GROUND_OPS_STAGE_CLEAR) {
+        return (GROUND_OPS_STAGE_VISUAL_FUTURE);
+    }
+
+    switch (snapshot->stages[stage]) {
+    case GROUND_OPS_STAGE_COMPLETE:
+        return (GROUND_OPS_STAGE_VISUAL_COMPLETE);
+    case GROUND_OPS_STAGE_CURRENT:
+        return (snapshot->action_required ?
+            GROUND_OPS_STAGE_VISUAL_BLOCKED :
+            GROUND_OPS_STAGE_VISUAL_ACTIVE);
+    case GROUND_OPS_STAGE_FUTURE:
+    default:
+        return (GROUND_OPS_STAGE_VISUAL_FUTURE);
+    }
+}
+
 ground_ops_button_style_t
 ground_ops_button_style(const ground_ops_snapshot_t *snapshot,
     ground_ops_action_t action)

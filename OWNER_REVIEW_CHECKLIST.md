@@ -1,5 +1,39 @@
 # Owner review checklist
 
+## September 18 owner-review follow-up - active-stage color candidate
+
+Olivier's review of PR #50 requested that the five-stage rail distinguish a
+current step that is progressing automatically from one that is blocked on a
+required pilot action. The compact and expanded rails now use the same semantic
+mapping:
+
+- bright green: current automatic ground-crew or tug work is progressing;
+- amber/orange: the current step cannot advance until the pilot acts;
+- green: a prior stage is complete;
+- cyan outline: a future stage has not started.
+
+The bright-green current node has a thicker, lighter ring so it remains
+distinguishable from completed green nodes without relying on hue alone. Red is
+not used: the current snapshot has no explicit fault or safety-stop state, and
+normal pilot gates must not imply an alarm. Red remains reserved for a future
+controller-reported fault or safety stop.
+
+Pure mapping coverage verifies the initial blocked **Call tug** state, the
+automatic green Tug state immediately after dispatch, a green automatic Connect
+state with Tug complete, and the later amber/orange **Plan push** gate. Live
+Windows and macOS visual acceptance of both compact and expanded presentations
+is still required before this follow-up is accepted.
+
+All repository regression runners pass with this follow-up, including the
+884,736-case text-fit sweep. The normal warnings-as-errors Windows build also
+links successfully. A Linux build was not produced in this workstation because
+the expected prebuilt Cairo, OpenAL and GLEW dependency installs are absent;
+that is an environment limitation, not a Linux acceptance result.
+
+The French preview's long `Communications` rail label is a localization-label
+fit issue, not a macOS scaling change. Each locale needs a short rail label;
+the full translation remains available in the expanded status and task text.
+
 ## September 16 final visual follow-up - local Windows acceptance passed
 
 The tester reported all final live checks passed and approved this version for

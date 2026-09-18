@@ -903,8 +903,10 @@ private:
         const ImU32 connector = IM_COL32(55, 65, 73, 255);
         const ImU32 complete = IM_COL32(23, 128, 95, 255);
         const ImU32 complete_text = IM_COL32(120, 188, 159, 255);
-        const ImU32 current = IM_COL32(230, 166, 61, 255);
-        const ImU32 current_text = IM_COL32(245, 190, 88, 255);
+        const ImU32 active = IM_COL32(25, 169, 113, 255);
+        const ImU32 active_text = IM_COL32(128, 232, 184, 255);
+        const ImU32 blocked = IM_COL32(230, 166, 61, 255);
+        const ImU32 blocked_text = IM_COL32(245, 190, 88, 255);
         const ImU32 future = IM_COL32(30, 111, 145, 255);
         const ImU32 future_text = IM_COL32(112, 192, 223, 255);
         static const char *stages[] = {"Tug", "Connect", "Comms", "Push",
@@ -925,27 +927,36 @@ private:
 
         for (int index = 0; index < 5; index++) {
             float center_y = 18.0f + index * 47.0f;
-            ground_ops_stage_progress_t progress = snapshot->stages[index];
-            ImU32 label = progress == GROUND_OPS_STAGE_COMPLETE ?
-                complete_text : progress == GROUND_OPS_STAGE_CURRENT ?
-                current_text : future_text;
+            ground_ops_stage_visual_t visual = ground_ops_stage_visual(
+                snapshot, static_cast<ground_ops_stage_t>(index));
+            ImU32 label = visual == GROUND_OPS_STAGE_VISUAL_COMPLETE ?
+                complete_text : visual == GROUND_OPS_STAGE_VISUAL_ACTIVE ?
+                active_text : visual == GROUND_OPS_STAGE_VISUAL_BLOCKED ?
+                blocked_text : future_text;
 
             if (index != 0) {
                 draw->AddLine(point(29, center_y - 26),
                     point(29, center_y - 7),
-                    snapshot->stages[index - 1] == GROUND_OPS_STAGE_COMPLETE ?
+                    ground_ops_stage_visual(snapshot,
+                    static_cast<ground_ops_stage_t>(index - 1)) ==
+                    GROUND_OPS_STAGE_VISUAL_COMPLETE ?
                     complete : connector, scaled(2.0f));
             }
-            if (progress == GROUND_OPS_STAGE_COMPLETE) {
+            if (visual == GROUND_OPS_STAGE_VISUAL_COMPLETE) {
                 draw->AddCircleFilled(point(29, center_y), scaled(6),
                     complete, 24);
                 draw->AddCircle(point(29, center_y), scaled(7),
                     complete_text, 24, scaled(1.0f));
-            } else if (progress == GROUND_OPS_STAGE_CURRENT) {
+            } else if (visual == GROUND_OPS_STAGE_VISUAL_ACTIVE) {
                 draw->AddCircleFilled(point(29, center_y), scaled(6),
-                    current, 24);
+                    active, 24);
+                draw->AddCircle(point(29, center_y), scaled(8),
+                    active_text, 24, scaled(2.0f));
+            } else if (visual == GROUND_OPS_STAGE_VISUAL_BLOCKED) {
+                draw->AddCircleFilled(point(29, center_y), scaled(6),
+                    blocked, 24);
                 draw->AddCircle(point(29, center_y), scaled(7),
-                    current_text, 24, scaled(1.0f));
+                    blocked_text, 24, scaled(1.0f));
             } else {
                 draw->AddCircleFilled(point(29, center_y), scaled(5),
                     future, 20);
@@ -1003,6 +1014,8 @@ private:
         const ImU32 blue_text = IM_COL32(112, 192, 223, 255);
         const ImU32 amber = IM_COL32(230, 166, 61, 255);
         const ImU32 amber_panel = IM_COL32(57, 45, 27, 255);
+        const ImU32 active_green = IM_COL32(25, 169, 113, 255);
+        const ImU32 active_green_text = IM_COL32(128, 232, 184, 255);
         const ImU32 cyan = IM_COL32(30, 111, 145, 255);
         bool highlight_task;
         static const char *stages[] = {"Tug", "Connect", "Comms", "Push",
@@ -1068,23 +1081,32 @@ private:
 
         for (int index = 0; index < 5; index++) {
             float center_y = 117.0f + index * 46.0f;
-            ground_ops_stage_progress_t progress = snapshot->stages[index];
-            ImU32 label = progress == GROUND_OPS_STAGE_COMPLETE ?
-                green_text : progress == GROUND_OPS_STAGE_CURRENT ?
+            ground_ops_stage_visual_t visual = ground_ops_stage_visual(
+                snapshot, static_cast<ground_ops_stage_t>(index));
+            ImU32 label = visual == GROUND_OPS_STAGE_VISUAL_COMPLETE ?
+                green_text : visual == GROUND_OPS_STAGE_VISUAL_ACTIVE ?
+                active_green_text : visual == GROUND_OPS_STAGE_VISUAL_BLOCKED ?
                 amber : blue_text;
 
             if (index != 0) {
                 draw->AddLine(point(30, center_y - 25),
                     point(30, center_y - 7),
-                    snapshot->stages[index - 1] == GROUND_OPS_STAGE_COMPLETE ?
+                    ground_ops_stage_visual(snapshot,
+                    static_cast<ground_ops_stage_t>(index - 1)) ==
+                    GROUND_OPS_STAGE_VISUAL_COMPLETE ?
                     green : rule, scaled(2.0f));
             }
-            if (progress == GROUND_OPS_STAGE_COMPLETE) {
+            if (visual == GROUND_OPS_STAGE_VISUAL_COMPLETE) {
                 draw->AddCircleFilled(point(30, center_y), scaled(6), green,
                     24);
                 draw->AddCircle(point(30, center_y), scaled(7), green_text,
                     24, scaled(1.0f));
-            } else if (progress == GROUND_OPS_STAGE_CURRENT) {
+            } else if (visual == GROUND_OPS_STAGE_VISUAL_ACTIVE) {
+                draw->AddCircleFilled(point(30, center_y), scaled(6),
+                    active_green, 24);
+                draw->AddCircle(point(30, center_y), scaled(8),
+                    active_green_text, 24, scaled(2.0f));
+            } else if (visual == GROUND_OPS_STAGE_VISUAL_BLOCKED) {
                 draw->AddCircleFilled(point(30, center_y), scaled(6),
                     amber, 24);
                 draw->AddCircle(point(30, center_y), scaled(7), amber,

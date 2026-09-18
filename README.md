@@ -140,6 +140,12 @@ Run all current suites with:
 $ ./tests/run_all_tests.sh
 ```
 
+## User guide
+
+See [USER_GUIDE.md](USER_GUIDE.md) for installation, the Ground Operations
+color language, the normal pushback workflow, saved routes, Pause/Resume,
+Emergency Tow, recovery controls, and the current/future roadmap.
+
 ## Commands
 
 BetterPushback registers these X-Plane commands:
