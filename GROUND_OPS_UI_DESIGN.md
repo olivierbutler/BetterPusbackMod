@@ -68,15 +68,18 @@ cockpit.
   1.35 scale (78 by 329), including text and hit targets.
 - Contains the same Tug, Connect, Comms, Push, and Clear nodes used by the
   expanded panel, without any additional dashboard content.
-- Completed stages are filled, the current stage is highlighted, and future
-  stages remain outlined.
+- Completed stages are filled green. The current stage is bright green while
+  automatic ground-crew or tug work is progressing, and amber/orange only while
+  progress is blocked on a required pilot action. Future stages remain outlined
+  in cyan.
 - Entire rail is clickable.
 - A click expands the narrow panel.
 - Dragging moves the rail without expanding it. The implementation must use a
   small movement threshold to distinguish a click from a drag.
 - Compact mode has no tooltips and never expands from hover; click to expand.
-- A red safety treatment may replace the normal current-stage highlight only
-  while the tug is holding because of a safety stop or blocking condition.
+- Red is reserved for a future explicit fault or safety-stop state reported by
+  the controller. Normal pilot gates, deliberate pause holds, disconnect
+  approval, and destructive alternatives do not make a stage red.
 - No timer-based animation may imply progress while the operation is waiting.
 
 ### Expanded panel
@@ -434,8 +437,13 @@ These are acceptance ceilings, not targets to consume. Lower is expected.
 
 - High-DPI and X-Plane UI scaling supported.
 - Status never depends on color alone; stage labels and text provide the
-  meaning. Completed stages are green, the current stage is yellow, and future
-  stages are cyan. No separate warning badge is drawn.
+  meaning. Completed stages are green, an automatically progressing current
+  stage is bright green, a pilot-blocked current stage is amber/orange, and
+  future stages are cyan. No separate warning badge is drawn.
+- Compact rail labels use locale-specific short forms that fit the fixed rail
+  width at every supported scale. Full translated wording belongs in the
+  expanded status and task regions; a long translation must never be clipped
+  into a neighboring panel region.
 - Essential controls remain labeled in the panel.
 - Every variable status, detail, caption, task, metric, and action label is
   measured against its drawing rectangle. Text wraps where appropriate and

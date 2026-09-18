@@ -36,6 +36,30 @@ The Ground Operations interface already uses Dear ImGui. Its layout emits ImGui 
 | Pushback planner | src/bp_cam.c contains separate direct OpenGL drawing and XPLMDrawString calls. | Inventory its overlays and coordinates separately; panel migration will not remove this OpenGL use. |
 | Tug and wing walker | src/tug.c and src/wing_walker.c use XPLMCreateInstance and XPLMInstanceSetPosition. | Retain the existing instanced-object path. New attachment APIs are optional, not a necessary replacement. |
 
+### Owner question - can the planner overlay use transparent ImGui?
+
+Yes, as a separately scoped renderer change. A borderless ImGui window can have
+a transparent background, and its draw list can render the route line,
+clearance band, aircraft symbols and planner controls. The route construction,
+terrain samples, steering prediction and saved-route behavior do not need to be
+rewritten.
+
+It is not a direct replacement of the current draw calls, however. The planner
+currently emits terrain-height-aware 3-D vertices through X-Plane's projection
+matrices and uses the stencil buffer to union the translucent clearance band.
+ImGui draw lists are 2-D window-space geometry. A prototype must therefore
+project every world point into the planner window, clip off-screen geometry,
+tessellate the band without alpha accumulating at overlaps, and reproduce the
+existing mouse/camera transforms. A transparent ImGui layer also does not by
+itself provide terrain depth or occlusion semantics.
+
+This is a moderate, isolated rewrite of the planner's presentation layer, not
+a complete planner rewrite. It may simplify long-term graphics maintenance,
+but no performance benefit should be promised until the projected 2-D version
+is compared with the current cached path on Windows/Vulkan, macOS/Metal and the
+other retained targets. Keep it out of the current release candidate and begin
+with an opt-in prototype after owner approval.
+
 ### Text quality is a separate responsibility
 
 The Panel Graphics font API provides font loading, metrics, width measurement and wrapping. It can be useful for a future direct native-text implementation. However, text still needs an adequately sized container, correct line height and supported glyphs. Word wrapping alone cannot guarantee that text fits vertically. [3, 5]

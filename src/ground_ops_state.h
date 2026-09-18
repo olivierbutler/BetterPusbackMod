@@ -45,6 +45,18 @@ typedef enum {
     GROUND_OPS_STAGE_COMPLETE
 } ground_ops_stage_progress_t;
 
+/*
+ * Presentation meaning for a stage node.  ACTIVE and BLOCKED deliberately
+ * separate automatic progress from a current step that cannot advance until
+ * the pilot acts.
+ */
+typedef enum {
+    GROUND_OPS_STAGE_VISUAL_FUTURE,
+    GROUND_OPS_STAGE_VISUAL_ACTIVE,
+    GROUND_OPS_STAGE_VISUAL_BLOCKED,
+    GROUND_OPS_STAGE_VISUAL_COMPLETE
+} ground_ops_stage_visual_t;
+
 typedef enum {
     GROUND_OPS_PREP_AIRPORT_DATA,
     GROUND_OPS_PREP_PLANNER_REVIEW,
@@ -174,6 +186,8 @@ const ground_ops_snapshot_t *ground_ops_state_get(
 const char *ground_ops_stage_name(ground_ops_stage_t stage);
 const char *ground_ops_step_name(pushback_step_t step);
 const char *ground_ops_prep_name(ground_ops_prep_state_t prep);
+ground_ops_stage_visual_t ground_ops_stage_visual(
+    const ground_ops_snapshot_t *snapshot, ground_ops_stage_t stage);
 ground_ops_button_style_t ground_ops_button_style(
     const ground_ops_snapshot_t *snapshot, ground_ops_action_t action);
 
