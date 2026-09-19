@@ -477,9 +477,9 @@ void SettingsWindow::doorscheck_comboList_init(comboList_t *list) {
 
   // These should follow the order of the DoorCheck enum
   static const char* doors_check_strings[] = {
-    _("Active with ground crew message"),
-    _("Active, but stay silent"),
-    _("Ignore")
+    "Active with ground crew message",
+    "Active, but stay silent",
+    "Ignore"
   };
 
   for (int i = 0; i < 3; ++i) {

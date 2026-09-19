@@ -661,3 +661,232 @@ msgstr "Volume padrão relativo do áudio da equipe de solo:\n"
 
 msgid "Ground crew audio volume"
 msgstr "Volume do áudio da equipe de solo"
+
+msgid "End pushback and disconnect"
+msgstr "Encerrar o pushback e desconectar"
+
+msgid "Pause/Resume automatic pushback"
+msgstr "Pausar/Retomar o pushback automático"
+
+msgid "Ground Operations: Show/Hide"
+msgstr "Operações em solo: Mostrar/Ocultar"
+
+msgid "Ground Operations: Expand/Collapse"
+msgstr "Operações em solo: Expandir/Recolher"
+
+msgid "Tug available"
+msgstr "Trator disponível"
+
+msgid "Button click volume"
+msgstr "Volume dos cliques"
+
+msgid "Ground Operations button clicks only. 0% mutes clicks.\n"
+    "Changes apply immediately; use Save preferences to keep them.\n"
+    "Release the slider to preview the selected volume."
+msgstr "Somente cliques dos botões de operações em solo. 0% silencia os cliques.\n"
+    "As alterações são imediatas; use «Salvar preferências» para mantê-las.\n"
+    "Solte o controle para ouvir o volume selecionado."
+
+msgid "Changes are immediate; use \"Save preferences\" to persist them.\n"
+msgstr "As alterações são imediatas; use \"Salvar preferências\" para mantê-las.\n"
+
+msgid "Release the slider to preview the selected volume."
+msgstr "Solte o controle para ouvir o volume selecionado."
+
+msgid "BetterPushback Ground Operations"
+msgstr "Operações em solo do BetterPushback"
+
+msgid "Tug"
+msgstr "Trator"
+
+msgid "Connect"
+msgstr "Conectar"
+
+msgid "Comms"
+msgstr "Comms"
+
+msgid "Push"
+msgstr "Pushback"
+
+msgid "Clear"
+msgstr "Livre"
+
+msgid "Ground operations"
+msgstr "Operações em solo"
+
+msgid "Return window to X-Plane"
+msgstr "Retornar a janela ao X-Plane"
+
+msgid "Pop out to an operating-system window"
+msgstr "Abrir em uma janela do sistema"
+
+msgid "Click, or hover here for one second, to collapse"
+msgstr "Clique ou mantenha o cursor aqui por um segundo para recolher"
+
+msgid "Hide Ground Operations"
+msgstr "Ocultar operações em solo"
+
+msgid "Click the progress rail to collapse Ground Operations"
+msgstr "Clique na barra de progresso para recolher as operações em solo"
+
+msgid "Keep operation"
+msgstr "Continuar operação"
+
+msgid "Cancel; keep the route and tug connected"
+msgstr "Cancelar; manter a rota e o trator conectado"
+
+msgid "Confirm end"
+msgstr "Confirmar encerramento"
+
+msgid "Stop completely, discard the route, and disconnect"
+msgstr "Parar completamente, descartar a rota e desconectar"
+
+msgid "Controlled stop; route and steering state are retained"
+msgstr "Parada controlada; rota e estado da direção são mantidos"
+
+msgid "Continue the accepted route from the hold"
+msgstr "Continuar a rota aceita a partir da parada"
+
+msgid "Disconnect the tug and continue to the hand signal"
+msgstr "Desconectar o trator e continuar até o sinal manual"
+
+msgid "Reconnect the tug and return to route planning"
+msgstr "Reconectar o trator e voltar ao planejamento da rota"
+
+msgid "Interactive | Offline safe"
+msgstr "Interativo | Seguro offline"
+
+msgid "PILOT ACTION"
+msgstr "AÇÃO DO PILOTO"
+
+msgid "CURRENT TASK"
+msgstr "TAREFA ATUAL"
+
+msgid "Planner opened. Define the route."
+msgstr "Planejador aberto. Defina a rota."
+
+msgid "Pushback plan saved."
+msgstr "Plano de pushback salvo."
+
+msgid "Ground crew: Tug approaching."
+msgstr "Equipe de solo: trator se aproximando."
+
+msgid "Ground crew: Set parking brake."
+msgstr "Equipe de solo: acione o freio de estacionamento."
+
+msgid "Ground crew: Ready to connect."
+msgstr "Equipe de solo: pronta para conectar."
+
+msgid "Ground crew: Winching nose gear."
+msgstr "Equipe de solo: puxando o trem de pouso dianteiro."
+
+msgid "Ground crew: Tug connected."
+msgstr "Equipe de solo: trator conectado."
+
+msgid "Ground crew: Starting pushback."
+msgstr "Equipe de solo: iniciando o pushback."
+
+msgid "Ground crew: Starting tow."
+msgstr "Equipe de solo: iniciando o reboque."
+
+msgid "Ground crew: Start engines later."
+msgstr "Equipe de solo: ligue os motores mais tarde."
+
+msgid "Ground crew: Tow; start later."
+msgstr "Equipe de solo: reboque; ligue os motores mais tarde."
+
+msgid "Ground crew: Pushback complete."
+msgstr "Equipe de solo: pushback concluído."
+
+msgid "Ground crew: Disconnecting tug."
+msgstr "Equipe de solo: desconectando o trator."
+
+msgid "Ground crew: Clear on the right."
+msgstr "Equipe de solo: livre à direita."
+
+msgid "Ground crew: Clear on the left."
+msgstr "Equipe de solo: livre à esquerda."
+
+msgid "SIM WX unavailable"
+msgstr "Meteorologia do SIM indisponível"
+
+msgid "QNH unavailable"
+msgstr "QNH indisponível"
+
+msgid "No pilot action required"
+msgstr "Nenhuma ação do piloto necessária"
+
+msgid "Local plugin state"
+msgstr "Estado do plugin local"
+
+msgid "Local plugin | Offline"
+msgstr "Plugin local | Offline"
+
+msgid "current"
+msgstr "atual"
+
+msgid "Current"
+msgstr "Atual"
+
+msgid "Mixed sources"
+msgstr "Fontes mistas"
+
+msgid "STALE"
+msgstr "DESATUALIZADO"
+
+msgid "Stale"
+msgstr "Desatualizado"
+
+msgid "Call tow back"
+msgstr "Chamar o trator de volta"
+
+msgid "Call tug"
+msgstr "Chamar o trator"
+
+msgid "Plan tow"
+msgstr "Planejar o reboque"
+
+msgid "Plan push"
+msgstr "Planejar o pushback"
+
+msgid "End operation"
+msgstr "Encerrar operação"
+
+msgid "Change plan"
+msgstr "Alterar plano"
+
+msgid "Resume tow"
+msgstr "Retomar o reboque"
+
+msgid "Resume push"
+msgstr "Retomar o pushback"
+
+msgid "Pause tow"
+msgstr "Pausar o reboque"
+
+msgid "Pause push"
+msgstr "Pausar o pushback"
+
+msgid "Disconnect tug"
+msgstr "Desconectar o trator"
+
+msgid "Reconnect"
+msgstr "Reconectar"
+
+msgid "Acknowledge"
+msgstr "Confirmar"
+
+msgid "unknown"
+msgstr "desconhecido"
+
+msgid "Speed %.1f m/s"
+msgstr "Velocidade %.1f m/s"
+
+msgid "Speed --"
+msgstr "Velocidade --"
+
+msgid "Remaining --"
+msgstr "Restante --"
+
+msgid "Remaining %d m"
+msgstr "Restante %d m"
