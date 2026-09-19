@@ -4,6 +4,7 @@
 
 #include "ground_ops_state.h"
 #include "clear_signal_gate.h"
+#include "intl_test_stub.h"
 
 static ground_ops_raw_state_t
 idle_raw(void)
@@ -98,6 +99,24 @@ test_action_markers(void)
     assert(snapshot_for_step(PB_STEP_WAITING4OK2DISCO).action_required);
     assert(!snapshot_for_step(PB_STEP_PUSHING).action_required);
     assert(!snapshot_for_step(PB_STEP_MOVING_AWAY).action_required);
+}
+
+static void
+test_eyebrow_and_pilot_task_are_translated(void)
+{
+    ground_ops_snapshot_t snapshot;
+
+    intl_test_translation_override("ACTIVE", "НАЗЕМНАЯ СЛУЖБА");
+    snapshot = snapshot_for_step(PB_STEP_DRIVING_UP_CLOSE);
+    assert(strcmp(snapshot.eyebrow, "НАЗЕМНАЯ СЛУЖБА") == 0);
+    intl_test_translation_reset();
+
+    intl_test_translation_override("Set the parking brake",
+        "Serrez le frein de parking");
+    snapshot = snapshot_for_step(PB_STEP_WAITING_FOR_PBRAKE);
+    assert(strcmp(snapshot.current_task,
+        "Serrez le frein de parking") == 0);
+    intl_test_translation_reset();
 }
 
 static void
@@ -600,6 +619,7 @@ main(void)
     test_every_controller_step_maps();
     test_stage_progression();
     test_action_markers();
+    test_eyebrow_and_pilot_task_are_translated();
     test_button_roles_follow_the_task();
     test_tug_return_is_an_informational_checklist_reminder();
     test_disconnect_gate_exposes_both_pilot_choices();

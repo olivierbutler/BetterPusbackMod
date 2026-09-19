@@ -267,7 +267,7 @@ set_view(ground_ops_snapshot_t *snapshot, ground_ops_stage_t stage,
     snapshot->action_required = action_required;
     copy_text(snapshot->stage_name, sizeof(snapshot->stage_name),
         ground_ops_stage_name(stage));
-    copy_text(snapshot->eyebrow, sizeof(snapshot->eyebrow), eyebrow);
+    copy_text(snapshot->eyebrow, sizeof(snapshot->eyebrow), _(eyebrow));
     copy_text(snapshot->status, sizeof(snapshot->status), status);
     copy_text(snapshot->detail, sizeof(snapshot->detail), detail);
     copy_text(snapshot->current_task, sizeof(snapshot->current_task), task);

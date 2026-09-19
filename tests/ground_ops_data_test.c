@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ground_ops_data.h"
+#include "intl_test_stub.h"
 
 static void
 test_unavailable_defaults_are_explicit(void)
@@ -19,6 +20,19 @@ test_unavailable_defaults_are_explicit(void)
     assert(strcmp(presentation.pressure, "QNH unavailable") == 0);
     assert(strcmp(presentation.advisory, "METAR -- | ATIS --") == 0);
     assert(strcmp(presentation.source, "Local plugin | Offline") == 0);
+}
+
+static void
+test_unavailable_advisory_is_translated(void)
+{
+    ground_ops_data_presentation_t presentation;
+
+    intl_test_translation_override("METAR -- | ATIS --",
+        "METAR/ATIS indisponible");
+    ground_ops_data_format(NULL, 10, &presentation);
+    assert(strcmp(presentation.advisory,
+        "METAR/ATIS indisponible") == 0);
+    intl_test_translation_reset();
 }
 
 static void
@@ -83,14 +97,14 @@ test_simulator_weather_format_and_staleness(void)
         GROUND_OPS_DATA_SOURCE_SIMULATOR, 274.6, 5.14444, 17.6, 101325,
         20, 22.5));
     ground_ops_data_format(&snapshot, 21, &presentation);
-    assert(strcmp(presentation.weather, "SIM 275/10KT 18C") == 0);
+    assert(strcmp(presentation.weather, "SIM 275° 10KT 18°C") == 0);
     assert(strcmp(presentation.pressure,
         "QNH 1013 hPa / 29.92 inHg") == 0);
     assert(strcmp(presentation.source, "Simulator | Current") == 0);
 
     ground_ops_data_format(&snapshot, 23, &presentation);
     assert(strcmp(presentation.weather,
-        "SIM 275/10KT 18C STALE") == 0);
+        "SIM 275° 10KT 18°C STALE") == 0);
     assert(strcmp(presentation.source, "Simulator | Stale") == 0);
 }
 
@@ -160,6 +174,7 @@ int
 main(void)
 {
     test_unavailable_defaults_are_explicit();
+    test_unavailable_advisory_is_translated();
     test_simulator_flight_id_is_bounded_and_normalized();
     test_aircraft_type_is_the_flight_identity_fallback();
     test_simulator_weather_format_and_staleness();

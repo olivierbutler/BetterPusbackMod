@@ -17,6 +17,7 @@ extern "C" {
 
 #define GROUND_OPS_STAGE_COUNT 5
 #define GROUND_OPS_STATUS_LEN 64
+#define GROUND_OPS_EYEBROW_LEN 48
 #define GROUND_OPS_DETAIL_LEN 96
 #define GROUND_OPS_TASK_LEN 64
 #define GROUND_OPS_METRIC_LEN 32
@@ -153,7 +154,7 @@ typedef struct {
     ground_ops_stage_t stage;
     ground_ops_stage_progress_t stages[GROUND_OPS_STAGE_COUNT];
     char stage_name[16];
-    char eyebrow[16];
+    char eyebrow[GROUND_OPS_EYEBROW_LEN];
     char status[GROUND_OPS_STATUS_LEN];
     char detail[GROUND_OPS_DETAIL_LEN];
     char current_task[GROUND_OPS_TASK_LEN];

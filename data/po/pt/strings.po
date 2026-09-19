@@ -932,3 +932,42 @@ msgstr "Restante --"
 
 msgid "Remaining %d m"
 msgstr "Restante %d m"
+
+msgid "REVIEW"
+msgstr "REVISÃO"
+
+msgid "COMPLETE"
+msgstr "CONCLUÍDO"
+
+msgid "ACTIVE"
+msgstr "ATIVO"
+
+msgid "WAITING"
+msgstr "EM ESPERA"
+
+msgid "GROUND CREW"
+msgstr "EQUIPA DE TERRA"
+
+msgid "ACTION"
+msgstr "AÇÃO"
+
+msgid "HOLD"
+msgstr "PAUSA"
+
+msgid "CONFIRMED"
+msgstr "CONFIRMADO"
+
+msgid "READY"
+msgstr "PRONTO"
+
+msgid "CLEAR"
+msgstr "LIVRE"
+
+msgid "STANDBY"
+msgstr "EM ESPERA"
+
+msgid "Set the parking brake"
+msgstr "Acione o travão de estacionamento"
+
+msgid "METAR -- | ATIS --"
+msgstr "METAR -- | ATIS --"

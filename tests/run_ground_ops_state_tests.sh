@@ -6,8 +6,9 @@ repo_dir=$(CDPATH= cd -- "$test_dir/.." && pwd)
 test_bin="${TMPDIR:-/tmp}/betterpushback-ground-ops-state-test"
 
 cc -std=c99 -Wall -Wextra -Werror \
-    -I"$repo_dir/src" \
+    -I"$repo_dir/src" -I"$repo_dir/../libacfutils/src" \
     "$repo_dir/src/ground_ops_state.c" \
+    "$test_dir/intl_test_stub.c" \
     "$test_dir/ground_ops_state_test.c" \
     -o "$test_bin"
 
