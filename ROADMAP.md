@@ -5,7 +5,7 @@ only after all of its exit gates have evidence. New ideas are added to the
 traceability table before they are scheduled so agreed requirements are not
 lost.
 
-Status date: 2026-09-04
+Status date: 2026-09-18
 
 ## Owner-review reconciliation
 
@@ -62,6 +62,35 @@ visual acceptance still requires the owner's macOS simulator check.
 | 10 | Release candidate, documentation, and packaging | Pending | Phase 9 |
 
 Detailed UI behavior is defined in `GROUND_OPS_UI_DESIGN.md`.
+
+## Deferred experiment - automatic pilot-action expansion
+
+Automatic expansion and collapse is not part of the current owner-review
+candidate. The accepted behavior remains pilot-controlled: the compact rail
+turns orange when an action is required, and the pilot chooses when to open or
+close the panel.
+
+A future, separately branched experiment may automatically expand a visible
+compact rail once when a new blocking pilot action appears. It must collapse
+again only after the controller confirms that requirement has cleared and only
+when the software, rather than the pilot, caused the expansion. Any manual
+expand or collapse transfers presentation ownership back to the pilot for that
+action. A deliberately hidden window must remain hidden, and a panel that was
+already expanded must remain expanded.
+
+The experiment is not eligible for owner review until it demonstrates all of
+the following without repeated resizing or an expand/collapse loop:
+
+- Call tug, Plan push, cockpit brake actions, Resume push, disconnect approval,
+  and clear-signal acknowledgement;
+- repeated identical snapshots and rapid controller transitions;
+- manual expand, collapse, hide, and show during a blocking action;
+- planner suspend/resume, floating and pop-out modes, multi-monitor recovery,
+  VR where supported, plugin reload, and simulator shutdown;
+- no new draw-path mutation, recurring log noise, or measurable idle overhead.
+
+If those gates are not met, the experiment is discarded and this stable
+pilot-controlled presentation remains the release behavior.
 
 ## Phase 0 — Design baseline
 
@@ -172,7 +201,9 @@ per frame, so unchanged geometry is reused without changing its construction.
 - Preformat status, source, speed, distance, and action-availability values only
   when the snapshot changes.
 - Drive the five compact-rail nodes from the snapshot.
-- Show the amber action marker only when pilot input is required.
+- Show the current node in bright green during healthy automatic progress and
+  amber/orange only when pilot input is required. Reserve red for a future
+  explicit controller-reported fault or safety stop.
 - Mirror existing crew messages as always-enabled on-screen captions.
 - Collapse and restore correctly around the overhead planner.
 - Add bounded transition logging for telemetry and troubleshooting.
@@ -428,8 +459,10 @@ dedicated implementation were removed on 2026-08-05.
 | No repeated expensive work in draw callbacks | 1, 2, 3 | Instrumented callback timings and allocation audit |
 | Narrow vertical panel | 2 | Size tests at supported UI scales |
 | Clickable five-stage progress rail | 2 | Interaction and drag-threshold tests |
+| Current-stage color distinguishes automatic work from a pilot gate | 2, 3 | Pure state-visual mapping test and live compact/panel review |
 | Click compact rail to open the full panel | 2 | UI state test |
 | Collapse panel back to compact rail | 2 | UI state test |
+| Optional automatic expansion for pilot actions | Deferred experiment | Separate branch; transition, ownership, geometry, and loop-prevention matrix |
 | Hidden/minimal/full presentation modes | 2 | Persistence and lifecycle tests |
 | Move around X-Plane | 2 | Floating-window test |
 | Pop out and move to another monitor | 2 | Multi-monitor geometry test |

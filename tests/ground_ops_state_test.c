@@ -225,6 +225,50 @@ test_waiting_state_has_no_timer_progress(void)
 }
 
 static void
+test_stage_visuals_distinguish_blocking_from_automatic_progress(void)
+{
+    ground_ops_state_t state;
+    ground_ops_raw_state_t raw = idle_raw();
+
+    ground_ops_state_init(&state);
+    assert(ground_ops_state_update(&state, &raw));
+    assert(state.snapshot.action_required);
+    assert(ground_ops_stage_visual(&state.snapshot, GROUND_OPS_STAGE_TUG) ==
+        GROUND_OPS_STAGE_VISUAL_BLOCKED);
+    assert(ground_ops_stage_visual(&state.snapshot,
+        GROUND_OPS_STAGE_CONNECT) == GROUND_OPS_STAGE_VISUAL_FUTURE);
+
+    /* Call tug accepted: the current Tug stage is healthy automatic work. */
+    raw.operation_active = true;
+    raw.prep_state_active = false;
+    raw.step = PB_STEP_START;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(!state.snapshot.action_required);
+    assert(ground_ops_stage_visual(&state.snapshot, GROUND_OPS_STAGE_TUG) ==
+        GROUND_OPS_STAGE_VISUAL_ACTIVE);
+
+    raw.step = PB_STEP_DRIVING_UP_CONNECT;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(ground_ops_stage_visual(&state.snapshot, GROUND_OPS_STAGE_TUG) ==
+        GROUND_OPS_STAGE_VISUAL_COMPLETE);
+    assert(ground_ops_stage_visual(&state.snapshot,
+        GROUND_OPS_STAGE_CONNECT) == GROUND_OPS_STAGE_VISUAL_ACTIVE);
+    assert(ground_ops_stage_visual(&state.snapshot, GROUND_OPS_STAGE_COMMS) ==
+        GROUND_OPS_STAGE_VISUAL_FUTURE);
+
+    raw.step = PB_STEP_LIFTING;
+    raw.late_plan = true;
+    raw.awaiting_plan = true;
+    assert(ground_ops_state_update(&state, &raw));
+    assert(state.snapshot.action_required);
+    assert(ground_ops_stage_visual(&state.snapshot, GROUND_OPS_STAGE_COMMS) ==
+        GROUND_OPS_STAGE_VISUAL_BLOCKED);
+
+    assert(ground_ops_stage_visual(NULL, GROUND_OPS_STAGE_TUG) ==
+        GROUND_OPS_STAGE_VISUAL_FUTURE);
+}
+
+static void
 test_pre_lift_connection_hold_exposes_plan_action(void)
 {
     ground_ops_state_t state;
@@ -563,6 +607,7 @@ main(void)
     test_formatting_only_changes_for_display_values();
     test_captions_follow_message_state();
     test_waiting_state_has_no_timer_progress();
+    test_stage_visuals_distinguish_blocking_from_automatic_progress();
     test_pre_lift_connection_hold_exposes_plan_action();
     test_pause_resume_actions_preserve_push_stage();
     test_end_from_pause_hold_uses_stationary_handoff();
