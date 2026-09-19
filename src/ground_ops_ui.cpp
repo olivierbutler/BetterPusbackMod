@@ -22,6 +22,7 @@
 #include <acfutils/conf.h>
 #include <acfutils/log.h>
 #include <acfutils/time.h>
+#include <acfutils/intl.h>
 
 #include "ImgWindow/xp_img_window.h"
 #include "bp.h"
@@ -572,8 +573,14 @@ public:
         current_presentation(initial_presentation),
         popped_out(initial_mode == GROUND_OPS_WINDOW_POPOUT)
     {
-        SetWindowTitle("BetterPushback Ground Operations");
+        const char *lang= NULL;
+        (void)conf_get_str(bp_conf, "lang", &lang);
+        use_chinese_font = (lang && strcmp(lang, "zh") == 0);
+
+        SetWindowTitle(_("BetterPushback Ground Operations"));
         apply_presentation_contract();
+
+
     }
 
     void set_presentation(ground_ops_presentation_t next)
@@ -622,16 +629,23 @@ protected:
     {
         uint64_t started = microclock();
 
+        if (use_chinese_font) {
+            ImGui::PushFont(ImgWindow::fontChinese);
+        }
         if (current_presentation == GROUND_OPS_PRESENTATION_PANEL)
             draw_panel();
         else
             draw_orb();
         note_draw(current_presentation, microclock() - started);
+        if (use_chinese_font) {
+            ImGui::PopFont();
+        }
     }
 
 private:
     ground_ops_presentation_t current_presentation;
     bool popped_out;
+    bool use_chinese_font = false;
     bool orb_press_active = false;
     ground_ops_rect_t orb_press_rect = {};
     ground_ops_dwell_t collapse_dwell = {};
@@ -953,7 +967,7 @@ private:
                     20, scaled(2.0f));
             }
             draw_text_centered(draw, 10.0f, 29.0f, center_y + 9.0f,
-                label, stages[index]);
+                label, _(stages[index]));
         }
 
         ImGui::SetCursorPos(point(0, 0));
@@ -1043,20 +1057,20 @@ private:
 
         draw_text_fitted(draw, 11.0f, 9.0f, 10, 15, 14, 13, muted, "::");
         draw_text_fitted(draw, 14.0f, 10.0f, 30, 8, 168, 18, primary,
-            "Ground operations");
+            _("Ground operations"));
         draw_text_fitted(draw, 10.0f, 7.0f, 30, 26, 168, 12, secondary,
             snapshot->flight);
 
         if (icon_button(draw, "##ground_ops_popout", 205, 9,
             popped_out ? "IN" : "OUT",
-            popped_out ? "Return window to X-Plane" :
-            "Pop out to an operating-system window"))
+            popped_out ? _("Return window to X-Plane") :
+            _("Pop out to an operating-system window")))
             queue_action(UiAction::ToggleWindowMode);
         if (icon_button(draw, "##ground_ops_collapse", 234, 9,
-            "-", "Click, or hover here for one second, to collapse"))
+            "-", _("Click, or hover here for one second, to collapse")))
             queue_action(UiAction::ShowOrb);
         if (icon_button(draw, "##ground_ops_hide", 263, 9,
-            "X", "Hide Ground Operations"))
+            "X", _("Hide Ground Operations")))
             queue_action(UiAction::Hide);
 
         draw_text_fitted(draw, 13.0f, 8.0f, 11, 56, 270, 15, primary,
@@ -1096,7 +1110,7 @@ private:
                     blue_text, 20, scaled(2.0f));
             }
             draw_text_centered(draw, 10.0f, 30.0f, center_y + 9.0f,
-                label, stages[index]);
+                label, _(stages[index]));
         }
 
         ImGui::SetCursorPos(point(2, 99));
@@ -1105,7 +1119,7 @@ private:
             bp_ui_click_play();
             queue_action(UiAction::ShowOrb);
         }
-        tooltip("Click the progress rail to collapse Ground Operations");
+        tooltip(_("Click the progress rail to collapse Ground Operations"));
 
         draw->AddRectFilled(point(73, 116), point(108, 151), blue_panel,
             scaled(9.0f));
@@ -1140,19 +1154,19 @@ private:
         }
         draw_text_fitted(draw, 10.0f, 8.0f, 84, 290, 184, 12,
             highlight_task ? amber : secondary,
-            snapshot->action_required ? "PILOT ACTION" : "CURRENT TASK");
+            snapshot->action_required ? _("PILOT ACTION") : _("CURRENT TASK"));
         draw_text_fitted(draw, 10.5f, 6.5f, 84, 304, 184, 27, primary,
             snapshot->current_task, true);
 
         if (end_confirmation_armed) {
             if (action_button(draw, "##ground_ops_keep", 73, 342, 99,
-                "Keep operation", GROUND_OPS_BUTTON_SECONDARY,
-                "Cancel; keep the route and tug connected")) {
+                _("Keep operation"), GROUND_OPS_BUTTON_SECONDARY,
+                _("Cancel; keep the route and tug connected"))) {
                 queue_action(UiAction::CancelEndOperation);
             }
             if (action_button(draw, "##ground_ops_confirm_end", 180, 342,
-                99, "Confirm end", GROUND_OPS_BUTTON_DESTRUCTIVE,
-                "Stop completely, discard the route, and disconnect")) {
+                99, _("Confirm end"), GROUND_OPS_BUTTON_DESTRUCTIVE,
+                _("Stop completely, discard the route, and disconnect"))) {
                 queue_action(UiAction::ConfirmEndOperation);
             }
         } else if (snapshot->primary_action != GROUND_OPS_ACTION_NONE) {
@@ -1164,12 +1178,12 @@ private:
                 primary_width, snapshot->primary_action_label,
                 ground_ops_button_style(snapshot, snapshot->primary_action),
                 snapshot->primary_action == GROUND_OPS_ACTION_PAUSE ?
-                "Controlled stop; route and steering state are retained" :
+                _("Controlled stop; route and steering state are retained") :
                 snapshot->primary_action == GROUND_OPS_ACTION_RESUME ?
-                "Continue the accepted route from the hold" :
+                _("Continue the accepted route from the hold") :
                 snapshot->primary_action ==
                 GROUND_OPS_ACTION_DISCONNECT_TUG ?
-                "Disconnect the tug and continue to the hand signal" :
+                _("Disconnect the tug and continue to the hand signal") :
                 snapshot->current_task)) {
                 queue_action(ui_action_for(snapshot->primary_action));
             }
@@ -1179,8 +1193,8 @@ private:
                 ground_ops_button_style(snapshot, snapshot->secondary_action),
                 snapshot->secondary_action ==
                 GROUND_OPS_ACTION_RECONNECT_TUG ?
-                "Reconnect the tug and return to route planning" :
-                "Stop completely, discard the route, and disconnect")) {
+                _("Reconnect the tug and return to route planning") :
+                _("Stop completely, discard the route, and disconnect"))) {
                 queue_action(ui_action_for(snapshot->secondary_action));
             }
         }
@@ -1188,7 +1202,7 @@ private:
         draw_text_fitted(draw, 10.0f, 6.0f, 10, 400, 150, 12, muted,
             snapshot->source);
         draw_text_right_fitted(draw, 10.0f, 6.0f, 281, 400, 116, 12,
-            green_text, "Interactive | Offline safe");
+            green_text, _("Interactive | Offline safe"));
     }
 };
 

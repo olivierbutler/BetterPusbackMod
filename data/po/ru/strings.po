@@ -352,3 +352,583 @@ msgstr "Относительная стандартная громкость а�
 
 msgid "Ground crew audio volume"
 msgstr "Громкость аудио наземного экипажа"
+
+msgid "End pushback and disconnect"
+msgstr "Завершить буксировку и отсоединить"
+
+msgid "Pause/Resume automatic pushback"
+msgstr "Пауза/Продолжить автоматическую буксировку"
+
+msgid "Ground Operations: Show/Hide"
+msgstr "Наземные операции: Показать/Скрыть"
+
+msgid "Ground Operations: Expand/Collapse"
+msgstr "Наземные операции: Развернуть/Свернуть"
+
+msgid "Tug available"
+msgstr "Буксировщик доступен"
+
+msgid "Button click volume"
+msgstr "Громкость нажатий"
+
+msgid "Ground Operations button clicks only. 0% mutes clicks.\n"
+     "Changes apply immediately; use Save preferences to keep them.\n"
+     "Release the slider to preview the selected volume."
+msgstr "Только нажатия кнопок наземных операций. 0% — без звука.\n"
+     "Изменения применяются сразу; используйте «Сохранить настройки», чтобы сохранить их.\n"
+     "Отпустите ползунок, чтобы прослушать выбранную громкость."
+
+msgid "BetterPushback Ground Operations"
+msgstr "Наземные операции BetterPushback"
+
+msgid "Tug"
+msgstr "Тягач"
+
+msgid "Connect"
+msgstr "Подкл."
+
+msgid "Comms"
+msgstr "Связь"
+
+msgid "Push"
+msgstr "Пушбэк"
+
+msgid "Clear"
+msgstr "Свободно"
+
+msgid "Ground operations"
+msgstr "Наземные операции"
+
+msgid "Return window to X-Plane"
+msgstr "Вернуть окно в X-Plane"
+
+msgid "Pop out to an operating-system window"
+msgstr "Открыть в отдельном системном окне"
+
+msgid "Click, or hover here for one second, to collapse"
+msgstr "Нажмите или наведите на секунду, чтобы свернуть"
+
+msgid "Hide Ground Operations"
+msgstr "Скрыть наземные операции"
+
+msgid "Click the progress rail to collapse Ground Operations"
+msgstr "Нажмите на шкалу прогресса, чтобы свернуть"
+
+msgid "Keep operation"
+msgstr "Продолжить операцию"
+
+msgid "Cancel; keep the route and tug connected"
+msgstr "Отмена; сохранить маршрут и подключение буксировщика"
+
+msgid "Confirm end"
+msgstr "Подтвердить завершение"
+
+msgid "Stop completely, discard the route, and disconnect"
+msgstr "Полностью остановить, удалить маршрут и отсоединить"
+
+msgid "Controlled stop; route and steering state are retained"
+msgstr "Контролируемая остановка; маршрут и состояние руления сохранены"
+
+msgid "Continue the accepted route from the hold"
+msgstr "Продолжить принятый маршрут после остановки"
+
+msgid "Disconnect the tug and continue to the hand signal"
+msgstr "Отсоединить буксировщик и продолжить до ручного сигнала"
+
+msgid "Reconnect the tug and return to route planning"
+msgstr "Подключить буксировщик и вернуться к планированию маршрута"
+
+msgid "Interactive | Offline safe"
+msgstr "Интерактивный | Безопасный офлайн"
+
+msgid "PILOT ACTION"
+msgstr "ДЕЙСТВИЕ ПИЛОТА"
+
+msgid "CURRENT TASK"
+msgstr "ТЕКУЩАЯ ЗАДАЧА"
+
+msgid "Planner opened. Define the route."
+msgstr "Планировщик открыт. Задайте маршрут."
+
+msgid "Pushback plan saved."
+msgstr "План буксировки сохранён."
+
+msgid "Ground crew: Tug approaching."
+msgstr "Наземная команда: буксировщик приближается."
+
+msgid "Ground crew: Set parking brake."
+msgstr "Наземная команда: затормозите стояночным тормозом."
+
+msgid "Ground crew: Ready to connect."
+msgstr "Наземная команда: готов к подключению."
+
+msgid "Ground crew: Winching nose gear."
+msgstr "Наземная команда: захват передней стойки."
+
+msgid "Ground crew: Tug connected."
+msgstr "Наземная команда: буксировщик подключён."
+
+msgid "Ground crew: Starting pushback."
+msgstr "Наземная команда: начало буксировки."
+
+msgid "Ground crew: Starting tow."
+msgstr "Наземная команда: начало буксировки."
+
+msgid "Ground crew: Start engines later."
+msgstr "Наземная команда: запустите двигатели позже."
+
+msgid "Ground crew: Tow; start later."
+msgstr "Наземная команда: буксировка; запуск позже."
+
+msgid "Ground crew: Pushback complete."
+msgstr "Наземная команда: буксировка завершена."
+
+msgid "Ground crew: Disconnecting tug."
+msgstr "Наземная команда: отсоединение буксировщика."
+
+msgid "Ground crew: Clear on the right."
+msgstr "Наземная команда: справа свободно."
+
+msgid "Ground crew: Clear on the left."
+msgstr "Наземная команда: слева свободно."
+
+msgid "SIM WX unavailable"
+msgstr "Погода SIM недоступна"
+
+msgid "QNH unavailable"
+msgstr "QNH недоступен"
+
+msgid "No pilot action required"
+msgstr "Действия пилота не требуются"
+
+msgid "Local plugin state"
+msgstr "Состояние локального плагина"
+
+msgid "Airport ----"
+msgstr "Аэропорт ----"
+
+msgid "Airport %s"
+msgstr "Аэропорт %s"
+
+msgid "Flight --"
+msgstr "Рейс --"
+
+msgid "Flight %s"
+msgstr "Рейс %s"
+
+msgid "EOBT --"
+msgstr "EOBT --"
+
+msgid "EOBT %s"
+msgstr "EOBT %s"
+
+msgid "Local plugin | Offline"
+msgstr "Локальный плагин | Офлайн"
+
+msgid "current"
+msgstr "текущий"
+
+msgid "Current"
+msgstr "Текущий"
+
+msgid "Mixed sources"
+msgstr "Смешанные источники"
+
+msgid "STALE"
+msgstr "УСТАРЕЛО"
+
+msgid " STALE"
+msgstr " УСТАРЕЛО"
+
+msgid "Stale"
+msgstr "Устарело"
+
+msgid "Reviewing pushback plan"
+msgstr "Проверка плана буксировки"
+
+msgid "The overhead planner is authoritative"
+msgstr "Планировщик на верхней панели является основным"
+
+msgid "Complete or cancel the route"
+msgstr "Завершите или отмените маршрут"
+
+msgid "Ground operation complete"
+msgstr "Наземная операция завершена"
+
+msgid "Aircraft and equipment are clear"
+msgstr "Самолёт и оборудование свободны"
+
+msgid "Call tow assistance if the\naircraft must return"
+msgstr "Вызовите буксировочную помощь, если самолёту\nнеобходимо вернуться"
+
+msgid "Airport data loaded; ground crew is ready"
+msgstr "Данные аэропорта загружены; наземная команда готова"
+
+msgid "Ground crew is ready; airport data unavailable"
+msgstr "Наземная команда готова; данные аэропорта недоступны"
+
+msgid "Call the tug to begin connection"
+msgstr "Вызовите буксировщик для подключения"
+
+msgid "Selecting a compatible tug"
+msgstr "Выбор совместимого буксировщика"
+
+msgid "Using the local tug library"
+msgstr "Используется локальная библиотека буксировщиков"
+
+msgid "Wait for tug selection"
+msgstr "Ожидание выбора буксировщика"
+
+msgid "Tug standing by"
+msgstr "Буксировщик в ожидании"
+
+msgid "The tug is ready to approach"
+msgstr "Буксировщик готов к подъезду"
+
+msgid "Ground crew will begin the approach"
+msgstr "Наземная команда начинает подъезд"
+
+msgid "Ground crew dispatching tug"
+msgstr "Наземная команда направляет буксировщик"
+
+msgid "Ground operation has started"
+msgstr "Наземная операция началась"
+
+msgid "Wait for the tug"
+msgstr "Ожидайте буксировщик"
+
+msgid "Tug approaching aircraft"
+msgstr "Буксировщик приближается к самолёту"
+
+msgid "Maintaining safe approach speed"
+msgstr "Поддержание безопасной скорости подъезда"
+
+msgid "Monitor tug approach"
+msgstr "Контролируйте подъезд буксировщика"
+
+msgid "Clearing aircraft services"
+msgstr "Уборка наземного оборудования"
+
+msgid "Doors, GPU, or ASU are not yet clear"
+msgstr "Двери, GPU или ASU ещё не освобождены"
+
+msgid "Ground crew connection checks"
+msgstr "Проверка подключения наземной командой"
+
+msgid "Waiting for aircraft service"
+msgstr "Ожидание освобождения оборудования"
+
+msgid "Doors, GPU, or ASU are not clear"
+msgstr "Двери, GPU или ASU не освобождены"
+
+msgid "Secure doors and equipment"
+msgstr "Закрепите двери и оборудование"
+
+msgid "Preparing the tug cradle"
+msgstr "Подготовка захвата буксировщика"
+
+msgid "Connection equipment is opening"
+msgstr "Открытие соединительного оборудования"
+
+msgid "Wait for equipment preparation"
+msgstr "Ожидание подготовки оборудования"
+
+msgid "Performing connection checks"
+msgstr "Проверка подключения"
+
+msgid "Aircraft is being secured for tug connection"
+msgstr "Самолёт фиксируется для подключения буксировщика"
+
+msgid "Wait for automatic connection"
+msgstr "Ожидание автоматического подключения"
+
+msgid "Parking brake required"
+msgstr "Требуется стояночный тормоз"
+
+msgid "The tug is ready to connect"
+msgstr "Буксировщик готов к подключению"
+
+msgid "Positioning tug to connect"
+msgstr "Позиционирование буксировщика для подключения"
+
+msgid "Closing the final safe distance"
+msgstr "Сокращение последнего безопасного расстояния"
+
+msgid "Monitor tug connection"
+msgstr "Контролируйте подключение буксировщика"
+
+msgid "Securing the nose gear"
+msgstr "Фиксация передней стойки"
+
+msgid "Tug connection is in progress"
+msgstr "Подключение буксировщика выполняется"
+
+msgid "Wait for nose-gear capture"
+msgstr "Ожидайте захвата передней стойки"
+
+msgid "Tug connected; plan the tow"
+msgstr "Буксировщик подключён; спланируйте буксировку"
+
+msgid "Tug connected; plan the push"
+msgstr "Буксировщик подключён; спланируйте буксировку"
+
+msgid "Nose gear captured; saved routes are disabled"
+msgstr "Передняя стойка захвачена; сохранённые маршруты отключены"
+
+msgid "Nose gear captured; no lift has been performed"
+msgstr "Передняя стойка захвачена; подъём не выполнен"
+
+msgid "Plan a one-time tow route"
+msgstr "Спланируйте разовый маршрут буксировки"
+
+msgid "Open the planner and accept a route"
+msgstr "Откройте планировщик и примите маршрут"
+
+msgid "Lifting the nose gear"
+msgstr "Подъём передней стойки"
+
+msgid "Connection is nearly complete"
+msgstr "Подключение почти завершено"
+
+msgid "Wait for lift completion"
+msgstr "Ожидайте завершения подъёма"
+
+msgid "Tug connected; tow plan required"
+msgstr "Буксировщик подключён; требуется план буксировки"
+
+msgid "Tug connected; plan required"
+msgstr "Буксировщик подключён; требуется план"
+
+msgid "Emergency Tow uses one-time manual routes only"
+msgstr "Аварийная буксировка использует только разовые маршруты"
+
+msgid "Late-planning mode is active"
+msgstr "Активен режим позднего планирования"
+
+msgid "Open and complete the planner"
+msgstr "Откройте и завершите планирование"
+
+msgid "Ready for brake release"
+msgstr "Готов к отпусканию тормоза"
+
+msgid "Tug connected and crew ready"
+msgstr "Буксировщик подключён, команда готова"
+
+msgid "Release the parking brake"
+msgstr "Отпустите стояночный тормоз"
+
+msgid "Starting emergency tow"
+msgstr "Начало аварийной буксировки"
+
+msgid "Starting pushback"
+msgstr "Начало буксировки"
+
+msgid "Steering and motion are engaging"
+msgstr "Включаются руление и движение"
+
+msgid "Monitor initial movement"
+msgstr "Контролируйте начальное движение"
+
+msgid "Emergency tow paused"
+msgstr "Аварийная буксировка приостановлена"
+
+msgid "Pushback paused"
+msgstr "Буксировка приостановлена"
+
+msgid "Pausing emergency tow"
+msgstr "Приостановка аварийной буксировки"
+
+msgid "Pausing pushback"
+msgstr "Приостановка буксировки"
+
+msgid "Accepted route and steering state are retained"
+msgstr "Принятый маршрут и состояние руления сохранены"
+
+msgid "Release parking brake if set, then resume"
+msgstr "Отпустите стояночный тормоз, если он включён, затем продолжите"
+
+msgid "Controlled deceleration in progress"
+msgstr "Выполняется контролируемое замедление"
+
+msgid "Emergency tow in progress"
+msgstr "Выполняется аварийная буксировка"
+
+msgid "Pushback in progress"
+msgstr "Выполняется буксировка"
+
+msgid "Pause retains route; End disconnects"
+msgstr "Пауза сохраняет маршрут; завершение отключает буксировщик"
+
+msgid "Monitor tow progress"
+msgstr "Контролируйте ход буксировки"
+
+msgid "Monitor pushback progress"
+msgstr "Контролируйте ход буксировки"
+
+msgid "Stopping emergency tow"
+msgstr "Остановка аварийной буксировки"
+
+msgid "Stopping the aircraft"
+msgstr "Остановка самолёта"
+
+msgid "Decelerating to a controlled stop"
+msgstr "Замедление до контролируемой остановки"
+
+msgid "Wait for the aircraft to stop"
+msgstr "Ожидайте остановки самолёта"
+
+msgid "Aircraft stopped"
+msgstr "Самолёт остановлен"
+
+msgid "Parking brake confirmation is required"
+msgstr "Требуется подтверждение стояночного тормоза"
+
+msgid "Lowering the nose gear"
+msgstr "Опускание передней стойки"
+
+msgid "Beginning tug disconnection"
+msgstr "Начало отключения буксировщика"
+
+msgid "Wait for nose-gear lowering"
+msgstr "Ожидайте опускания передней стойки"
+
+msgid "Releasing the nose gear"
+msgstr "Освобождение передней стойки"
+
+msgid "Wait for nose-gear release"
+msgstr "Ожидайте освобождения передней стойки"
+
+msgid "Disconnect confirmed"
+msgstr "Отключение подтверждено"
+
+msgid "Ground crew is preparing to move"
+msgstr "Наземная команда готовится к движению"
+
+msgid "Wait for tug clearance"
+msgstr "Ожидайте освобождения буксировщика"
+
+msgid "Ready to disconnect"
+msgstr "Готов к отключению"
+
+msgid "Ground crew is awaiting approval"
+msgstr "Наземная команда ожидает разрешения"
+
+msgid "Cleared to disconnect"
+msgstr "Разрешено отключение"
+
+msgid "Tug moving clear"
+msgstr "Буксировщик удаляется"
+
+msgid "Separating safely from the aircraft"
+msgstr "Безопасное удаление от самолёта"
+
+msgid "Monitor tug clearance"
+msgstr "Контролируйте удаление буксировщика"
+
+msgid "Closing the tug cradle"
+msgstr "Закрытие захвата буксировщика"
+
+msgid "Stowing connection equipment"
+msgstr "Укладка соединительного оборудования"
+
+msgid "Wait for equipment stowage"
+msgstr "Ожидайте укладки оборудования"
+
+msgid "Driver moving to clear"
+msgstr "Водитель отъезжает"
+
+msgid "Ground crew is taking position"
+msgstr "Наземная команда занимает позицию"
+
+msgid "Monitor ground crew"
+msgstr "Контролируйте наземную команду"
+
+msgid "Clear signal acknowledged"
+msgstr "Сигнал «свободно» подтверждён"
+
+msgid "Ground crew will depart shortly"
+msgstr "Наземная команда скоро покинет место"
+
+msgid "Wait for tug departure"
+msgstr "Ожидайте отъезда буксировщика"
+
+msgid "Clear signal displayed"
+msgstr "Отображён сигнал «свободно»"
+
+msgid "Pin and equipment are clear"
+msgstr "Штифт и оборудование убраны"
+
+msgid "Verify the clear signal"
+msgstr "Проверьте сигнал «свободно»"
+
+msgid "Tug returning to station"
+msgstr "Буксировщик возвращается на стоянку"
+
+msgid "Aircraft area is being cleared"
+msgstr "Зона вокруг самолёта освобождается"
+
+msgid "Finalize cockpit checklist"
+msgstr "Завершите контрольную карту кабины"
+
+msgid "Controller idle"
+msgstr "Контроллер бездействует"
+
+msgid "No active pushback controller state"
+msgstr "Нет активного состояния контроллера буксировки"
+
+msgid "Use classic controls to begin"
+msgstr "Используйте классическое управление для начала"
+
+msgid "Call tow back"
+msgstr "Вызвать буксировщик обратно"
+
+msgid "Call tug"
+msgstr "Вызвать буксировщик"
+
+msgid "Plan tow"
+msgstr "Планировать буксировку"
+
+msgid "Plan push"
+msgstr "Планировать буксировку"
+
+msgid "End operation"
+msgstr "Завершить операцию"
+
+msgid "Change plan"
+msgstr "Изменить план"
+
+msgid "Resume tow"
+msgstr "Продолжить буксировку"
+
+msgid "Resume push"
+msgstr "Продолжить буксировку"
+
+msgid "Pause tow"
+msgstr "Приостановить буксировку"
+
+msgid "Pause push"
+msgstr "Приостановить буксировку"
+
+msgid "Disconnect tug"
+msgstr "Отсоединить буксировщик"
+
+msgid "Reconnect"
+msgstr "Подключить снова"
+
+msgid "Acknowledge"
+msgstr "Подтвердить"
+
+msgid "unknown"
+msgstr "неизвестно"
+
+msgid "Speed %.1f m/s"
+msgstr "Скорость %.1f м/с"
+
+msgid "Speed --"
+msgstr "Скорость --"
+
+msgid "Remaining --"
+msgstr "Осталось --"
+
+msgid "Remaining %d m"
+msgstr "Осталось %d м"

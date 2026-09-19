@@ -495,9 +495,589 @@ msgid "Ground crew audio relative default audio volume:\n"
       "The volume can be changed here or by using the dataref:\n"
       "'bp/ground_crew_audio_volume'"
 
-msgstr "Volume audio relatif par défaut de l’équipe au sol :\n"
+msgstr "Volume audio relatif par défaut de l'équipe au sol :\n"
         "Le volume peut être modifié ici ou en utilisant le dataref :\n"
         "'bp/ground_crew_audio_volume'"
 
 msgid "Ground crew audio volume"
 msgstr "Volume audio de l'équipe au sol"
+
+msgid "End pushback and disconnect"
+msgstr "Terminer le repoussage et déconnecter"
+
+msgid "Pause/Resume automatic pushback"
+msgstr "Pause/Reprise du repoussage automatique"
+
+msgid "Ground Operations: Show/Hide"
+msgstr "Opérations au sol : Afficher/Masquer"
+
+msgid "Ground Operations: Expand/Collapse"
+msgstr "Opérations au sol : Développer/Réduire"
+
+msgid "Tug available"
+msgstr "Tracteur disponible"
+
+msgid "Button click volume"
+msgstr "Volume des clics"
+
+msgid "Ground Operations button clicks only. 0% mutes clicks.\n"
+     "Changes apply immediately; use Save preferences to keep them.\n"
+     "Release the slider to preview the selected volume."
+msgstr "Clics des boutons des opérations au sol uniquement. 0% coupe les clics.\n"
+     "Les changements sont immédiats ; utilisez « Enregistrer ces choix » pour les conserver.\n"
+     "Relâchez le curseur pour prévisualiser le volume sélectionné."
+
+msgid "BetterPushback Ground Operations"
+msgstr "Opérations au sol BetterPushback"
+
+msgid "Tug"
+msgstr "Tracteur"
+
+msgid "Connect"
+msgstr "Connecter"
+
+msgid "Comms"
+msgstr "Comms"
+
+msgid "Push"
+msgstr "Repoussage"
+
+msgid "Clear"
+msgstr "Dégagé"
+
+msgid "Ground operations"
+msgstr "Opérations au sol"
+
+msgid "Return window to X-Plane"
+msgstr "Renvoyer la fenêtre dans X-Plane"
+
+msgid "Pop out to an operating-system window"
+msgstr "Détacher dans une fenêtre système"
+
+msgid "Click, or hover here for one second, to collapse"
+msgstr "Cliquez ou survolez ici une seconde pour réduire"
+
+msgid "Hide Ground Operations"
+msgstr "Masquer les opérations au sol"
+
+msgid "Click the progress rail to collapse Ground Operations"
+msgstr "Cliquez sur la barre de progression pour réduire"
+
+msgid "Keep operation"
+msgstr "Poursuivre l'opération"
+
+msgid "Cancel; keep the route and tug connected"
+msgstr "Annuler ; conserver la route et le tracteur connecté"
+
+msgid "Confirm end"
+msgstr "Confirmer la fin"
+
+msgid "Stop completely, discard the route, and disconnect"
+msgstr "Arrêter complètement, supprimer la route et déconnecter"
+
+msgid "Controlled stop; route and steering state are retained"
+msgstr "Arrêt contrôlé ; route et direction conservées"
+
+msgid "Continue the accepted route from the hold"
+msgstr "Reprendre la route acceptée après l'arrêt"
+
+msgid "Disconnect the tug and continue to the hand signal"
+msgstr "Déconnecter le tracteur et poursuivre jusqu'au signal manuel"
+
+msgid "Reconnect the tug and return to route planning"
+msgstr "Reconnecter le tracteur et revenir à la planification"
+
+msgid "Interactive | Offline safe"
+msgstr "Interactif | Sûr hors ligne"
+
+msgid "PILOT ACTION"
+msgstr "ACTION DU PILOTE"
+
+msgid "CURRENT TASK"
+msgstr "TACHE EN COURS"
+
+msgid "Planner opened. Define the route."
+msgstr "Planificateur ouvert. Définissez la route."
+
+msgid "Pushback plan saved."
+msgstr "Plan de repoussage enregistré."
+
+msgid "Ground crew: Tug approaching."
+msgstr "Equipe au sol : tracteur en approche."
+
+msgid "Ground crew: Set parking brake."
+msgstr "Equipe au sol : serrez le frein de parking."
+
+msgid "Ground crew: Ready to connect."
+msgstr "Equipe au sol : prêt à connecter."
+
+msgid "Ground crew: Winching nose gear."
+msgstr "Equipe au sol : prise en charge du train avant."
+
+msgid "Ground crew: Tug connected."
+msgstr "Equipe au sol : tracteur connecté."
+
+msgid "Ground crew: Starting pushback."
+msgstr "Equipe au sol : début du repoussage."
+
+msgid "Ground crew: Starting tow."
+msgstr "Equipe au sol : début du remorquage."
+
+msgid "Ground crew: Start engines later."
+msgstr "Equipe au sol : démarrez les moteurs plus tard."
+
+msgid "Ground crew: Tow; start later."
+msgstr "Equipe au sol : remorquage ; démarrez plus tard."
+
+msgid "Ground crew: Pushback complete."
+msgstr "Equipe au sol : repoussage terminé."
+
+msgid "Ground crew: Disconnecting tug."
+msgstr "Equipe au sol : déconnexion du tracteur."
+
+msgid "Ground crew: Clear on the right."
+msgstr "Equipe au sol : dégagé à droite."
+
+msgid "Ground crew: Clear on the left."
+msgstr "Equipe au sol : dégagé à gauche."
+
+msgid "SIM WX unavailable"
+msgstr "Météo SIM indisponible"
+
+msgid "QNH unavailable"
+msgstr "QNH indisponible"
+
+msgid "No pilot action required"
+msgstr "Aucune action pilote requise"
+
+msgid "Local plugin state"
+msgstr "État du plugin local"
+
+msgid "Airport ----"
+msgstr "Aéroport ----"
+
+msgid "Airport %s"
+msgstr "Aéroport %s"
+
+msgid "Flight --"
+msgstr "Vol --"
+
+msgid "Flight %s"
+msgstr "Vol %s"
+
+msgid "EOBT --"
+msgstr "EOBT --"
+
+msgid "EOBT %s"
+msgstr "EOBT %s"
+
+msgid "Local plugin | Offline"
+msgstr "Plugin local | Hors ligne"
+
+msgid "current"
+msgstr "actuel"
+
+msgid "Current"
+msgstr "Actuel"
+
+msgid "Mixed sources"
+msgstr "Sources mixtes"
+
+msgid "STALE"
+msgstr "PÉRIMÉ"
+
+msgid " STALE"
+msgstr " PÉRIMÉ"
+
+msgid "Stale"
+msgstr "Périmé"
+
+msgid "Reviewing pushback plan"
+msgstr "Vérification du plan de repoussage"
+
+msgid "The overhead planner is authoritative"
+msgstr "Le planificateur supérieur fait foi"
+
+msgid "Complete or cancel the route"
+msgstr "Terminez ou annulez la route"
+
+msgid "Ground operation complete"
+msgstr "Opération au sol terminée"
+
+msgid "Aircraft and equipment are clear"
+msgstr "Avion et équipements dégagés"
+
+msgid "Call tow assistance if the\naircraft must return"
+msgstr "Appelez l'assistance au remorquage si l'avion\ndoit revenir"
+
+msgid "Airport data loaded; ground crew is ready"
+msgstr "Données aéroport chargées ; équipe au sol prête"
+
+msgid "Ground crew is ready; airport data unavailable"
+msgstr "Équipe au sol prête ; données aéroport indisponibles"
+
+msgid "Call the tug to begin connection"
+msgstr "Appelez le tracteur pour commencer la connexion"
+
+msgid "Selecting a compatible tug"
+msgstr "Sélection d'un tracteur compatible"
+
+msgid "Using the local tug library"
+msgstr "Utilisation de la bibliothèque locale de tracteurs"
+
+msgid "Wait for tug selection"
+msgstr "Attendez la sélection du tracteur"
+
+msgid "Tug standing by"
+msgstr "Tracteur en attente"
+
+msgid "The tug is ready to approach"
+msgstr "Le tracteur est prêt à approcher"
+
+msgid "Ground crew will begin the approach"
+msgstr "L'équipe au sol va commencer l'approche"
+
+msgid "Ground crew dispatching tug"
+msgstr "L'équipe au sol envoie le tracteur"
+
+msgid "Ground operation has started"
+msgstr "L'opération au sol a commencé"
+
+msgid "Wait for the tug"
+msgstr "Attendez le tracteur"
+
+msgid "Tug approaching aircraft"
+msgstr "Le tracteur approche de l'avion"
+
+msgid "Maintaining safe approach speed"
+msgstr "Maintien d'une vitesse d'approche sûre"
+
+msgid "Monitor tug approach"
+msgstr "Surveillez l'approche du tracteur"
+
+msgid "Clearing aircraft services"
+msgstr "Libération des équipements de l'avion"
+
+msgid "Doors, GPU, or ASU are not yet clear"
+msgstr "Portes, GPU ou ASU pas encore dégagés"
+
+msgid "Ground crew connection checks"
+msgstr "Contrôles de connexion par l'équipe au sol"
+
+msgid "Waiting for aircraft service"
+msgstr "En attente de libération des équipements"
+
+msgid "Doors, GPU, or ASU are not clear"
+msgstr "Portes, GPU ou ASU non dégagés"
+
+msgid "Secure doors and equipment"
+msgstr "Sécurisez portes et équipements"
+
+msgid "Preparing the tug cradle"
+msgstr "Préparation de la plateforme du tracteur"
+
+msgid "Connection equipment is opening"
+msgstr "Ouverture de l'équipement de connexion"
+
+msgid "Wait for equipment preparation"
+msgstr "Attendez la préparation de l'équipement"
+
+msgid "Performing connection checks"
+msgstr "Vérification de la connexion"
+
+msgid "Aircraft is being secured for tug connection"
+msgstr "Sécurisation de l'avion pour la connexion"
+
+msgid "Wait for automatic connection"
+msgstr "Attendez la connexion automatique"
+
+msgid "Parking brake required"
+msgstr "Frein de parking requis"
+
+msgid "The tug is ready to connect"
+msgstr "Le tracteur est prêt à se connecter"
+
+msgid "Positioning tug to connect"
+msgstr "Positionnement du tracteur pour connexion"
+
+msgid "Closing the final safe distance"
+msgstr "Réduction de la dernière distance de sécurité"
+
+msgid "Monitor tug connection"
+msgstr "Surveillez la connexion du tracteur"
+
+msgid "Securing the nose gear"
+msgstr "Sécurisation du train avant"
+
+msgid "Tug connection is in progress"
+msgstr "Connexion du tracteur en cours"
+
+msgid "Wait for nose-gear capture"
+msgstr "Attendez la prise du train avant"
+
+msgid "Tug connected; plan the tow"
+msgstr "Tracteur connecté ; planifiez le remorquage"
+
+msgid "Tug connected; plan the push"
+msgstr "Tracteur connecté ; planifiez le repoussage"
+
+msgid "Nose gear captured; saved routes are disabled"
+msgstr "Train avant pris ; routes enregistrées désactivées"
+
+msgid "Nose gear captured; no lift has been performed"
+msgstr "Train avant pris ; aucun levage effectué"
+
+msgid "Plan a one-time tow route"
+msgstr "Planifiez une route de remorquage ponctuelle"
+
+msgid "Open the planner and accept a route"
+msgstr "Ouvrez le planificateur et acceptez une route"
+
+msgid "Lifting the nose gear"
+msgstr "Levage du train avant"
+
+msgid "Connection is nearly complete"
+msgstr "Connexion presque terminée"
+
+msgid "Wait for lift completion"
+msgstr "Attendez la fin du levage"
+
+msgid "Tug connected; tow plan required"
+msgstr "Tracteur connecté ; plan de remorquage requis"
+
+msgid "Tug connected; plan required"
+msgstr "Tracteur connecté ; plan requis"
+
+msgid "Emergency Tow uses one-time manual routes only"
+msgstr "Le remorquage d'urgence utilise uniquement des routes manuelles"
+
+msgid "Late-planning mode is active"
+msgstr "Mode de planification tardive actif"
+
+msgid "Open and complete the planner"
+msgstr "Ouvrez et terminez le planificateur"
+
+msgid "Ready for brake release"
+msgstr "Prêt au desserrage du frein"
+
+msgid "Tug connected and crew ready"
+msgstr "Tracteur connecté et équipe prête"
+
+msgid "Release the parking brake"
+msgstr "Desserrez le frein de parking"
+
+msgid "Starting emergency tow"
+msgstr "Démarrage du remorquage d'urgence"
+
+msgid "Starting pushback"
+msgstr "Démarrage du repoussage"
+
+msgid "Steering and motion are engaging"
+msgstr "Direction et déplacement s'enclenchent"
+
+msgid "Monitor initial movement"
+msgstr "Surveillez le mouvement initial"
+
+msgid "Emergency tow paused"
+msgstr "Remorquage d'urgence en pause"
+
+msgid "Pushback paused"
+msgstr "Repoussage en pause"
+
+msgid "Pausing emergency tow"
+msgstr "Mise en pause du remorquage d'urgence"
+
+msgid "Pausing pushback"
+msgstr "Mise en pause du repoussage"
+
+msgid "Accepted route and steering state are retained"
+msgstr "Route acceptée et état de direction conservés"
+
+msgid "Release parking brake if set, then resume"
+msgstr "Desserrez le frein de parking s'il est serré, puis reprenez"
+
+msgid "Controlled deceleration in progress"
+msgstr "Décélération contrôlée en cours"
+
+msgid "Emergency tow in progress"
+msgstr "Remorquage d'urgence en cours"
+
+msgid "Pushback in progress"
+msgstr "Repoussage en cours"
+
+msgid "Pause retains route; End disconnects"
+msgstr "Pause conserve la route ; Fin déconnecte"
+
+msgid "Monitor tow progress"
+msgstr "Surveillez l'avancement du remorquage"
+
+msgid "Monitor pushback progress"
+msgstr "Surveillez l'avancement du repoussage"
+
+msgid "Stopping emergency tow"
+msgstr "Arrêt du remorquage d'urgence"
+
+msgid "Stopping the aircraft"
+msgstr "Arrêt de l'avion"
+
+msgid "Decelerating to a controlled stop"
+msgstr "Décélération jusqu'à l'arrêt contrôlé"
+
+msgid "Wait for the aircraft to stop"
+msgstr "Attendez l'arrêt de l'avion"
+
+msgid "Aircraft stopped"
+msgstr "Avion à l'arrêt"
+
+msgid "Parking brake confirmation is required"
+msgstr "Confirmation du frein de parking requise"
+
+msgid "Lowering the nose gear"
+msgstr "Abaissement du train avant"
+
+msgid "Beginning tug disconnection"
+msgstr "Début de la déconnexion du tracteur"
+
+msgid "Wait for nose-gear lowering"
+msgstr "Attendez l'abaissement du train avant"
+
+msgid "Releasing the nose gear"
+msgstr "Libération du train avant"
+
+msgid "Wait for nose-gear release"
+msgstr "Attendez la libération du train avant"
+
+msgid "Disconnect confirmed"
+msgstr "Déconnexion confirmée"
+
+msgid "Ground crew is preparing to move"
+msgstr "L'équipe au sol se prépare à partir"
+
+msgid "Wait for tug clearance"
+msgstr "Attendez que le tracteur soit dégagé"
+
+msgid "Ready to disconnect"
+msgstr "Prêt à déconnecter"
+
+msgid "Ground crew is awaiting approval"
+msgstr "L'équipe au sol attend l'autorisation"
+
+msgid "Cleared to disconnect"
+msgstr "Autorisé à déconnecter"
+
+msgid "Tug moving clear"
+msgstr "Le tracteur s'éloigne"
+
+msgid "Separating safely from the aircraft"
+msgstr "Éloignement sécurisé de l'avion"
+
+msgid "Monitor tug clearance"
+msgstr "Surveillez l'éloignement du tracteur"
+
+msgid "Closing the tug cradle"
+msgstr "Fermeture de la plateforme du tracteur"
+
+msgid "Stowing connection equipment"
+msgstr "Rangement de l'équipement de connexion"
+
+msgid "Wait for equipment stowage"
+msgstr "Attendez le rangement de l'équipement"
+
+msgid "Driver moving to clear"
+msgstr "Le conducteur s'éloigne"
+
+msgid "Ground crew is taking position"
+msgstr "L'équipe au sol prend position"
+
+msgid "Monitor ground crew"
+msgstr "Surveillez l'équipe au sol"
+
+msgid "Clear signal acknowledged"
+msgstr "Signal dégagé acquitté"
+
+msgid "Ground crew will depart shortly"
+msgstr "L'équipe au sol va partir"
+
+msgid "Wait for tug departure"
+msgstr "Attendez le départ du tracteur"
+
+msgid "Clear signal displayed"
+msgstr "Signal dégagé affiché"
+
+msgid "Pin and equipment are clear"
+msgstr "Goupille et équipements dégagés"
+
+msgid "Verify the clear signal"
+msgstr "Vérifiez le signal dégagé"
+
+msgid "Tug returning to station"
+msgstr "Le tracteur retourne à son poste"
+
+msgid "Aircraft area is being cleared"
+msgstr "La zone avion est en cours de dégagement"
+
+msgid "Finalize cockpit checklist"
+msgstr "Terminez la check-list du cockpit"
+
+msgid "Controller idle"
+msgstr "Contrôleur inactif"
+
+msgid "No active pushback controller state"
+msgstr "Aucun état actif du contrôleur de repoussage"
+
+msgid "Use classic controls to begin"
+msgstr "Utilisez les commandes classiques pour commencer"
+
+msgid "Call tow back"
+msgstr "Rappeler le tracteur"
+
+msgid "Call tug"
+msgstr "Appeler le tracteur"
+
+msgid "Plan tow"
+msgstr "Planifier le remorquage"
+
+msgid "Plan push"
+msgstr "Planifier le repoussage"
+
+msgid "End operation"
+msgstr "Terminer l'opération"
+
+msgid "Change plan"
+msgstr "Modifier le plan"
+
+msgid "Resume tow"
+msgstr "Reprendre le remorquage"
+
+msgid "Resume push"
+msgstr "Reprendre le repoussage"
+
+msgid "Pause tow"
+msgstr "Mettre en pause le remorquage"
+
+msgid "Pause push"
+msgstr "Mettre en pause le repoussage"
+
+msgid "Disconnect tug"
+msgstr "Déconnecter le tracteur"
+
+msgid "Reconnect"
+msgstr "Reconnecter"
+
+msgid "Acknowledge"
+msgstr "Acquitter"
+
+msgid "unknown"
+msgstr "inconnu"
+
+msgid "Speed %.1f m/s"
+msgstr "Vitesse %.1f m/s"
+
+msgid "Speed --"
+msgstr "Vitesse --"
+
+msgid "Remaining --"
+msgstr "Restant --"
+
+msgid "Remaining %d m"
+msgstr "Restant %d m"

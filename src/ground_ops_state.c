@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <acfutils/intl.h>
 #include "ground_ops_state.h"
 
 static const char *const stage_names[GROUND_OPS_STAGE_COUNT] = {
@@ -77,7 +78,7 @@ const char *
 ground_ops_stage_name(ground_ops_stage_t stage)
 {
     if (stage < GROUND_OPS_STAGE_TUG || stage > GROUND_OPS_STAGE_CLEAR)
-        return ("Unknown");
+        return _("unknown");
     return (stage_names[stage]);
 }
 
@@ -85,7 +86,7 @@ const char *
 ground_ops_step_name(pushback_step_t step)
 {
     if (step < PB_STEP_OFF || step >= PB_STEP_COUNT)
-        return ("unknown");
+        return _("unknown");
     return (step_names[step]);
 }
 
@@ -94,7 +95,7 @@ ground_ops_prep_name(ground_ops_prep_state_t prep)
 {
     if (prep < GROUND_OPS_PREP_AIRPORT_DATA ||
         prep > GROUND_OPS_PREP_COMPLETE)
-        return ("unknown");
+        return _("unknown");
     return (prep_names[prep]);
 }
 
@@ -270,26 +271,28 @@ map_prep(const ground_ops_raw_state_t *raw,
     switch (raw->prep_state) {
     case GROUND_OPS_PREP_PLANNER_REVIEW:
         set_view(snapshot, GROUND_OPS_STAGE_COMMS, "REVIEW",
-            "Reviewing pushback plan", "The overhead planner is authoritative",
-            "Complete or cancel the route", true);
+            _("Reviewing pushback plan"),
+            _("The overhead planner is authoritative"),
+            _("Complete or cancel the route"), true);
         break;
     case GROUND_OPS_PREP_COMPLETE:
         snapshot->operation_complete = true;
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "COMPLETE",
-            "Ground operation complete", "Aircraft and equipment are clear",
-            "Call tow assistance if the\naircraft must return", false);
+            _("Ground operation complete"),
+            _("Aircraft and equipment are clear"),
+            _("Call tow assistance if the\naircraft must return"), false);
         set_actions(snapshot, GROUND_OPS_ACTION_CALL_EMERGENCY_TOW,
-            "Call tow back", GROUND_OPS_ACTION_NONE, "");
+            _("Call tow back"), GROUND_OPS_ACTION_NONE, "");
         break;
     case GROUND_OPS_PREP_AIRPORT_DATA:
     default:
         set_view(snapshot, GROUND_OPS_STAGE_TUG, "PILOT ACTION",
-            "Tug available",
+            _("Tug available"),
             raw->airport_ident[0] != '\0' ?
-            "Airport data loaded; ground crew is ready" :
-            "Ground crew is ready; airport data unavailable",
-            "Call the tug to begin connection", true);
-        set_actions(snapshot, GROUND_OPS_ACTION_CALL_TUG, "Call tug",
+            _("Airport data loaded; ground crew is ready") :
+            _("Ground crew is ready; airport data unavailable"),
+            _("Call the tug to begin connection"), true);
+        set_actions(snapshot, GROUND_OPS_ACTION_CALL_TUG, _("Call tug"),
             GROUND_OPS_ACTION_NONE, "");
         break;
     }
@@ -302,218 +305,218 @@ map_step(const ground_ops_raw_state_t *raw,
     switch (raw->step) {
     case PB_STEP_TUG_LOAD:
         set_view(snapshot, GROUND_OPS_STAGE_TUG, "ACTIVE",
-            "Selecting a compatible tug", "Using the local tug library",
-            "Wait for tug selection", false);
+            _("Selecting a compatible tug"), _("Using the local tug library"),
+            _("Wait for tug selection"), false);
         break;
     case PB_STEP_START:
         if (raw->tug_staged) {
             set_view(snapshot, GROUND_OPS_STAGE_TUG, "WAITING",
-                "Tug standing by", "The tug is ready to approach",
-                "Ground crew will begin the approach", false);
+                _("Tug standing by"), _("The tug is ready to approach"),
+                _("Ground crew will begin the approach"), false);
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_TUG, "ACTIVE",
-                "Ground crew dispatching tug", "Ground operation has started",
-                "Wait for the tug", false);
+                _("Ground crew dispatching tug"), _("Ground operation has started"),
+                _("Wait for the tug"), false);
         }
         break;
     case PB_STEP_DRIVING_UP_CLOSE:
         set_view(snapshot, GROUND_OPS_STAGE_TUG, "ACTIVE",
-            "Tug approaching aircraft", "Maintaining safe approach speed",
-            "Monitor tug approach", false);
+            _("Tug approaching aircraft"), _("Maintaining safe approach speed"),
+            _("Monitor tug approach"), false);
         break;
     case PB_STEP_WAITING_FOR_DOORS:
         if (raw->late_plan) {
             set_view(snapshot, GROUND_OPS_STAGE_TUG, "GROUND CREW",
-                "Clearing aircraft services",
-                "Doors, GPU, or ASU are not yet clear",
-                "Ground crew connection checks", false);
+                _("Clearing aircraft services"),
+                _("Doors, GPU, or ASU are not yet clear"),
+                _("Ground crew connection checks"), false);
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_TUG, "WAITING",
-                "Waiting for aircraft service",
-                "Doors, GPU, or ASU are not clear",
-                "Secure doors and equipment", true);
+                _("Waiting for aircraft service"),
+                _("Doors, GPU, or ASU are not clear"),
+                _("Secure doors and equipment"), true);
         }
         break;
     case PB_STEP_OPENING_CRADLE:
         set_view(snapshot, GROUND_OPS_STAGE_TUG, "ACTIVE",
-            "Preparing the tug cradle", "Connection equipment is opening",
-            "Wait for equipment preparation", false);
+            _("Preparing the tug cradle"), _("Connection equipment is opening"),
+            _("Wait for equipment preparation"), false);
         break;
     case PB_STEP_WAITING_FOR_PBRAKE:
         if (raw->late_plan) {
             set_view(snapshot, GROUND_OPS_STAGE_CONNECT, "GROUND CREW",
-                "Performing connection checks",
-                "Aircraft is being secured for tug connection",
-                "Wait for automatic connection", false);
+                _("Performing connection checks"),
+                _("Aircraft is being secured for tug connection"),
+                _("Wait for automatic connection"), false);
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_CONNECT, "WAITING",
-                "Parking brake required", "The tug is ready to connect",
-                "Set the parking brake", true);
+                _("Parking brake required"), _("The tug is ready to connect"),
+                _("Set the parking brake"), true);
         }
         break;
     case PB_STEP_DRIVING_UP_CONNECT:
         set_view(snapshot, GROUND_OPS_STAGE_CONNECT, "ACTIVE",
-            "Positioning tug to connect", "Closing the final safe distance",
-            "Monitor tug connection", false);
+            _("Positioning tug to connect"), _("Closing the final safe distance"),
+            _("Monitor tug connection"), false);
         break;
     case PB_STEP_GRABBING:
         set_view(snapshot, GROUND_OPS_STAGE_CONNECT, "ACTIVE",
-            "Securing the nose gear", "Tug connection is in progress",
-            "Wait for nose-gear capture", false);
+            _("Securing the nose gear"), _("Tug connection is in progress"),
+            _("Wait for nose-gear capture"), false);
         break;
     case PB_STEP_LIFTING:
         if (raw->awaiting_plan) {
             set_view(snapshot, GROUND_OPS_STAGE_COMMS, "PILOT ACTION",
-                raw->emergency_tow ? "Tug connected; plan the tow" :
-                "Tug connected; plan the push",
+                raw->emergency_tow ? _("Tug connected; plan the tow") :
+                _("Tug connected; plan the push"),
                 raw->emergency_tow ?
-                "Nose gear captured; saved routes are disabled" :
-                "Nose gear captured; no lift has been performed",
-                raw->emergency_tow ? "Plan a one-time tow route" :
-                "Open the planner and accept a route", true);
+                _("Nose gear captured; saved routes are disabled") :
+                _("Nose gear captured; no lift has been performed"),
+                raw->emergency_tow ? _("Plan a one-time tow route") :
+                _("Open the planner and accept a route"), true);
             set_actions(snapshot, GROUND_OPS_ACTION_OPEN_PLANNER,
-                raw->emergency_tow ? "Plan tow" : "Plan push",
+                raw->emergency_tow ? _("Plan tow") : _("Plan push"),
                 GROUND_OPS_ACTION_END_DISCONNECT,
-                "End operation");
+                _("End operation"));
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_CONNECT, "ACTIVE",
-                "Lifting the nose gear", "Connection is nearly complete",
-                "Wait for lift completion", false);
+                _("Lifting the nose gear"), _("Connection is nearly complete"),
+                _("Wait for lift completion"), false);
         }
         break;
     case PB_STEP_CONNECTED:
         if (raw->late_plan && !raw->plan_complete) {
             set_view(snapshot, GROUND_OPS_STAGE_COMMS, "ACTION",
-                raw->emergency_tow ? "Tug connected; tow plan required" :
-                "Tug connected; plan required",
+                raw->emergency_tow ? _("Tug connected; tow plan required") :
+                _("Tug connected; plan required"),
                 raw->emergency_tow ?
-                "Emergency Tow uses one-time manual routes only" :
-                "Late-planning mode is active",
-                "Open and complete the planner", true);
+                _("Emergency Tow uses one-time manual routes only") :
+                _("Late-planning mode is active"),
+                _("Open and complete the planner"), true);
             set_actions(snapshot, GROUND_OPS_ACTION_OPEN_PLANNER,
-                raw->emergency_tow ? "Plan tow" : "Plan push",
+                raw->emergency_tow ? _("Plan tow") : _("Plan push"),
                 GROUND_OPS_ACTION_END_DISCONNECT,
-                "End operation");
+                _("End operation"));
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_COMMS, "ACTION",
-                "Ready for brake release", "Tug connected and crew ready",
-                "Release the parking brake", true);
+                _("Ready for brake release"), _("Tug connected and crew ready"),
+                _("Release the parking brake"), true);
             if (raw->replan_available) {
                 set_actions(snapshot, GROUND_OPS_ACTION_CHANGE_PLAN,
-                    "Change plan", GROUND_OPS_ACTION_NONE, "");
+                    _("Change plan"), GROUND_OPS_ACTION_NONE, "");
             }
         }
         break;
     case PB_STEP_STARTING:
         set_view(snapshot, GROUND_OPS_STAGE_PUSH, "ACTIVE",
-            raw->emergency_tow ? "Starting emergency tow" :
-            "Starting pushback", "Steering and motion are engaging",
-            "Monitor initial movement", false);
+            raw->emergency_tow ? _("Starting emergency tow") :
+            _("Starting pushback"), _("Steering and motion are engaging"),
+            _("Monitor initial movement"), false);
         break;
     case PB_STEP_PUSHING:
         if (raw->pause_requested) {
             set_view(snapshot, GROUND_OPS_STAGE_PUSH, "HOLD",
                 raw->pause_held ?
-                (raw->emergency_tow ? "Emergency tow paused" :
-                "Pushback paused") :
-                (raw->emergency_tow ? "Pausing emergency tow" :
-                "Pausing pushback"),
-                "Accepted route and steering state are retained",
+                (raw->emergency_tow ? _("Emergency tow paused") :
+                _("Pushback paused")) :
+                (raw->emergency_tow ? _("Pausing emergency tow") :
+                _("Pausing pushback")),
+                _("Accepted route and steering state are retained"),
                 raw->pause_held ?
-                "Release parking brake if set, then resume" :
-                "Controlled deceleration in progress", raw->pause_held);
+                _("Release parking brake if set, then resume") :
+                _("Controlled deceleration in progress"), raw->pause_held);
             set_actions(snapshot, GROUND_OPS_ACTION_RESUME,
-                raw->emergency_tow ? "Resume tow" : "Resume push",
-                GROUND_OPS_ACTION_END_DISCONNECT, "End operation");
+                raw->emergency_tow ? _("Resume tow") : _("Resume push"),
+                GROUND_OPS_ACTION_END_DISCONNECT, _("End operation"));
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_PUSH, "ACTIVE",
-                raw->emergency_tow ? "Emergency tow in progress" :
-                "Pushback in progress",
-                "Pause retains route; End disconnects",
-                raw->emergency_tow ? "Monitor tow progress" :
-                "Monitor pushback progress", false);
+                raw->emergency_tow ? _("Emergency tow in progress") :
+                _("Pushback in progress"),
+                _("Pause retains route; End disconnects"),
+                raw->emergency_tow ? _("Monitor tow progress") :
+                _("Monitor pushback progress"), false);
             set_actions(snapshot, GROUND_OPS_ACTION_PAUSE,
-                raw->emergency_tow ? "Pause tow" : "Pause push",
-                GROUND_OPS_ACTION_END_DISCONNECT, "End operation");
+                raw->emergency_tow ? _("Pause tow") : _("Pause push"),
+                GROUND_OPS_ACTION_END_DISCONNECT, _("End operation"));
         }
         break;
     case PB_STEP_STOPPING:
         set_view(snapshot, GROUND_OPS_STAGE_PUSH, "ACTIVE",
-            raw->emergency_tow ? "Stopping emergency tow" :
-            "Stopping the aircraft", "Decelerating to a controlled stop",
-            "Wait for the aircraft to stop", false);
+            raw->emergency_tow ? _("Stopping emergency tow") :
+            _("Stopping the aircraft"), _("Decelerating to a controlled stop"),
+            _("Wait for the aircraft to stop"), false);
         break;
     case PB_STEP_STOPPED:
         set_view(snapshot, GROUND_OPS_STAGE_PUSH, "ACTION",
-            "Aircraft stopped", "Parking brake confirmation is required",
-            "Set the parking brake", true);
+            _("Aircraft stopped"), _("Parking brake confirmation is required"),
+            _("Set the parking brake"), true);
         break;
     case PB_STEP_LOWERING:
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
-            "Lowering the nose gear", "Beginning tug disconnection",
-            "Wait for nose-gear lowering", false);
+            _("Lowering the nose gear"), _("Beginning tug disconnection"),
+            _("Wait for nose-gear lowering"), false);
         break;
     case PB_STEP_UNGRABBING:
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
-            "Releasing the nose gear", "Connection equipment is opening",
-            "Wait for nose-gear release", false);
+            _("Releasing the nose gear"), _("Connection equipment is opening"),
+            _("Wait for nose-gear release"), false);
         break;
     case PB_STEP_WAITING4OK2DISCO:
         if (raw->disconnect_approved) {
             set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "CONFIRMED",
-                "Disconnect confirmed", "Ground crew is preparing to move",
-                "Wait for tug clearance", false);
+                _("Disconnect confirmed"), _("Ground crew is preparing to move"),
+                _("Wait for tug clearance"), false);
             break;
         }
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "READY",
-            "Ready to disconnect", "Ground crew is awaiting approval",
-            "Cleared to disconnect", true);
+            _("Ready to disconnect"), _("Ground crew is awaiting approval"),
+            _("Cleared to disconnect"), true);
         set_actions(snapshot, GROUND_OPS_ACTION_DISCONNECT_TUG,
-            "Disconnect tug", GROUND_OPS_ACTION_RECONNECT_TUG,
-            "Reconnect");
+            _("Disconnect tug"), GROUND_OPS_ACTION_RECONNECT_TUG,
+            _("Reconnect"));
         break;
     case PB_STEP_MOVING_AWAY:
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
-            "Tug moving clear", "Separating safely from the aircraft",
-            "Monitor tug clearance", false);
+            _("Tug moving clear"), _("Separating safely from the aircraft"),
+            _("Monitor tug clearance"), false);
         break;
     case PB_STEP_CLOSING_CRADLE:
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
-            "Closing the tug cradle", "Stowing connection equipment",
-            "Wait for equipment stowage", false);
+            _("Closing the tug cradle"), _("Stowing connection equipment"),
+            _("Wait for equipment stowage"), false);
         break;
     case PB_STEP_STARTING2CLEAR:
     case PB_STEP_MOVING2CLEAR:
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
-            "Driver moving to clear", "Ground crew is taking position",
-            "Monitor ground crew", false);
+            _("Driver moving to clear"), _("Ground crew is taking position"),
+            _("Monitor ground crew"), false);
         break;
     case PB_STEP_CLEAR_SIGNAL:
         if (raw->clear_signal_acknowledged) {
             set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "CONFIRMED",
-                "Clear signal acknowledged", "Ground crew will depart shortly",
-                "Wait for tug departure", false);
+                _("Clear signal acknowledged"), _("Ground crew will depart shortly"),
+                _("Wait for tug departure"), false);
         } else {
             set_view(snapshot, GROUND_OPS_STAGE_CLEAR,
                 raw->clear_signal_displayed ? "PILOT ACTION" : "CLEAR",
-                "Clear signal displayed", "Pin and equipment are clear",
-                "Verify the clear signal", raw->clear_signal_displayed);
+                _("Clear signal displayed"), _("Pin and equipment are clear"),
+                _("Verify the clear signal"), raw->clear_signal_displayed);
             if (raw->clear_signal_displayed) {
                 set_actions(snapshot, GROUND_OPS_ACTION_ACKNOWLEDGE_CLEAR,
-                    "Acknowledge", GROUND_OPS_ACTION_NONE, "");
+                    _("Acknowledge"), GROUND_OPS_ACTION_NONE, "");
             }
         }
         break;
     case PB_STEP_DRIVING_AWAY:
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
-            "Tug returning to station", "Aircraft area is being cleared",
-            "Finalize cockpit checklist", false);
+            _("Tug returning to station"), _("Aircraft area is being cleared"),
+            _("Finalize cockpit checklist"), false);
         break;
     case PB_STEP_OFF:
     default:
         set_view(snapshot, GROUND_OPS_STAGE_TUG, "STANDBY",
-            "Controller idle", "No active pushback controller state",
-            "Use classic controls to begin", false);
+            _("Controller idle"), _("No active pushback controller state"),
+            _("Use classic controls to begin"), false);
         break;
     }
 }
@@ -551,47 +554,47 @@ build_snapshot(const ground_ops_raw_state_t *raw,
 
     if (raw->speed_valid) {
         (void)snprintf(snapshot->speed, sizeof(snapshot->speed),
-            "Speed %.1f m/s", raw->speed_tenths_mps / 10.0);
+            _("Speed %.1f m/s"), raw->speed_tenths_mps / 10.0);
     } else {
-        copy_text(snapshot->speed, sizeof(snapshot->speed), "Speed --");
+        copy_text(snapshot->speed, sizeof(snapshot->speed), _("Speed --"));
     }
     if (raw->distance_valid) {
         (void)snprintf(snapshot->distance, sizeof(snapshot->distance),
-            "Remaining %d m", raw->distance_m);
+            _("Remaining %d m"), raw->distance_m);
     } else {
         copy_text(snapshot->distance, sizeof(snapshot->distance),
-            "Remaining --");
+            _("Remaining --"));
     }
 
     snapshot->caption_visible = raw->caption_active;
     if (raw->caption_active) {
         copy_text(snapshot->caption, sizeof(snapshot->caption),
-            caption_text[raw->caption]);
+            _(caption_text[raw->caption]));
     }
     copy_text(snapshot->flight, sizeof(snapshot->flight),
-        raw->flight[0] != '\0' ? raw->flight : "Flight --");
+        raw->flight[0] != '\0' ? raw->flight : _("Flight --"));
     copy_text(snapshot->schedule, sizeof(snapshot->schedule),
-        raw->schedule[0] != '\0' ? raw->schedule : "EOBT --");
+        raw->schedule[0] != '\0' ? raw->schedule : _("EOBT --"));
     copy_text(snapshot->weather, sizeof(snapshot->weather),
-        raw->weather[0] != '\0' ? raw->weather : "SIM WX unavailable");
+        raw->weather[0] != '\0' ? raw->weather : _("SIM WX unavailable"));
     copy_text(snapshot->pressure, sizeof(snapshot->pressure),
-        raw->pressure[0] != '\0' ? raw->pressure : "QNH unavailable");
+        raw->pressure[0] != '\0' ? raw->pressure : _("QNH unavailable"));
     copy_text(snapshot->advisory, sizeof(snapshot->advisory),
         raw->advisory[0] != '\0' ? raw->advisory :
-        "METAR -- | ATIS --");
+        _("METAR -- | ATIS --"));
     copy_text(snapshot->source, sizeof(snapshot->source),
         raw->data_source[0] != '\0' ? raw->data_source :
-        "Local plugin state");
+        _("Local plugin state"));
     if (raw->airport_ident[0] != '\0') {
         (void)snprintf(snapshot->airport, sizeof(snapshot->airport),
-            "Airport %s", raw->airport_ident);
+            _("Airport %s"), raw->airport_ident);
     } else {
         copy_text(snapshot->airport, sizeof(snapshot->airport),
-            "Airport ----");
+            _("Airport ----"));
     }
     (void)snprintf(snapshot->hover, sizeof(snapshot->hover), "%s\n%s",
         snapshot->status, snapshot->action_required ?
-        snapshot->current_task : "No pilot action required");
+        snapshot->current_task : _("No pilot action required"));
 }
 
 void

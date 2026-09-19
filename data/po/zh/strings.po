@@ -362,3 +362,583 @@ msgstr "地勤人员音频默认相对音量：\n"
 
 msgid "Ground crew audio volume"
 msgstr "地勤人员音频音量"
+
+msgid "End pushback and disconnect"
+msgstr "结束推出并断开连接"
+
+msgid "Pause/Resume automatic pushback"
+msgstr "暂停/继续自动推出"
+
+msgid "Ground Operations: Show/Hide"
+msgstr "地面操作：显示/隐藏"
+
+msgid "Ground Operations: Expand/Collapse"
+msgstr "地面操作：展开/收起"
+
+msgid "Tug available"
+msgstr "牵引车可用"
+
+msgid "Button click volume"
+msgstr "按钮点击音量"
+
+msgid "Ground Operations button clicks only. 0% mutes clicks.\n"
+     "Changes apply immediately; use Save preferences to keep them.\n"
+     "Release the slider to preview the selected volume."
+msgstr "仅调节地面操作按钮的点击声。0% 为静音。\n"
+     "更改立即生效；使用“保存設置”以保留设置。\n"
+     "松开滑块即可试听所选音量。"
+
+msgid "BetterPushback Ground Operations"
+msgstr "BetterPushback 地面操作"
+
+msgid "Tug"
+msgstr "牵引车"
+
+msgid "Connect"
+msgstr "连接"
+
+msgid "Comms"
+msgstr "通信"
+
+msgid "Push"
+msgstr "推出"
+
+msgid "Clear"
+msgstr "已清空"
+
+msgid "Ground operations"
+msgstr "地面操作"
+
+msgid "Return window to X-Plane"
+msgstr "将窗口返回 X-Plane"
+
+msgid "Pop out to an operating-system window"
+msgstr "弹出为系统窗口"
+
+msgid "Click, or hover here for one second, to collapse"
+msgstr "点击或悬停一秒以收起"
+
+msgid "Hide Ground Operations"
+msgstr "隐藏地面操作"
+
+msgid "Click the progress rail to collapse Ground Operations"
+msgstr "点击进度条以收起地面操作"
+
+msgid "Keep operation"
+msgstr "继续操作"
+
+msgid "Cancel; keep the route and tug connected"
+msgstr "取消；保留路线并保持牵引车连接"
+
+msgid "Confirm end"
+msgstr "确认结束"
+
+msgid "Stop completely, discard the route, and disconnect"
+msgstr "完全停止，删除路线并断开连接"
+
+msgid "Controlled stop; route and steering state are retained"
+msgstr "受控停止；保留路线和转向状态"
+
+msgid "Continue the accepted route from the hold"
+msgstr "从停止处继续已接受的路线"
+
+msgid "Disconnect the tug and continue to the hand signal"
+msgstr "断开牵引车并继续至手势信号"
+
+msgid "Reconnect the tug and return to route planning"
+msgstr "重新连接牵引车并返回路线规划"
+
+msgid "Interactive | Offline safe"
+msgstr "交互 | 离线安全"
+
+msgid "PILOT ACTION"
+msgstr "飞行员操作"
+
+msgid "CURRENT TASK"
+msgstr "当前任务"
+
+msgid "Planner opened. Define the route."
+msgstr "规划器已打开。请设定路线。"
+
+msgid "Pushback plan saved."
+msgstr "推出计划已保存。"
+
+msgid "Ground crew: Tug approaching."
+msgstr "地勤：牵引车正在接近。"
+
+msgid "Ground crew: Set parking brake."
+msgstr "地勤：请设置停机刹车。"
+
+msgid "Ground crew: Ready to connect."
+msgstr "地勤：准备连接。"
+
+msgid "Ground crew: Winching nose gear."
+msgstr "地勤：正在牵引前起落架。"
+
+msgid "Ground crew: Tug connected."
+msgstr "地勤：牵引车已连接。"
+
+msgid "Ground crew: Starting pushback."
+msgstr "地勤：开始推出。"
+
+msgid "Ground crew: Starting tow."
+msgstr "地勤：开始拖行。"
+
+msgid "Ground crew: Start engines later."
+msgstr "地勤：稍后启动发动机。"
+
+msgid "Ground crew: Tow; start later."
+msgstr "地勤：拖行；稍后启动。"
+
+msgid "Ground crew: Pushback complete."
+msgstr "地勤：推出完成。"
+
+msgid "Ground crew: Disconnecting tug."
+msgstr "地勤：正在断开牵引车。"
+
+msgid "Ground crew: Clear on the right."
+msgstr "地勤：右侧安全。"
+
+msgid "Ground crew: Clear on the left."
+msgstr "地勤：左侧安全。"
+
+msgid "SIM WX unavailable"
+msgstr "模拟器天气不可用"
+
+msgid "QNH unavailable"
+msgstr "QNH 不可用"
+
+msgid "No pilot action required"
+msgstr "无需飞行员操作"
+
+msgid "Local plugin state"
+msgstr "本地插件状态"
+
+msgid "Airport ----"
+msgstr "机场 ----"
+
+msgid "Airport %s"
+msgstr "机场 %s"
+
+msgid "Flight --"
+msgstr "航班 --"
+
+msgid "Flight %s"
+msgstr "航班 %s"
+
+msgid "EOBT --"
+msgstr "EOBT --"
+
+msgid "EOBT %s"
+msgstr "EOBT %s"
+
+msgid "Local plugin | Offline"
+msgstr "本地插件 | 离线"
+
+msgid "current"
+msgstr "当前"
+
+msgid "Current"
+msgstr "当前"
+
+msgid "Mixed sources"
+msgstr "混合来源"
+
+msgid "STALE"
+msgstr "过期"
+
+msgid " STALE"
+msgstr " 过期"
+
+msgid "Stale"
+msgstr "过期"
+
+msgid "Reviewing pushback plan"
+msgstr "检查推出计划"
+
+msgid "The overhead planner is authoritative"
+msgstr "顶板规划器为准"
+
+msgid "Complete or cancel the route"
+msgstr "完成或取消路线"
+
+msgid "Ground operation complete"
+msgstr "地面操作完成"
+
+msgid "Aircraft and equipment are clear"
+msgstr "飞机和设备均已清空"
+
+msgid "Call tow assistance if the\naircraft must return"
+msgstr "如需返回，请呼叫\n拖行支援"
+
+msgid "Airport data loaded; ground crew is ready"
+msgstr "机场数据已加载；地勤已就绪"
+
+msgid "Ground crew is ready; airport data unavailable"
+msgstr "地勤已就绪；机场数据不可用"
+
+msgid "Call the tug to begin connection"
+msgstr "呼叫牵引车开始连接"
+
+msgid "Selecting a compatible tug"
+msgstr "正在选择兼容的牵引车"
+
+msgid "Using the local tug library"
+msgstr "使用本地牵引车库"
+
+msgid "Wait for tug selection"
+msgstr "等待选择牵引车"
+
+msgid "Tug standing by"
+msgstr "牵引车待命"
+
+msgid "The tug is ready to approach"
+msgstr "牵引车准备接近"
+
+msgid "Ground crew will begin the approach"
+msgstr "地勤将开始接近"
+
+msgid "Ground crew dispatching tug"
+msgstr "地勤正在调派牵引车"
+
+msgid "Ground operation has started"
+msgstr "地面操作已开始"
+
+msgid "Wait for the tug"
+msgstr "等待牵引车"
+
+msgid "Tug approaching aircraft"
+msgstr "牵引车正在接近飞机"
+
+msgid "Maintaining safe approach speed"
+msgstr "保持安全接近速度"
+
+msgid "Monitor tug approach"
+msgstr "监控牵引车接近"
+
+msgid "Clearing aircraft services"
+msgstr "正在清理飞机周边设备"
+
+msgid "Doors, GPU, or ASU are not yet clear"
+msgstr "舱门、GPU 或 ASU 尚未清空"
+
+msgid "Ground crew connection checks"
+msgstr "地勤连接检查"
+
+msgid "Waiting for aircraft service"
+msgstr "等待设备撤离"
+
+msgid "Doors, GPU, or ASU are not clear"
+msgstr "舱门、GPU 或 ASU 未清空"
+
+msgid "Secure doors and equipment"
+msgstr "确认舱门和设备安全"
+
+msgid "Preparing the tug cradle"
+msgstr "准备牵引车承托架"
+
+msgid "Connection equipment is opening"
+msgstr "正在打开连接设备"
+
+msgid "Wait for equipment preparation"
+msgstr "等待设备准备"
+
+msgid "Performing connection checks"
+msgstr "正在进行连接检查"
+
+msgid "Aircraft is being secured for tug connection"
+msgstr "正在固定飞机以连接牵引车"
+
+msgid "Wait for automatic connection"
+msgstr "等待自动连接"
+
+msgid "Parking brake required"
+msgstr "需要设置停机刹车"
+
+msgid "The tug is ready to connect"
+msgstr "牵引车准备连接"
+
+msgid "Positioning tug to connect"
+msgstr "调整牵引车位置以连接"
+
+msgid "Closing the final safe distance"
+msgstr "正在缩小最后安全距离"
+
+msgid "Monitor tug connection"
+msgstr "监控牵引车连接"
+
+msgid "Securing the nose gear"
+msgstr "固定前起落架"
+
+msgid "Tug connection is in progress"
+msgstr "正在连接牵引车"
+
+msgid "Wait for nose-gear capture"
+msgstr "等待夹住前起落架"
+
+msgid "Tug connected; plan the tow"
+msgstr "牵引车已连接；规划拖行路线"
+
+msgid "Tug connected; plan the push"
+msgstr "牵引车已连接；规划推出路线"
+
+msgid "Nose gear captured; saved routes are disabled"
+msgstr "前起落架已夹住；已禁用保存的路线"
+
+msgid "Nose gear captured; no lift has been performed"
+msgstr "前起落架已夹住；尚未抬升"
+
+msgid "Plan a one-time tow route"
+msgstr "规划一次性拖行路线"
+
+msgid "Open the planner and accept a route"
+msgstr "打开规划器并接受一条路线"
+
+msgid "Lifting the nose gear"
+msgstr "正在抬升前起落架"
+
+msgid "Connection is nearly complete"
+msgstr "连接即将完成"
+
+msgid "Wait for lift completion"
+msgstr "等待抬升完成"
+
+msgid "Tug connected; tow plan required"
+msgstr "牵引车已连接；需要拖行计划"
+
+msgid "Tug connected; plan required"
+msgstr "牵引车已连接；需要规划"
+
+msgid "Emergency Tow uses one-time manual routes only"
+msgstr "紧急拖行仅使用一次性手动路线"
+
+msgid "Late-planning mode is active"
+msgstr "延迟规划模式已启用"
+
+msgid "Open and complete the planner"
+msgstr "打开并完成路线规划"
+
+msgid "Ready for brake release"
+msgstr "准备松开刹车"
+
+msgid "Tug connected and crew ready"
+msgstr "牵引车已连接，地勤已就绪"
+
+msgid "Release the parking brake"
+msgstr "松开停机刹车"
+
+msgid "Starting emergency tow"
+msgstr "开始紧急拖行"
+
+msgid "Starting pushback"
+msgstr "开始推出"
+
+msgid "Steering and motion are engaging"
+msgstr "正在接合转向和驱动"
+
+msgid "Monitor initial movement"
+msgstr "监控初始移动"
+
+msgid "Emergency tow paused"
+msgstr "紧急拖行已暂停"
+
+msgid "Pushback paused"
+msgstr "推出已暂停"
+
+msgid "Pausing emergency tow"
+msgstr "正在暂停紧急拖行"
+
+msgid "Pausing pushback"
+msgstr "正在暂停推出"
+
+msgid "Accepted route and steering state are retained"
+msgstr "保留已接受的路线和转向状态"
+
+msgid "Release parking brake if set, then resume"
+msgstr "如已设置停机刹车，请松开后继续"
+
+msgid "Controlled deceleration in progress"
+msgstr "正在受控减速"
+
+msgid "Emergency tow in progress"
+msgstr "紧急拖行进行中"
+
+msgid "Pushback in progress"
+msgstr "推出进行中"
+
+msgid "Pause retains route; End disconnects"
+msgstr "暂停保留路线；结束将断开连接"
+
+msgid "Monitor tow progress"
+msgstr "监控拖行进度"
+
+msgid "Monitor pushback progress"
+msgstr "监控推出进度"
+
+msgid "Stopping emergency tow"
+msgstr "正在停止紧急拖行"
+
+msgid "Stopping the aircraft"
+msgstr "正在停止飞机"
+
+msgid "Decelerating to a controlled stop"
+msgstr "减速至受控停止"
+
+msgid "Wait for the aircraft to stop"
+msgstr "等待飞机停止"
+
+msgid "Aircraft stopped"
+msgstr "飞机已停止"
+
+msgid "Parking brake confirmation is required"
+msgstr "需要确认停机刹车"
+
+msgid "Lowering the nose gear"
+msgstr "正在降下前起落架"
+
+msgid "Beginning tug disconnection"
+msgstr "开始断开牵引车"
+
+msgid "Wait for nose-gear lowering"
+msgstr "等待前起落架下降"
+
+msgid "Releasing the nose gear"
+msgstr "正在释放前起落架"
+
+msgid "Wait for nose-gear release"
+msgstr "等待释放前起落架"
+
+msgid "Disconnect confirmed"
+msgstr "已确认断开连接"
+
+msgid "Ground crew is preparing to move"
+msgstr "地勤准备移动"
+
+msgid "Wait for tug clearance"
+msgstr "等待牵引车撤离"
+
+msgid "Ready to disconnect"
+msgstr "准备断开连接"
+
+msgid "Ground crew is awaiting approval"
+msgstr "地勤等待批准"
+
+msgid "Cleared to disconnect"
+msgstr "获准断开连接"
+
+msgid "Tug moving clear"
+msgstr "牵引车正在撤离"
+
+msgid "Separating safely from the aircraft"
+msgstr "正在安全驶离飞机"
+
+msgid "Monitor tug clearance"
+msgstr "监控牵引车撤离"
+
+msgid "Closing the tug cradle"
+msgstr "关闭牵引车承托架"
+
+msgid "Stowing connection equipment"
+msgstr "收起连接设备"
+
+msgid "Wait for equipment stowage"
+msgstr "等待收起设备"
+
+msgid "Driver moving to clear"
+msgstr "驾驶员正在撤离"
+
+msgid "Ground crew is taking position"
+msgstr "地勤正在就位"
+
+msgid "Monitor ground crew"
+msgstr "监控地勤"
+
+msgid "Clear signal acknowledged"
+msgstr "已确认撤离信号"
+
+msgid "Ground crew will depart shortly"
+msgstr "地勤即将离开"
+
+msgid "Wait for tug departure"
+msgstr "等待牵引车离开"
+
+msgid "Clear signal displayed"
+msgstr "已显示撤离信号"
+
+msgid "Pin and equipment are clear"
+msgstr "销子和设备均已撤离"
+
+msgid "Verify the clear signal"
+msgstr "确认撤离信号"
+
+msgid "Tug returning to station"
+msgstr "牵引车返回停放位"
+
+msgid "Aircraft area is being cleared"
+msgstr "正在清空飞机周边区域"
+
+msgid "Finalize cockpit checklist"
+msgstr "完成驾驶舱检查单"
+
+msgid "Controller idle"
+msgstr "控制器空闲"
+
+msgid "No active pushback controller state"
+msgstr "无活动的推出控制器状态"
+
+msgid "Use classic controls to begin"
+msgstr "使用经典控制开始"
+
+msgid "Call tow back"
+msgstr "召回牵引车"
+
+msgid "Call tug"
+msgstr "呼叫牵引车"
+
+msgid "Plan tow"
+msgstr "规划拖行"
+
+msgid "Plan push"
+msgstr "规划推出"
+
+msgid "End operation"
+msgstr "结束操作"
+
+msgid "Change plan"
+msgstr "更改计划"
+
+msgid "Resume tow"
+msgstr "继续拖行"
+
+msgid "Resume push"
+msgstr "继续推出"
+
+msgid "Pause tow"
+msgstr "暂停拖行"
+
+msgid "Pause push"
+msgstr "暂停推出"
+
+msgid "Disconnect tug"
+msgstr "断开牵引车"
+
+msgid "Reconnect"
+msgstr "重新连接"
+
+msgid "Acknowledge"
+msgstr "确认"
+
+msgid "unknown"
+msgstr "未知"
+
+msgid "Speed %.1f m/s"
+msgstr "速度 %.1f m/s"
+
+msgid "Speed --"
+msgstr "速度 --"
+
+msgid "Remaining --"
+msgstr "剩余 --"
+
+msgid "Remaining %d m"
+msgstr "剩余 %d 米"

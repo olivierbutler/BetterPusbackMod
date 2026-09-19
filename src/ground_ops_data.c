@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <acfutils/intl.h>
 #include "ground_ops_data.h"
 
 #define MPS_TO_KNOTS 1.9438444924406
@@ -398,17 +399,17 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
     memset(presentation, 0, sizeof(*presentation));
     if (snapshot == NULL) {
         copy_text(presentation->flight, sizeof(presentation->flight),
-            "Flight --");
+            _("Flight --"));
         copy_text(presentation->schedule, sizeof(presentation->schedule),
-            "EOBT --");
+            _("EOBT --"));
         copy_text(presentation->weather, sizeof(presentation->weather),
-            "SIM WX unavailable");
+            _("SIM WX unavailable"));
         copy_text(presentation->pressure, sizeof(presentation->pressure),
-            "QNH unavailable");
+            _("QNH unavailable"));
         copy_text(presentation->advisory, sizeof(presentation->advisory),
             "METAR -- | ATIS --");
         copy_text(presentation->source, sizeof(presentation->source),
-            "Local plugin | Offline");
+            _("Local plugin | Offline"));
         return;
     }
 
@@ -424,18 +425,18 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
     if (flight_freshness != GROUND_OPS_DATA_FRESHNESS_UNAVAILABLE &&
         snapshot->flight.flight_number[0] != '\0') {
         (void)snprintf(presentation->flight, sizeof(presentation->flight),
-            "Flight %s", snapshot->flight.flight_number);
+            _("Flight %s"), snapshot->flight.flight_number);
     } else {
         copy_text(presentation->flight, sizeof(presentation->flight),
-            "Flight --");
+            _("Flight --"));
     }
     if (schedule_freshness != GROUND_OPS_DATA_FRESHNESS_UNAVAILABLE &&
         snapshot->schedule.eobt[0] != '\0') {
         (void)snprintf(presentation->schedule, sizeof(presentation->schedule),
-            "EOBT %s", snapshot->schedule.eobt);
+            _("EOBT %s"), snapshot->schedule.eobt);
     } else {
         copy_text(presentation->schedule, sizeof(presentation->schedule),
-            "EOBT --");
+            _("EOBT --"));
     }
     if (weather_freshness != GROUND_OPS_DATA_FRESHNESS_UNAVAILABLE) {
         int direction = (int)lround(snapshot->weather.wind_direction_deg);
@@ -451,15 +452,15 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
             sizeof(presentation->weather), "SIM %03d/%02dKT %dC%s",
             direction, knots, temperature,
             weather_freshness == GROUND_OPS_DATA_FRESHNESS_STALE ?
-            " STALE" : "");
+            _(" STALE") : "");
         (void)snprintf(presentation->pressure,
             sizeof(presentation->pressure),
             "QNH %d hPa / %.2f inHg", qnh_hpa, qnh_inhg);
     } else {
         copy_text(presentation->weather, sizeof(presentation->weather),
-            "SIM WX unavailable");
+            _("SIM WX unavailable"));
         copy_text(presentation->pressure, sizeof(presentation->pressure),
-            "QNH unavailable");
+            _("QNH unavailable"));
     }
     if (metar_freshness == GROUND_OPS_DATA_FRESHNESS_UNAVAILABLE &&
         atis_freshness == GROUND_OPS_DATA_FRESHNESS_UNAVAILABLE) {
@@ -473,12 +474,12 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
             snapshot->atis.runway[0] != '\0' ? " RWY " : "",
             snapshot->atis.runway,
             atis_freshness == GROUND_OPS_DATA_FRESHNESS_STALE ?
-            " STALE" : "");
+            _(" STALE") : "");
     } else {
         (void)snprintf(presentation->advisory,
             sizeof(presentation->advisory), "METAR %s",
             metar_freshness == GROUND_OPS_DATA_FRESHNESS_STALE ?
-            "STALE" : "current");
+            _("STALE") : _("current"));
     }
 
     note_source(snapshot->flight.meta.source, flight_freshness, &selected,
@@ -493,11 +494,11 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
         &mixed, &stale);
     if (selected == GROUND_OPS_DATA_SOURCE_UNAVAILABLE) {
         copy_text(presentation->source, sizeof(presentation->source),
-            "Local plugin | Offline");
+            _("Local plugin | Offline"));
     } else {
         (void)snprintf(presentation->source, sizeof(presentation->source),
-            "%s | %s", mixed ? "Mixed sources" :
-            ground_ops_data_source_name(selected), stale ? "Stale" :
-            "Current");
+            "%s | %s", mixed ? _("Mixed sources") :
+            ground_ops_data_source_name(selected), stale ? _("Stale") :
+            _("Current"));
     }
 }
