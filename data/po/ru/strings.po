@@ -929,3 +929,42 @@ msgstr "Осталось --"
 
 msgid "Remaining %d m"
 msgstr "Осталось %d м"
+
+msgid "REVIEW"
+msgstr "ПРОВЕРКА"
+
+msgid "COMPLETE"
+msgstr "ЗАВЕРШЕНО"
+
+msgid "ACTIVE"
+msgstr "АКТИВНО"
+
+msgid "WAITING"
+msgstr "ОЖИДАНИЕ"
+
+msgid "GROUND CREW"
+msgstr "НАЗЕМНАЯ СЛУЖБА"
+
+msgid "ACTION"
+msgstr "ДЕЙСТВИЕ"
+
+msgid "HOLD"
+msgstr "ПАУЗА"
+
+msgid "CONFIRMED"
+msgstr "ПОДТВЕРЖДЕНО"
+
+msgid "READY"
+msgstr "ГОТОВО"
+
+msgid "CLEAR"
+msgstr "СВОБОДНО"
+
+msgid "STANDBY"
+msgstr "ОЖИДАНИЕ"
+
+msgid "Set the parking brake"
+msgstr "Установите стояночный тормоз"
+
+msgid "METAR -- | ATIS --"
+msgstr "METAR -- | ATIS --"

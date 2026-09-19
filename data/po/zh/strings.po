@@ -939,3 +939,42 @@ msgstr "剩余 --"
 
 msgid "Remaining %d m"
 msgstr "剩余 %d 米"
+
+msgid "REVIEW"
+msgstr "检查"
+
+msgid "COMPLETE"
+msgstr "完成"
+
+msgid "ACTIVE"
+msgstr "进行中"
+
+msgid "WAITING"
+msgstr "等待中"
+
+msgid "GROUND CREW"
+msgstr "地勤"
+
+msgid "ACTION"
+msgstr "操作"
+
+msgid "HOLD"
+msgstr "暂停"
+
+msgid "CONFIRMED"
+msgstr "已确认"
+
+msgid "READY"
+msgstr "就绪"
+
+msgid "CLEAR"
+msgstr "已清空"
+
+msgid "STANDBY"
+msgstr "待命"
+
+msgid "Set the parking brake"
+msgstr "设置停机刹车"
+
+msgid "METAR -- | ATIS --"
+msgstr "METAR -- | ATIS --"
