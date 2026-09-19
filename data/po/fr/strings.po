@@ -686,9 +686,6 @@ msgstr "Sources mixtes"
 msgid "STALE"
 msgstr "PÉRIMÉ"
 
-msgid " STALE"
-msgstr " PÉRIMÉ"
-
 msgid "Stale"
 msgstr "Périmé"
 

@@ -540,9 +540,6 @@ msgstr "Fontes mistas"
 msgid "STALE"
 msgstr "DESATUALIZADO"
 
-msgid " STALE"
-msgstr " DESATUALIZADO"
-
 msgid "Stale"
 msgstr "Desatualizado"
 

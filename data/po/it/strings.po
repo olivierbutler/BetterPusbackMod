@@ -561,9 +561,6 @@ msgstr "Fonti miste"
 msgid "STALE"
 msgstr "OBSOLETO"
 
-msgid " STALE"
-msgstr " OBSOLETO"
-
 msgid "Stale"
 msgstr "Obsoleto"
 

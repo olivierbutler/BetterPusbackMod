@@ -547,9 +547,6 @@ msgstr "混合来源"
 msgid "STALE"
 msgstr "过期"
 
-msgid " STALE"
-msgstr " 过期"
-
 msgid "Stale"
 msgstr "过期"
 

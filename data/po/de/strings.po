@@ -540,9 +540,6 @@ msgstr "Gemischte Quellen"
 msgid "STALE"
 msgstr "VERALTET"
 
-msgid " STALE"
-msgstr " VERALTET"
-
 msgid "Stale"
 msgstr "Veraltet"
 

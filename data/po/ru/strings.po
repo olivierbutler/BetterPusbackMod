@@ -537,9 +537,6 @@ msgstr "Смешанные источники"
 msgid "STALE"
 msgstr "УСТАРЕЛО"
 
-msgid " STALE"
-msgstr " УСТАРЕЛО"
-
 msgid "Stale"
 msgstr "Устарело"
 

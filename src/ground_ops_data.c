@@ -449,10 +449,10 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
         if (direction == 360)
             direction = 0;
         (void)snprintf(presentation->weather,
-            sizeof(presentation->weather), "SIM %03d/%02dKT %dC%s",
+            sizeof(presentation->weather), "SIM %03d° %02dKT %d°C %s",
             direction, knots, temperature,
             weather_freshness == GROUND_OPS_DATA_FRESHNESS_STALE ?
-            _(" STALE") : "");
+            _("STALE") : "");
         (void)snprintf(presentation->pressure,
             sizeof(presentation->pressure),
             "QNH %d hPa / %.2f inHg", qnh_hpa, qnh_inhg);
@@ -468,13 +468,13 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
             "METAR -- | ATIS --");
     } else if (atis_freshness != GROUND_OPS_DATA_FRESHNESS_UNAVAILABLE) {
         (void)snprintf(presentation->advisory,
-            sizeof(presentation->advisory), "ATIS %s%s%s%s",
+            sizeof(presentation->advisory), "ATIS %s%s%s %s",
             snapshot->atis.identifier[0] != '\0' ?
             snapshot->atis.identifier : "--",
             snapshot->atis.runway[0] != '\0' ? " RWY " : "",
             snapshot->atis.runway,
             atis_freshness == GROUND_OPS_DATA_FRESHNESS_STALE ?
-            _(" STALE") : "");
+            _("STALE") : "");
     } else {
         (void)snprintf(presentation->advisory,
             sizeof(presentation->advisory), "METAR %s",

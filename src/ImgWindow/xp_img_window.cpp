@@ -330,4 +330,5 @@ bool XPImgWindowInit() {
 
 void XPImgWindowCleanup() {
 	ImgWindow::sFontAtlas.reset();
+	ImgWindow::fontChinese = nullptr;
 }
