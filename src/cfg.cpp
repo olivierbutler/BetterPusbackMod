@@ -69,7 +69,7 @@ bool_t setup_view_callback_is_alive = B_FALSE;
 
 #define COPYRIGHT1                                                             \
   "BetterPushback " BP_PLUGIN_VERSION                                          \
-  "       © 2017-" COPYRIGHT_YEAR " S.Kiselkov, Robwell, O.Butler. All rights reserved."
+  "       © 2017-" COPYRIGHT_YEAR " S.Kiselkov, Robwell, O.Butler,  Ezsimulations. All rights reserved."
 #define COPYRIGHT2                                                             \
   "BetterPushback is open-source software. See COPYING for more information."
 
