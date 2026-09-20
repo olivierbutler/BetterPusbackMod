@@ -618,6 +618,7 @@ protected:
     ImGuiWindowFlags_ beforeBegin() override
     {
         ImGui::SetNextWindowBgAlpha(0.0f);
+        ImGui::GetStyle().WindowBorderSize = 0.0f;
         return (static_cast<ImGuiWindowFlags_>(
             ImGuiWindowFlags_NoScrollbar |
             ImGuiWindowFlags_NoScrollWithMouse |
@@ -1052,9 +1053,9 @@ private:
         draw->AddRectFilled(point(2, 46),
             point(GROUND_OPS_PANEL_WIDTH - 2, 99), section, 0.0f);
         draw->AddRectFilled(point(2, 99), point(59, 350), section, 0.0f);
-        draw->AddRectFilled(point(2, 390),
+        /*draw->AddRectFilled(point(2, 390),
             point(GROUND_OPS_PANEL_WIDTH - 2,
-            GROUND_OPS_PANEL_HEIGHT - 2), section, 0.0f);
+            GROUND_OPS_PANEL_HEIGHT - 2), section, 0.0f);*/
         draw->AddRect(point(1, 1),
             point(GROUND_OPS_PANEL_WIDTH - 2,
             GROUND_OPS_PANEL_HEIGHT - 2), border, scaled(10.0f), 0,
