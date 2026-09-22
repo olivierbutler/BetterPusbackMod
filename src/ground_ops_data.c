@@ -407,7 +407,7 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
         copy_text(presentation->pressure, sizeof(presentation->pressure),
             _("QNH unavailable"));
         copy_text(presentation->advisory, sizeof(presentation->advisory),
-            "METAR -- | ATIS --");
+            _("METAR -- | ATIS --"));
         copy_text(presentation->source, sizeof(presentation->source),
             _("Local plugin | Offline"));
         return;
@@ -449,8 +449,10 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
         if (direction == 360)
             direction = 0;
         (void)snprintf(presentation->weather,
-            sizeof(presentation->weather), "SIM %03d° %02dKT %d°C %s",
+            sizeof(presentation->weather), "SIM %03d° %02dKT %d°C%s%s",
             direction, knots, temperature,
+            weather_freshness == GROUND_OPS_DATA_FRESHNESS_STALE ?
+            " " : "",
             weather_freshness == GROUND_OPS_DATA_FRESHNESS_STALE ?
             _("STALE") : "");
         (void)snprintf(presentation->pressure,
@@ -465,14 +467,16 @@ ground_ops_data_format(const ground_ops_data_snapshot_t *snapshot,
     if (metar_freshness == GROUND_OPS_DATA_FRESHNESS_UNAVAILABLE &&
         atis_freshness == GROUND_OPS_DATA_FRESHNESS_UNAVAILABLE) {
         copy_text(presentation->advisory, sizeof(presentation->advisory),
-            "METAR -- | ATIS --");
+            _("METAR -- | ATIS --"));
     } else if (atis_freshness != GROUND_OPS_DATA_FRESHNESS_UNAVAILABLE) {
         (void)snprintf(presentation->advisory,
-            sizeof(presentation->advisory), "ATIS %s%s%s %s",
+            sizeof(presentation->advisory), "ATIS %s%s%s%s%s",
             snapshot->atis.identifier[0] != '\0' ?
             snapshot->atis.identifier : "--",
             snapshot->atis.runway[0] != '\0' ? " RWY " : "",
             snapshot->atis.runway,
+            atis_freshness == GROUND_OPS_DATA_FRESHNESS_STALE ?
+            " " : "",
             atis_freshness == GROUND_OPS_DATA_FRESHNESS_STALE ?
             _("STALE") : "");
     } else {
