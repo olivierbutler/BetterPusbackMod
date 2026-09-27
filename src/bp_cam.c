@@ -2599,10 +2599,10 @@ bp_cam_stop(void)
         XPLMUnloadObject(cam_lamp_obj);
     cam_lamp_obj = NULL;
 
-    logMsg(BP_INFO_LOG "Legacy planner summary: cursor solves %llu, "
+    /*logMsg(BP_INFO_LOG "Legacy planner summary: cursor solves %llu, "
         "cursor reuse %llu",
         (unsigned long long)planner_cursor_solve_count,
-        (unsigned long long)planner_cursor_reuse_count);
+        (unsigned long long)planner_cursor_reuse_count);*/
     if (!slave_mode && list_head(&bp.segs) != NULL) {
         if (!emergency_tow_allows_persistent_routes()) {
             logMsg(BP_INFO_LOG "Emergency Tow route accepted for this "
