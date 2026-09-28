@@ -677,7 +677,9 @@ connect_first_begin(bool_t emergency)
     late_plan_requested = B_TRUE;
     (void)bp_cam_stop();
 
-    /* The connected workflow always begins with a fresh in-session route. */
+    /* Classic mode preserves the existing pre-plan for the tug-first path. */
+    if (bp_num_segs() && bp_classic_mode() && !emergency)
+        route_save(&bp.segs);
     if (bp_num_segs())
         bp_delete_all_segs();
 

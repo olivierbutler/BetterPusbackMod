@@ -128,6 +128,12 @@ const char *crew_language_tooltip =
 
 const char *dev_menu_tooltip = "Show the developer menu options.";
 const char *save_prefs_tooltip = "Save current preferences to disk.";
+const char *classic_mode_tooltip =
+    "Use the original pushback shortcuts instead of Ground Operations. "
+    "The clear signal no longer requires a click.";
+const char *fast_ground_handling_tooltip =
+    "Skip artificial pauses and voice-message waits. Tug movement, "
+    "animations and aircraft checks remain unchanged.";
 const char *per_aircraft_is_global_tooltip =
     "When enabled, all per aircraft settings becomes global.";
 const char *always_connect_tug_first_tooltip =
@@ -265,6 +271,8 @@ private:
   bool_t ignore_park_brake;
   bool_t dont_hide;
   bool_t always_connect_tug_first;
+  bool_t classic_mode;
+  bool_t fast_ground_handling;
   bool_t per_aircraft_is_global;
   bool_t xp11_only;
   bool_t is_destroy;
@@ -336,6 +344,9 @@ void SettingsWindow::LoadConfig(void) {
   always_connect_tug_first = B_FALSE;
   (void)conf_get_b(bp_conf, "always_connect_tug_first",
                    &always_connect_tug_first);
+
+  classic_mode = bp_classic_mode();
+  fast_ground_handling = bp_fast_ground_handling();
 
   tug_starts_next_plane = B_FALSE;
   (void)conf_get_b(bp_conf, "tug_starts_next_plane", &tug_starts_next_plane);
@@ -756,6 +767,24 @@ void SettingsWindow::buildInterface() {
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Classic Mode"));
+    Tooltip(_(classic_mode_tooltip));
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##classic_mode", (bool *)&classic_mode))
+      (void)conf_set_b(bp_conf, "classic_mode", classic_mode);
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Fast Ground Handling"));
+    Tooltip(_(fast_ground_handling_tooltip));
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##fast_ground_handling",
+                        (bool *)&fast_ground_handling))
+      (void)conf_set_b(bp_conf, "fast_ground_handling",
+                       fast_ground_handling);
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
     ImGui::Text("%s", _("Always connect the tug first"));
     Tooltip(_(always_connect_tug_first_tooltip));
 
@@ -974,6 +1003,20 @@ bool_t bp_conf_init(void) {
 
   fetchGitVersion();
   return (B_TRUE);
+}
+
+bool_t bp_classic_mode(void) {
+  bool_t enabled = B_FALSE;
+  if (bp_conf != NULL)
+    (void)conf_get_b(bp_conf, "classic_mode", &enabled);
+  return enabled;
+}
+
+bool_t bp_fast_ground_handling(void) {
+  bool_t enabled = B_FALSE;
+  if (bp_conf != NULL)
+    (void)conf_get_b(bp_conf, "fast_ground_handling", &enabled);
+  return enabled;
 }
 
 bool_t bp_conf_save(void) {

@@ -1290,9 +1290,8 @@ load_preferences(void)
     int saved_presentation = GROUND_OPS_PRESENTATION_HIDDEN;
     int saved_mode = GROUND_OPS_WINDOW_FLOAT;
 
-    /* Ground Operations and its captions are part of the standard UI. */
-    ui_enabled = B_TRUE;
-    captions_enabled = B_TRUE;
+    ui_enabled = !bp_classic_mode();
+    captions_enabled = ui_enabled;
     if (conf_get_i(bp_conf, "ground_ops_presentation", &saved_presentation) &&
         ground_ops_presentation_valid(saved_presentation)) {
         presentation = static_cast<ground_ops_presentation_t>(
@@ -1788,7 +1787,6 @@ ground_ops_ui_init(void)
     initialized = B_TRUE;
 
     if (!ui_enabled) {
-        presentation = GROUND_OPS_PRESENTATION_HIDDEN;
         logMsg(BP_INFO_LOG "Ground Ops UI disabled by preference; classic "
             "commands remain available");
         return (B_TRUE);
@@ -1901,7 +1899,7 @@ ground_ops_ui_reset_context(void)
 extern "C" bool_t
 ground_ops_ui_is_enabled(void)
 {
-    return (B_TRUE);
+    return (ui_enabled);
 }
 
 extern "C" bool_t

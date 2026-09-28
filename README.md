@@ -87,21 +87,23 @@ For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 
 ### Legacy operational UI compatibility
 
-This fork uses the Ground Operations panel as its operational interface. The
-original BetterPushback "magic squares" windows remain in the source tree but
-are disabled by default so both interfaces are not displayed together. An
-upstream maintainer can restore the original windows without reverting source
-by configuring the build with:
+Ground Operations is the default operational interface. In Preferences,
+**Classic Mode** switches to the original four "magic squares" shortcuts and
+removes the Ground Operations clear-signal confirmation. **Fast Ground
+Handling** independently skips artificial pauses and voice-message waits;
+physical tug travel, connect/disconnect animations, and aircraft checks remain.
+Both options default to off and take effect after saving preferences.
+
+The legacy shortcut windows can also be enabled at build time with:
 
 ```
 cmake -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON ...
 ```
 
-This switch controls only the four original shortcut windows. Ground
-Operations remains enabled, and the overhead planner and classic menu commands
-remain available. The end sequence disconnects automatically; the original
-disconnect/reconnect window implementation is retained as dormant source and
-is not created.
+This build switch only adds the four shortcut windows; unlike Classic Mode, it
+does not disable Ground Operations or change the clear-signal confirmation.
+The end sequence disconnects automatically in either mode. The original
+disconnect/reconnect window implementation remains dormant source.
 
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:

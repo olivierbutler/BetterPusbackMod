@@ -575,8 +575,10 @@ main(void)
     assert(!bp_clear_signal_acknowledge(&gate, true));
     assert(!bp_clear_signal_can_depart(&gate, 14.999));
     assert(bp_clear_signal_can_depart(&gate, 15.0));
+    assert(bp_clear_signal_can_depart_after(&gate, 0.0, 0.0));
     bp_clear_signal_reset(&gate);
     assert(!bp_clear_signal_can_depart(&gate, 3600.0));
+    assert(!bp_clear_signal_can_depart_after(&gate, 0.0, 0.0));
 
     ground_ops_state_t ack_state;
     ground_ops_raw_state_t ack_raw = idle_raw();
