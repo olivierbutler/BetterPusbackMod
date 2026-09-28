@@ -4,6 +4,7 @@
 
 #include "ground_ops_state.h"
 #include "clear_signal_gate.h"
+#include "handling_timing.h"
 #include "intl_test_stub.h"
 
 static ground_ops_raw_state_t
@@ -565,6 +566,14 @@ test_tug_return_is_an_informational_checklist_reminder(void)
 int
 main(void)
 {
+    assert(bp_handling_duration(10.0, false) == 10.0);
+    assert(bp_handling_duration(10.0, true) == 0.0);
+    assert(bp_handling_fraction(0.0, 10.0, false) == 0.0);
+    assert(bp_handling_fraction(5.0, 10.0, false) == 0.5);
+    assert(bp_handling_fraction(10.0, 10.0, false) == 1.0);
+    assert(bp_handling_fraction(12.0, 10.0, false) == 1.2);
+    assert(bp_handling_fraction(0.0, 10.0, true) == 1.0);
+
     bp_clear_signal_gate_t gate = {0};
     assert(!bp_clear_signal_acknowledge(&gate, false));
     assert(!bp_clear_signal_acknowledge(&gate, true));

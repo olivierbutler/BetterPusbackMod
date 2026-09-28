@@ -54,9 +54,11 @@ happening.
 
 Preferences also offers two independent options. **Classic Mode** replaces
 Ground Operations with the original four shortcut windows and automatically
-continues through tug disconnect and the final clear signal. **Fast Ground Handling** skips only
-artificial pauses and voice-message waits; tug travel, animations and aircraft
-checks still run. Both are off by default and apply after Save preferences.
+continues through tug disconnect and the final clear signal without displaying
+the new wing walker. **Fast Ground Handling** skips timed connect/disconnect
+animations, artificial pauses and voice-message waits; tug travel, winch
+motion and aircraft checks still run. Both are off by default and apply after
+Save preferences.
 
 - **Compact rail:** Shows only the five stages. Click the rail to expand it.
   Dragging moves it without expanding. Compact mode intentionally has no

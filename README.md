@@ -89,9 +89,10 @@ For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 
 Ground Operations is the default operational interface. In Preferences,
 **Classic Mode** switches to the original four "magic squares" shortcuts and
-automatically continues through disconnect and the final clear signal. **Fast Ground
-Handling** independently skips artificial pauses and voice-message waits;
-physical tug travel, connect/disconnect animations, and aircraft checks remain.
+automatically continues through disconnect and the final clear signal without
+the new wing walker. **Fast Ground Handling** independently skips timed
+connect/disconnect animations, artificial pauses and voice-message waits;
+physical tug travel, winch motion and aircraft checks remain.
 Both options default to off and take effect after saving preferences.
 
 The legacy shortcut windows can also be enabled at build time with:

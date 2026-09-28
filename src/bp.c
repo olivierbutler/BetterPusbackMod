@@ -61,6 +61,7 @@
 #include "cfg.h"
 #include "emergency_tow.h"
 #include "ground_ops_ui.h"
+#include "handling_timing.h"
 #include "msg.h"
 #include "telemetry.h"
 #include "xplane.h"
@@ -109,7 +110,14 @@
 static double
 artificial_delay(double seconds)
 {
-    return bp_fast_ground_handling() ? 0.0 : seconds;
+    return bp_handling_duration(seconds, bp_fast_ground_handling() != B_FALSE);
+}
+
+static double
+handling_fraction(double elapsed, double duration)
+{
+    return bp_handling_fraction(elapsed, duration,
+        bp_fast_ground_handling() != B_FALSE);
 }
 
 #define    MSG_DOORS_GPU "Some doors are still opened or the GPU or the ASU are still connected. I'm waiting for all of them closed and disconnected then I will proceed."
@@ -2701,7 +2709,7 @@ pb_step_tug_load(void) {
         bp_ls.tug->info->max_tow_fwd_speed);
     bp.veh.max_rev_spd = MIN(bp.veh.max_rev_spd,
         bp_ls.tug->info->max_tow_rev_speed);
-    if (emergency_tow_allows_wing_walker() &&
+    if (emergency_tow_allows_wing_walker() && !bp_classic_mode() &&
         bp_ls.wing_walker == NULL) {
         char *walker_path = mkpathname(bp_xpdir, bp_plugindir, "objects",
             "wing_walker", "wing_walker.obj", NULL);
@@ -2876,7 +2884,8 @@ pb_step_driving_up_connect(void) {
 static void
 pb_step_connect_grab(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double cradle_closed_fract = d_t / PB_CONN_LIFT_DELAY;
+    double cradle_closed_fract =
+        handling_fraction(d_t, PB_CONN_LIFT_DELAY);
 
     cradle_closed_fract = MAX(MIN(cradle_closed_fract, 1), 0);
     tug_set_lift_arm_pos(bp_ls.tug, 1 - cradle_closed_fract, B_TRUE);
@@ -3020,7 +3029,7 @@ pb_step_lift(void) {
     }
 
     d_t = bp.cur_t - bp.step_start_t;
-    lift_fract = d_t / PB_CONN_LIFT_DURATION;
+    lift_fract = handling_fraction(d_t, PB_CONN_LIFT_DURATION);
 
     lift_fract = MAX(MIN(lift_fract, 1), 0);
     tug_set_lift_pos(lift_fract);
@@ -3038,11 +3047,11 @@ pb_step_lift(void) {
      * tug's Tractive Effort to simulate that the engine is
      * being used to pressurize a hydraulic lift system.
      */
-    if (d_t < PB_CONN_LIFT_DURATION) {
+    if (d_t < artificial_delay(PB_CONN_LIFT_DURATION)) {
         tug_set_TE_override(bp_ls.tug, B_TRUE);
         tug_set_TE_snd(bp_ls.tug, PB_LIFT_TE, bp.d_t);
     }
-    if (d_t >= PB_CONN_LIFT_DURATION) {
+    if (d_t >= artificial_delay(PB_CONN_LIFT_DURATION)) {
         tug_set_TE_override(bp_ls.tug, B_TRUE);
         tug_set_TE_snd(bp_ls.tug, 0, bp.d_t);
         tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
@@ -3050,7 +3059,8 @@ pb_step_lift(void) {
         tug_set_TE_override(bp_ls.tug, B_FALSE);
     }
 
-    if (d_t >= PB_CONN_LIFT_DURATION + artificial_delay(STATE_TRANS_DELAY)) {
+    if (d_t >= artificial_delay(PB_CONN_LIFT_DURATION +
+        STATE_TRANS_DELAY)) {
         bp_connected = B_TRUE;
         if (bp_ls.tug->info->lift_type != LIFT_WINCH) {
             msg_play(MSG_CONNECTED);
@@ -3299,8 +3309,8 @@ pb_step_stopped(void) {
 static void
 pb_step_lowering(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double lift_fract = 1 - ((d_t - artificial_delay(STATE_TRANS_DELAY)) /
-                             PB_CONN_LIFT_DURATION);
+    double lift_fract = 1 - handling_fraction(
+        d_t - artificial_delay(STATE_TRANS_DELAY), PB_CONN_LIFT_DURATION);
     double lift;
 
     if (!slave_mode) {
@@ -3347,7 +3357,7 @@ pb_step_lowering(void) {
 static bool_t
 pb_step_ungrabbing_grab(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double cradle_fract = d_t / PB_CRADLE_DELAY;
+    double cradle_fract = handling_fraction(d_t, PB_CRADLE_DELAY);
 
     cradle_fract = MAX(MIN(cradle_fract, 1), 0);
     tug_set_lift_arm_pos(bp_ls.tug, cradle_fract, B_TRUE);
@@ -3355,8 +3365,7 @@ pb_step_ungrabbing_grab(void) {
     if (cradle_fract >= 1.0)
         tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
 
-    return (d_t >= PB_CRADLE_DELAY +
-        artificial_delay(STATE_TRANS_DELAY));
+    return (d_t >= artificial_delay(PB_CRADLE_DELAY + STATE_TRANS_DELAY));
 }
 
 static bool_t
@@ -3423,16 +3432,16 @@ pb_step_closing_cradle(void) {
     double d_t = bp.cur_t - bp.step_start_t;
 
     tug_set_lift_in_transit(B_TRUE);
-    tug_set_tire_sense_pos(bp_ls.tug, 1 - d_t / PB_CRADLE_DELAY);
-    tug_set_lift_pos(d_t / PB_CRADLE_DELAY);
+    double cradle_fract = handling_fraction(d_t, PB_CRADLE_DELAY);
+    tug_set_tire_sense_pos(bp_ls.tug, 1 - cradle_fract);
+    tug_set_lift_pos(cradle_fract);
 
-    if (d_t >= PB_CRADLE_DELAY) {
+    if (d_t >= artificial_delay(PB_CRADLE_DELAY)) {
         tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
         tug_set_lift_in_transit(B_FALSE);
     }
 
-    if (d_t >= PB_CRADLE_DELAY +
-        artificial_delay(STATE_TRANS_DELAY)) {
+    if (d_t >= artificial_delay(PB_CRADLE_DELAY + STATE_TRANS_DELAY)) {
         /* determine which direction we'll drive away */
         bool_t right = tug_clear_is_right();
         msg_play(right ? MSG_DONE_RIGHT : MSG_DONE_LEFT);
@@ -4312,15 +4321,17 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                 double d_t = bp.cur_t - bp.step_start_t;
 
                 tug_set_lift_in_transit(B_TRUE);
-                tug_set_lift_pos(1 - d_t / PB_CRADLE_DELAY);
-                tug_set_tire_sense_pos(bp_ls.tug, d_t / PB_CRADLE_DELAY);
-                if (d_t >= PB_CRADLE_DELAY) {
+                double cradle_fract =
+                    handling_fraction(d_t, PB_CRADLE_DELAY);
+                tug_set_lift_pos(1 - cradle_fract);
+                tug_set_tire_sense_pos(bp_ls.tug, cradle_fract);
+                if (d_t >= artificial_delay(PB_CRADLE_DELAY)) {
                     tug_set_lift_in_transit(B_FALSE);
                     tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
                     prop_single_adjust();
                 }
-                if (d_t >= PB_CRADLE_DELAY +
-                    artificial_delay(STATE_TRANS_DELAY)) {
+                if (d_t >= artificial_delay(PB_CRADLE_DELAY +
+                    STATE_TRANS_DELAY)) {
                     if (!bp.reconnect && !late_plan_requested) {
                         if (pbrake_is_set())
                             msg_play(MSG_RDY2CONN_NOPARK);

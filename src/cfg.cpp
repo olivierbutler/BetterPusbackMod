@@ -132,8 +132,8 @@ const char *classic_mode_tooltip =
     "Use the original pushback shortcuts instead of Ground Operations. "
     "The clear signal no longer requires a click.";
 const char *fast_ground_handling_tooltip =
-    "Skip artificial pauses and voice-message waits. Tug movement, "
-    "animations and aircraft checks remain unchanged.";
+    "Skip timed connect/disconnect animations, artificial pauses and "
+    "voice-message waits. Tug travel and aircraft checks remain unchanged.";
 const char *per_aircraft_is_global_tooltip =
     "When enabled, all per aircraft settings becomes global.";
 const char *always_connect_tug_first_tooltip =
