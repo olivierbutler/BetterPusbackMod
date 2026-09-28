@@ -89,7 +89,7 @@ For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 
 Ground Operations is the default operational interface. In Preferences,
 **Classic Mode** switches to the original four "magic squares" shortcuts and
-removes the Ground Operations clear-signal confirmation. **Fast Ground
+automatically continues through disconnect and the final clear signal. **Fast Ground
 Handling** independently skips artificial pauses and voice-message waits;
 physical tug travel, connect/disconnect animations, and aircraft checks remain.
 Both options default to off and take effect after saving preferences.
@@ -101,9 +101,9 @@ cmake -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON ...
 ```
 
 This build switch only adds the four shortcut windows; unlike Classic Mode, it
-does not disable Ground Operations or change the clear-signal confirmation.
-The end sequence disconnects automatically in either mode. The original
-disconnect/reconnect window implementation remains dormant source.
+does not disable Ground Operations or change its disconnect and clear-signal
+confirmations. The original disconnect/reconnect window implementation remains
+dormant source.
 
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:

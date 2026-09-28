@@ -54,7 +54,7 @@ happening.
 
 Preferences also offers two independent options. **Classic Mode** replaces
 Ground Operations with the original four shortcut windows and automatically
-continues after the final clear signal. **Fast Ground Handling** skips only
+continues through tug disconnect and the final clear signal. **Fast Ground Handling** skips only
 artificial pauses and voice-message waits; tug travel, animations and aircraft
 checks still run. Both are off by default and apply after Save preferences.
 
@@ -74,6 +74,10 @@ Positions are remembered by window mode, monitor, and side. If a saved display
 is removed or resized, the window is recovered into a visible area.
 
 ## 4. Normal pushback
+
+This section describes the default Ground Operations workflow. In Classic Mode,
+use the original shortcuts or commands; the extra disconnect and clear-signal
+confirmations are not required.
 
 ### Call the tug
 
@@ -117,12 +121,14 @@ The confirmation step prevents accidental activation.
 ### Disconnect and clear
 
 At the route end, set the parking brake when requested. The tug lowers and
-releases the nose gear. At **Ready to disconnect**, choose **Disconnect tug** to
-continue or **Reconnect** if the connection must be restored.
+releases the nose gear. In Ground Operations mode, choose **Disconnect tug** at
+**Ready to disconnect**, or **Reconnect** if the connection must be restored.
+Classic Mode continues automatically after release.
 
 The wing walker presents STOP, STANDBY, and CLEAR signals during a normal
-operation. When the clear signal is visible, **Acknowledge** it in the panel.
-Acknowledgement does not shorten the established minimum signal-display time.
+operation. In Ground Operations mode, **Acknowledge** the clear signal in the
+panel. Classic Mode requires no click. Fast Ground Handling removes the minimum
+signal-display delay, but does not remove Ground Operations' acknowledgement.
 After the tug departs, every stage is green and the operation is complete.
 
 ## 5. Saved routes
@@ -164,7 +170,7 @@ The most useful assignable commands are:
 | `BetterPushback/stop` | End pushback and disconnect |
 | `BetterPushback/start_planner` | Open the manual planner |
 | `BetterPushback/stop_planner` | Close the planner |
-| `BetterPushback/acknowledge_clear` | Acknowledge the final clear signal |
+| `BetterPushback/acknowledge_clear` | Acknowledge the final clear signal in Ground Operations mode |
 
 Classic menu commands remain available as a recovery path. If the Ground
 Operations window cannot initialize, the operational commands still remain

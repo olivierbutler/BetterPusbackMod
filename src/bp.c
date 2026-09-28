@@ -3919,6 +3919,8 @@ main_intf(bool_t force_hide) {
 
 static void
 pb_step_waiting4ok2disco(void) {
+    if (bp_classic_mode())
+        bp.ok2disco = B_TRUE;
     if (!bp.ok2disco) {
         /* Start the post-approval delay only after the pilot chooses. */
         bp.step_start_t = bp.cur_t;
