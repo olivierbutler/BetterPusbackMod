@@ -131,6 +131,10 @@ const char *pushback_interface_tooltip =
 const char *magic_squares_height_tooltip =
     "Slide this bar to move the magic squares up or down.";
 
+const char *display_marshaller_tooltip =
+    "Show the marshaller during normal pushback operations. Emergency Tow "
+    "never displays the marshaller.";
+
 const char *crew_language_tooltip =
     "My language only at domestic airports:\n"
     "Ground crew speaks my language only if the country the airport is "
@@ -300,6 +304,7 @@ private:
   bool_t is_chinese;
   lang_pref_t lang_pref;
   bool_t disco_when_done;
+  bool_t display_marshaller;
   bool_t auto_expand_actions;
   bool_t ignore_park_brake;
   bool_t dont_hide;
@@ -386,6 +391,9 @@ void SettingsWindow::LoadConfig(void) {
 
   disco_when_done = B_FALSE;
   (void)conf_get_b(bp_conf, "disco_when_done", &disco_when_done);
+
+  display_marshaller = B_TRUE;
+  (void)conf_get_b(bp_conf, "display_marshaller", &display_marshaller);
 
   initPerAircraftSettings();
 
@@ -858,10 +866,6 @@ void SettingsWindow::buildInterface() {
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    ImGui::Text(" ");
-    ImGui::TableNextRow();
-
-    ImGui::TableNextColumn();
     rowMin = ImGui::GetItemRectMin();
     ImGui::Text("%s", _("Miscellaneous"));
     ImGui::TableNextColumn();
@@ -877,6 +881,17 @@ void SettingsWindow::buildInterface() {
 
     ImGui::GetWindowDrawList()->AddLine(rowBottomStart, rowBottomEnd,
                                         LINE_COLOR, LINE_THICKNESS);
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Display marshaller"));
+    Tooltip(_(display_marshaller_tooltip));
+
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##display_marshaller",
+                        (bool *)&display_marshaller)) {
+      (void)conf_set_b(bp_conf, "display_marshaller", display_marshaller);
+    }
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();

@@ -74,7 +74,9 @@ Emergency Tow. The tug returns and connects, the manual planner opens at the liv
 position, and the plugin returns to its normal start state after towing and
 disconnect are complete. Emergency Tow does not use the saved-route cache or
 render the wing walker. Normal pushbacks retain the accepted STOP, STANDBY, and
-CLEAR wing-walker sequence.
+CLEAR wing-walker sequence when the global **Display marshaller** preference is
+enabled. The marshaller faces the aircraft and is anchored to his initial world
+position so early aircraft movement cannot make him follow the aircraft.
 
 ### About this Fork and Copyright
 

@@ -964,6 +964,16 @@ msgstr "Operações em solo"
 msgid "Legacy magic squares"
 msgstr "Quadrados mágicos clássicos"
 
+msgid "Display marshaller"
+msgstr "Exibir o balizador"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+"Exibe o balizador durante operações normais de pushback. O reboque de "
+"emergência nunca exibe o balizador."
+
 msgid ""
 "Select one global pushback interface. Ground Operations uses the new "
 "panel; Legacy magic squares restores the original operational buttons. "
