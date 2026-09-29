@@ -927,8 +927,13 @@ prop_single_adjust(void) {
     }
 }
 
-static void
+static bool_t
 brakes_set(bool_t flag) {
+    static bool_t held_by_bpb = B_FALSE;
+
+    if (!bp_service_brake_write_needed(held_by_bpb, flag))
+        return (B_FALSE);
+
     /*
      * Maximum we can set is 0.9. Any more and we might kick the parking
      * brake off.
@@ -937,6 +942,8 @@ brakes_set(bool_t flag) {
     ASSERT(!slave_mode);
     dr_setf(&drs.lbrake, val);
     dr_setf(&drs.rbrake, val);
+    held_by_bpb = flag;
+    return (B_TRUE);
 }
 
 /*
@@ -3280,7 +3287,7 @@ pb_step_stopping(void) {
         bp.step_start_t = bp.cur_t;
     } else {
         if (!slave_mode && !cfg_ignore_park_break)
-            brakes_set(B_FALSE);
+            brakes_set(B_TRUE);
         if (bp.cur_t - bp.step_start_t >=
             artificial_delay(STATE_TRANS_DELAY)) {
             msg_play(MSG_OP_COMPLETE);
@@ -3294,13 +3301,20 @@ pb_step_stopping(void) {
 
 static void
 pb_step_stopped(void) {
+    bool_t parking_brake_set = pbrake_is_set();
+
     if (!slave_mode) {
         turn_nosewheel(0);
         push_at_speed(0, bp.veh.max_accel, B_FALSE, B_FALSE);
-        if (!cfg_ignore_park_break)
-            brakes_set(B_FALSE);
+        if (!cfg_ignore_park_break) {
+            if (brakes_set(!parking_brake_set) && parking_brake_set) {
+                /* Recheck the aircraft brake after releasing BPB's hold. */
+                bp.step_start_t = bp.cur_t;
+                return;
+            }
+        }
     }
-    if (!pbrake_is_set() && !cfg_ignore_park_break) {
+    if (!parking_brake_set && !cfg_ignore_park_break) {
         /*
          * Ignoring Brake status if ignore_park_break is set
          * Keep resetting the start time to enforce a delay

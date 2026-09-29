@@ -21,4 +21,10 @@ bp_zibo_parking_brake_is_set(double lever, double brake_ratio)
     return lever >= 0.5 && brake_ratio >= 0.95;
 }
 
+static inline bool
+bp_service_brake_write_needed(bool held_by_bpb, bool hold_requested)
+{
+    return hold_requested || held_by_bpb;
+}
+
 #endif

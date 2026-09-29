@@ -567,6 +567,11 @@ test_tug_return_is_an_informational_checklist_reminder(void)
 int
 main(void)
 {
+    assert(!bp_service_brake_write_needed(false, false));
+    assert(bp_service_brake_write_needed(false, true));
+    assert(bp_service_brake_write_needed(true, true));
+    assert(bp_service_brake_write_needed(true, false));
+
     assert(!bp_zibo_parking_brake_is_set(0.0, 1.0));
     assert(!bp_zibo_parking_brake_is_set(1.0, 0.0));
     assert(!bp_zibo_parking_brake_is_set(1.0, 0.9));
