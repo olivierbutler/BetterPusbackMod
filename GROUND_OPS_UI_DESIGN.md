@@ -266,6 +266,10 @@ The UI must not fabricate a flight identity or weather value.
 - Persistent route reuse is available only when the live nosewheel uniquely
   matches a published `apt.dat` start within 1 m and 1 degree. Two isolated
   route slots are available per published gate and compatible aircraft profile.
+- The derived airport database records an ordered manifest of active `apt.dat`
+  inputs, including existence, file size, and modification time. A changed
+  manifest invalidates and rebuilds only the airport database at startup;
+  persistent gate-route slots are stored separately and remain untouched.
 - An arbitrary or saved-situation start remains usable for the current session,
   but it cannot list, load, save, or modify persistent gate-route slots.
 - The planner's blue legacy route and magenta danger band remain visual

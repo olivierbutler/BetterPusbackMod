@@ -37,6 +37,10 @@ airport, gate or stand, and compatible aircraft profile. Each matching profile
 has two independent saved-route slots with explicit selection and replacement.
 Saved-situation, arbitrary-position, off-anchor, and Emergency Tow routes remain
 session-only and cannot load, replace, or save persistent routes.
+BetterPushback validates its derived airport database against the active scenery
+order and every contributing `apt.dat` file at startup. Adding, removing, or
+updating custom scenery automatically rebuilds that airport database without
+deleting the separately stored push-route slots.
 
 Ground Operations can be shown as a compact five-orb stage rail, expanded into
 the complete status and action panel, or popped out as a native X-Plane window

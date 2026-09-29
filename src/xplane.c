@@ -39,6 +39,7 @@
 #include <acfutils/wav.h>
 #include <acfutils/time.h>
 
+#include "airport_cache_manifest.h"
 #include "bp.h"
 #include "bp_cam.h"
 #include "cab_view.h"
@@ -1306,6 +1307,8 @@ bp_priv_enable(void)
 {
     char *cachedir = mkpathname(xpdir, "Output", "caches",
                                 "BetterPushbackAirports.cache", NULL);
+    airport_cache_manifest_t scenery_before = {0}, scenery_after = {0};
+    bool have_scenery_manifest;
     bool_t dont_hide_xp_tug = B_FALSE;
 
     ASSERT(!inited);
@@ -1321,10 +1324,42 @@ bp_priv_enable(void)
         return (0);
     init_core_state();
 
+    have_scenery_manifest = airport_cache_manifest_compute(bp_xpdir,
+        &scenery_before);
+    if (!have_scenery_manifest) {
+        logMsg(BP_WARN_LOG "Unable to inspect installed scenery inputs; "
+            "falling back to the airport database's path-only cache check");
+    } else if (!airport_cache_manifest_matches(cachedir,
+        &scenery_before)) {
+        logMsg(BP_INFO_LOG "Installed airport scenery changed; rebuilding "
+            "the BetterPushback airport cache (%llu inputs)",
+            (unsigned long long)scenery_before.input_count);
+        if (!airport_cache_manifest_invalidate(cachedir)) {
+            logMsg(BP_ERROR_LOG "Unable to invalidate the stale "
+                "BetterPushback airport cache");
+            goto errout;
+        }
+    }
+
     airportdb = safe_calloc(1, sizeof(*airportdb));
     airportdb_create(airportdb, bp_xpdir, cachedir);
 
-    if (!recreate_cache(airportdb) || !tug_glob_init())
+    if (!recreate_cache(airportdb))
+        goto errout;
+    if (have_scenery_manifest) {
+        if (!airport_cache_manifest_compute(bp_xpdir, &scenery_after) ||
+            scenery_after.fingerprint != scenery_before.fingerprint ||
+            scenery_after.input_count != scenery_before.input_count) {
+            logMsg(BP_WARN_LOG "Airport scenery changed while the cache "
+                "was rebuilding; it will be validated again at the next "
+                "simulator start");
+        } else if (!airport_cache_manifest_write(cachedir,
+            &scenery_after)) {
+            logMsg(BP_WARN_LOG "Unable to save the airport scenery cache "
+                "manifest; it will be rebuilt at the next simulator start");
+        }
+    }
+    if (!tug_glob_init())
         goto errout;
 
     XPLMRegisterCommandHandler(start_pb, start_pb_handler, 1, NULL);
