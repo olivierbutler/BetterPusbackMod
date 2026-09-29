@@ -40,7 +40,12 @@ session-only and cannot load, replace, or save persistent routes.
 
 Ground Operations can be shown as a compact five-orb stage rail, expanded into
 the complete status and action panel, or popped out as a native X-Plane window
-and moved to another monitor. During an automatic push, **Pause/Resume** retains
+and moved to another monitor. It opens automatically when BetterPushback
+connects to the simulator, restoring the last visible compact or expanded
+presentation. A first-time install, or an older hidden state without visible
+presentation history, opens expanded. The pilot can then show or hide it
+normally. During an automatic push,
+**Pause/Resume** retains
 the accepted route and steering state, while **End operation** stops safely and
 continues through the normal disconnect sequence at the current position.
 The Preferences window offers Standard, Large, and Extra-large interface sizes;

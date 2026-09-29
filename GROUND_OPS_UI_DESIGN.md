@@ -57,9 +57,10 @@ cockpit.
 
 - No visible X-Plane window and no UI draw callback.
 - Available before a ground operation through the plugin menu and a command.
-- The legacy visibility gate keeps the UI visible during an active operation.
-  After completion it hides when the aircraft is no longer on the ground below
-  1 m/s, and restores the same presentation when that condition is met again.
+- Applies only after a pilot hides the window during the current simulator
+  session. The next simulator/plugin connection always starts visible.
+- The startup presentation and later pilot Show/Hide commands are authoritative;
+  the legacy ground-speed gate cannot hide an explicitly visible presentation.
 
 ### Compact progress rail
 
@@ -139,7 +140,7 @@ Required behavior:
 
 Persisted UI state covers:
 
-- presentation mode: hidden, compact rail, or panel;
+- current presentation mode plus the last visible compact or panel mode;
 - floating geometry;
 - popped-out operating-system geometry;
 - preferred monitor.
@@ -150,6 +151,12 @@ complete interface. A development build can enable `BP_EMULATE_MAC_UI_SCALE`.
 
 Exact key names are an implementation detail, but configuration migration must
 be backward compatible.
+
+At startup, a saved compact or expanded presentation is restored visibly. A
+saved hidden presentation restores the last visible presentation instead. If
+no visible history exists, as on a first install or migration from an older
+hidden state, the expanded panel is the default. Pilot Show/Hide control remains
+authoritative after that one startup decision.
 
 ## Workflow stages and existing pushback states
 

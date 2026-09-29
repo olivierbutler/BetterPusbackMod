@@ -111,6 +111,8 @@ static ground_ops_rect_t float_rect = {};
 static ground_ops_rect_t os_rect = {};
 static ground_ops_presentation_t presentation =
     GROUND_OPS_PRESENTATION_HIDDEN;
+static ground_ops_presentation_t last_visible_presentation =
+    GROUND_OPS_PRESENTATION_PANEL;
 static ground_ops_window_mode_t window_mode = GROUND_OPS_WINDOW_FLOAT;
 static int preferred_monitor = -1;
 static UiAction pending_action = UiAction::None;
@@ -1293,6 +1295,7 @@ static void
 load_preferences(void)
 {
     int saved_presentation = GROUND_OPS_PRESENTATION_HIDDEN;
+    int saved_last_visible = GROUND_OPS_PRESENTATION_PANEL;
     int saved_mode = GROUND_OPS_WINDOW_FLOAT;
     int saved_size = GROUND_OPS_UI_SIZE_STANDARD;
 
@@ -1304,13 +1307,13 @@ load_preferences(void)
         saved_size = GROUND_OPS_UI_SIZE_STANDARD;
     }
     ground_ops_ui_size_set(static_cast<ground_ops_ui_size_t>(saved_size));
-    if (conf_get_i(bp_conf, "ground_ops_presentation", &saved_presentation) &&
-        ground_ops_presentation_valid(saved_presentation)) {
-        presentation = static_cast<ground_ops_presentation_t>(
-            saved_presentation);
-    } else {
-        presentation = GROUND_OPS_PRESENTATION_HIDDEN;
-    }
+    (void)conf_get_i(bp_conf, "ground_ops_presentation",
+        &saved_presentation);
+    (void)conf_get_i(bp_conf, "ground_ops_last_visible_presentation",
+        &saved_last_visible);
+    presentation = ground_ops_startup_presentation(saved_presentation,
+        saved_last_visible);
+    last_visible_presentation = presentation;
     if (conf_get_i(bp_conf, "ground_ops_window_mode", &saved_mode) &&
         ground_ops_window_mode_valid(saved_mode)) {
         window_mode = static_cast<ground_ops_window_mode_t>(saved_mode);
@@ -1367,6 +1370,8 @@ persist_preferences(bool write_file)
     (void)conf_set_i(bp_conf, "ground_ops_ui_size",
         ground_ops_ui_size_get());
     (void)conf_set_i(bp_conf, "ground_ops_presentation", presentation);
+    (void)conf_set_i(bp_conf, "ground_ops_last_visible_presentation",
+        last_visible_presentation);
     (void)conf_set_i(bp_conf, "ground_ops_window_mode", window_mode);
     (void)conf_set_i(bp_conf, "ground_ops_preferred_monitor",
         preferred_monitor);
@@ -1472,6 +1477,7 @@ apply_presentation_geometry(ground_ops_presentation_t next)
      * the new geometry (most visibly when expanding the orb).
      */
     presentation = next;
+    last_visible_presentation = next;
     ground_window->set_presentation(next);
     have_polled_rect = false;
     if (ground_window->IsInVR()) {
@@ -1537,6 +1543,7 @@ create_window(ground_ops_presentation_t requested)
     float_rect = initial_float;
     have_float_rect = B_TRUE;
     presentation = requested;
+    last_visible_presentation = requested;
 
     if (window_mode == GROUND_OPS_WINDOW_POPOUT && have_os_rect) {
         int width = os_rect.right - os_rect.left;
@@ -1724,7 +1731,7 @@ process_action(UiAction action)
             manual_visibility_override != B_FALSE)) {
             manual_visibility_override = B_TRUE;
             if (ground_window == nullptr)
-                (void)create_window(GROUND_OPS_PRESENTATION_ORB);
+                (void)create_window(last_visible_presentation);
             else
                 ground_window->SetVisible(B_TRUE);
         } else {
@@ -1881,10 +1888,10 @@ ground_ops_ui_init(void)
         return (B_TRUE);
 
     load_preferences();
-    /* A saved visible presentation is an explicit pilot choice, just like
-     * opening the window from the Show/Hide command in the current session. */
-    manual_visibility_override =
-        presentation != GROUND_OPS_PRESENTATION_HIDDEN ? B_TRUE : B_FALSE;
+    /* Startup is always visible, including for a first install or a prior
+     * session that ended with the window hidden. Later Show/Hide commands
+     * remain authoritative for the rest of this simulator session. */
+    manual_visibility_override = B_TRUE;
     bp_ui_click_init();
     disconnect_tug_cmd = XPLMFindCommand("BetterPushback/disconnect");
     reconnect_tug_cmd = XPLMFindCommand("BetterPushback/reconnect");
@@ -1938,11 +1945,8 @@ ground_ops_ui_init(void)
 
     if (presentation == GROUND_OPS_PRESENTATION_ORB)
         queue_action(UiAction::ShowOrb);
-    else if (presentation == GROUND_OPS_PRESENTATION_PANEL)
-        queue_action(UiAction::ShowPanel);
     else
-        logMsg(BP_INFO_LOG "Ground Ops UI initialized hidden "
-            "(zero recurring callbacks scheduled)");
+        queue_action(UiAction::ShowPanel);
     return (B_TRUE);
 }
 
