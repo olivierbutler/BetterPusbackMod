@@ -207,3 +207,13 @@ msgstr "特大"
 
 msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
 msgstr "缩放整个地面操作界面，包括文本、控件、间距和点击区域。"
+
+msgid "Auto disconnect when done"
+msgstr "完成时自动断开连接"
+
+msgid ""
+"Never ask and always automatically disconnect "
+"the tug when the pushback operation is complete."
+msgstr ""
+"不再询问，并在推出操作完成时自动断开 "
+"牵引车连接。"

@@ -4,6 +4,7 @@
 
 #include "ground_ops_state.h"
 #include "clear_signal_gate.h"
+#include "post_push_automation.h"
 #include "intl_test_stub.h"
 
 static ground_ops_raw_state_t
@@ -27,6 +28,30 @@ snapshot_for_step(pushback_step_t step)
     raw.step = step;
     assert(ground_ops_state_update(&state, &raw));
     return (*ground_ops_state_get(&state));
+}
+
+static void
+test_post_push_automation_policy(void)
+{
+    bp_clear_signal_gate_t gate = {0};
+
+    assert(!bp_post_push_should_auto_disconnect(false, false, false));
+    assert(bp_post_push_should_auto_disconnect(true, false, false));
+    assert(!bp_post_push_should_auto_disconnect(true, true, false));
+    assert(!bp_post_push_should_auto_disconnect(true, false, true));
+
+    assert(!bp_post_push_auto_acknowledge_clear(&gate, false, false));
+    assert(!bp_post_push_auto_acknowledge_clear(&gate, true, false));
+    gate.displayed = true;
+    assert(!bp_post_push_auto_acknowledge_clear(&gate, true, true));
+    assert(!gate.acknowledged);
+    assert(bp_post_push_auto_acknowledge_clear(&gate, true, false));
+    assert(gate.acknowledged);
+    assert(!bp_post_push_auto_acknowledge_clear(&gate, true, false));
+    assert(!bp_clear_signal_can_depart(&gate,
+        BP_CLEAR_SIGNAL_MIN_SECONDS - 0.001));
+    assert(bp_clear_signal_can_depart(&gate,
+        BP_CLEAR_SIGNAL_MIN_SECONDS));
 }
 
 static void
@@ -566,6 +591,7 @@ int
 main(void)
 {
     bp_clear_signal_gate_t gate = {0};
+    test_post_push_automation_policy();
     assert(!bp_clear_signal_acknowledge(&gate, false));
     assert(!bp_clear_signal_acknowledge(&gate, true));
     gate.displayed = true;
