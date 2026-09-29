@@ -5,7 +5,6 @@
 #include "ground_ops_state.h"
 #include "clear_signal_gate.h"
 #include "handling_timing.h"
-#include "parking_brake_state.h"
 #include "intl_test_stub.h"
 
 static ground_ops_raw_state_t
@@ -567,23 +566,6 @@ test_tug_return_is_an_informational_checklist_reminder(void)
 int
 main(void)
 {
-    assert(!bp_service_brake_write_needed(false, false));
-    assert(bp_service_brake_write_needed(false, true));
-    assert(bp_service_brake_write_needed(true, true));
-    assert(bp_service_brake_write_needed(true, false));
-
-    assert(!bp_zibo_parking_brake_is_set(0.0, 1.0));
-    assert(!bp_zibo_parking_brake_is_set(1.0, 0.0));
-    assert(!bp_zibo_parking_brake_is_set(1.0, 0.9));
-    assert(bp_zibo_parking_brake_is_set(1.0, 1.0));
-
-    assert(!bp_parking_brake_is_set(false, true, 0.0, 0.9, false));
-    assert(bp_parking_brake_is_set(false, true, 1.0, 0.0, false));
-    assert(bp_parking_brake_is_set(false, true, 0.0, 0.0, true));
-    assert(bp_parking_brake_is_set(false, false, 0.0, 1.0, false));
-    assert(!bp_parking_brake_is_set(true, true, 0.0, 1.0, true));
-    assert(bp_parking_brake_is_set(true, true, 1.0, 0.0, false));
-
     assert(bp_handling_duration(10.0, false) == 10.0);
     assert(bp_handling_duration(10.0, true) == 0.0);
     assert(bp_handling_fraction(0.0, 10.0, false) == 0.0);

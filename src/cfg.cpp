@@ -130,11 +130,10 @@ const char *dev_menu_tooltip = "Show the developer menu options.";
 const char *save_prefs_tooltip = "Save current preferences to disk.";
 const char *classic_mode_tooltip =
     "Use the original pushback shortcuts instead of Ground Operations. "
-    "Saved gate routes are bypassed, and the clear signal no longer "
-    "requires a click.";
+    "The clear signal no longer requires a click.";
 const char *fast_ground_handling_tooltip =
-    "Skip timed connect/disconnect animations, artificial pauses and "
-    "voice-message waits. Tug travel and aircraft checks remain unchanged.";
+    "Skip non-brake ground handling waits and animations. "
+    "The brake-to-ungrab sequence, towing and tug travel keep normal timing.";
 const char *per_aircraft_is_global_tooltip =
     "When enabled, all per aircraft settings becomes global.";
 const char *always_connect_tug_first_tooltip =
@@ -771,18 +770,15 @@ void SettingsWindow::buildInterface() {
     ImGui::Text("%s", _("Classic Mode"));
     Tooltip(_(classic_mode_tooltip));
     ImGui::TableNextColumn();
-    if (ImGui::Checkbox("##classic_mode", (bool *)&classic_mode))
-      (void)conf_set_b(bp_conf, "classic_mode", classic_mode);
+    (void)ImGui::Checkbox("##classic_mode", (bool *)&classic_mode);
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     ImGui::Text("%s", _("Fast Ground Handling"));
     Tooltip(_(fast_ground_handling_tooltip));
     ImGui::TableNextColumn();
-    if (ImGui::Checkbox("##fast_ground_handling",
-                        (bool *)&fast_ground_handling))
-      (void)conf_set_b(bp_conf, "fast_ground_handling",
-                       fast_ground_handling);
+    (void)ImGui::Checkbox("##fast_ground_handling",
+                          (bool *)&fast_ground_handling);
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
@@ -930,6 +926,8 @@ void SettingsWindow::buildInterface() {
   Tooltip(_(save_prefs_tooltip));
   if (save_button) {
     SetVisible(B_FALSE);
+    (void)conf_set_b(bp_conf, "classic_mode", classic_mode);
+    (void)conf_set_b(bp_conf, "fast_ground_handling", fast_ground_handling);
     (void)bp_conf_save();
     bp_sched_reload();
     set_pref_widget_status(B_FALSE);

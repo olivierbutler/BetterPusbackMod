@@ -63,7 +63,6 @@
 #include "ground_ops_ui.h"
 #include "handling_timing.h"
 #include "msg.h"
-#include "parking_brake_state.h"
 #include "telemetry.h"
 #include "xplane.h"
 
@@ -149,11 +148,8 @@ typedef struct {
 
 static struct {
     dr_t lbrake, rbrake;
-    dr_t pbrake, pbrake_rat, pbrake_valve;
-    dr_t zibo_pbrake, zibo_pbrake_rat;
+    dr_t pbrake, pbrake_rat;
     bool_t pbrake_is_custom;
-    bool_t has_pbrake_valve;
-    bool_t has_zibo_pbrake;
     dr_t rot_force_M, rot_force_N;
     dr_t axial_force;
     dr_t override_planepath;
@@ -368,18 +364,17 @@ max_steer_angle(void) {
 
 static bool_t
 pbrake_is_set(void) {
+    bool_t result;
+
     if(slave_mode && pb_set_override) 
         return pb_set_remote;
 
-    if (drs.has_zibo_pbrake)
-        return bp_zibo_parking_brake_is_set(
-            dr_getf(&drs.zibo_pbrake), dr_getf(&drs.zibo_pbrake_rat));
-
-    return bp_parking_brake_is_set(drs.pbrake_is_custom,
-        bp_xp_ver >= 12200, dr_getf(&drs.pbrake),
-        bp_xp_ver < 12200 && !drs.pbrake_is_custom ?
-            dr_getf(&drs.pbrake_rat) : 0.0,
-        drs.has_pbrake_valve && dr_geti(&drs.pbrake_valve) != 0);
+    if (drs.pbrake_is_custom) {
+        result = (dr_getf(&drs.pbrake) != 0);
+    } else {
+        result = (dr_getf(&drs.pbrake) != 0 || dr_getf(&drs.pbrake_rat) != 0);
+    }
+    return result;
 }
 
 static const char *
@@ -927,13 +922,8 @@ prop_single_adjust(void) {
     }
 }
 
-static bool_t
+static void
 brakes_set(bool_t flag) {
-    static bool_t held_by_bpb = B_FALSE;
-
-    if (!bp_service_brake_write_needed(held_by_bpb, flag))
-        return (B_FALSE);
-
     /*
      * Maximum we can set is 0.9. Any more and we might kick the parking
      * brake off.
@@ -942,8 +932,6 @@ brakes_set(bool_t flag) {
     ASSERT(!slave_mode);
     dr_setf(&drs.lbrake, val);
     dr_setf(&drs.rbrake, val);
-    held_by_bpb = flag;
-    return (B_TRUE);
 }
 
 /*
@@ -1887,7 +1875,6 @@ bp_init(void) {
     const char *reason;
     char my_acf[512], my_path[512];
     char *acf_override_file;
-    XPLMPluginID zibo_plugin;
 
 
     if (inited)
@@ -1907,17 +1894,9 @@ bp_init(void) {
         drs.pbrake_is_custom = B_TRUE;
     }
     if (bp_xp_ver >= 12200) {
-        drs.has_pbrake_valve = dr_find(&drs.pbrake_valve,
-            "sim/cockpit2/controls/park_brake_valve");
+        fdr_find(&drs.pbrake_rat, "sim/cockpit2/controls/wheel_brake_ratio");
     } else {
         fdr_find(&drs.pbrake_rat, "sim/cockpit2/controls/parking_brake_ratio");
-    }
-    zibo_plugin = XPLMFindPluginBySignature("zibomod.by.Zibo");
-    if (zibo_plugin != XPLM_NO_PLUGIN_ID &&
-        XPLMIsPluginEnabled(zibo_plugin) &&
-        dr_find(&drs.zibo_pbrake, "laminar/B738/parking_brake_pos")) {
-        drs.has_zibo_pbrake = dr_find(&drs.zibo_pbrake_rat,
-            "sim/cockpit2/controls/parking_brake_ratio");
     }
     fdr_find(&drs.rot_force_M, "sim/flightmodel/forces/M_plug_acf");
     fdr_find(&drs.rot_force_N, "sim/flightmodel/forces/N_plug_acf");
@@ -2435,8 +2414,7 @@ bp_run_push(bool_t hold_requested) {
          * the driver changing gear and flipping around.
          */
         if (bp.reverse_t != 0.0) {
-            if (bp.cur_t - bp.reverse_t <
-                artificial_delay(2 * STATE_TRANS_DELAY)) {
+            if (bp.cur_t - bp.reverse_t < 2 * STATE_TRANS_DELAY) {
                 push_at_speed(0, bp.veh.max_accel, B_TRUE,
                               B_FALSE);
                 break;
@@ -2510,8 +2488,7 @@ bp_run_push_manual(void) {
         * the driver changing gear and flipping around.
         */
     if (bp.reverse_t != 0.0) {
-        if (bp.cur_t - bp.reverse_t <
-            artificial_delay(2 * STATE_TRANS_DELAY)) {
+        if (bp.cur_t - bp.reverse_t < 2 * STATE_TRANS_DELAY) {
             push_at_speed(0, bp.veh.max_accel, B_TRUE,
                             B_FALSE);
             return (push_manual.active);                
@@ -2843,8 +2820,7 @@ pb_step_waiting_for_pbrake(void) {
             brakes_set(B_TRUE);
     } else if ((!pbrake_is_set() && !cfg_ignore_park_break) ||
         /* wait until the rdy2conn message has stopped playing */
-        bp.cur_t - bp.last_voice_t <
-            artificial_delay(msg_dur(MSG_RDY2CONN))) {
+        bp.cur_t - bp.last_voice_t < msg_dur(MSG_RDY2CONN)) {
         /* keep resetting the start time to enforce a delay */
         bp.step_start_t = bp.cur_t;
         return;
@@ -2853,7 +2829,7 @@ pb_step_waiting_for_pbrake(void) {
      * After the parking brake is set and the message has finished
      * playing, wait a short moment until starting to move again.
      */
-    if (bp.cur_t - bp.step_start_t < artificial_delay(STATE_TRANS_DELAY))
+    if (bp.cur_t - bp.step_start_t < STATE_TRANS_DELAY)
         return;
 
     /* Workaround for Zibo 737 chocks being set - remove them. */
@@ -2930,15 +2906,14 @@ pb_step_connect_winch(void) {
     double winch_total, winched_dist;
 
     /* spend some time putting the winching strap in place */
-    if (!bp.winching.complete && d_t < artificial_delay(STATE_TRANS_DELAY))
+    if (!bp.winching.complete && d_t < STATE_TRANS_DELAY)
         return;
 
     tug_set_lift_pos(0);
     tug_set_winch_on(bp_ls.tug, B_TRUE);
 
     /* after installing the strap, wait some more to make the pbrake call */
-    if (!bp.winching.complete &&
-        d_t < artificial_delay(2 * STATE_TRANS_DELAY)) {
+    if (!bp.winching.complete && d_t < 2 * STATE_TRANS_DELAY) {
         tug_set_lift_arm_pos(bp_ls.tug, 1.0, B_TRUE);
         return;
     }
@@ -3110,16 +3085,14 @@ pb_step_connected(void) {
         disable_replanning();
 
     if (parking_brake_set ||
-        bp.cur_t - bp.last_voice_t <
-            artificial_delay(msg_dur(MSG_CONNECTED))) {
+        bp.cur_t - bp.last_voice_t < msg_dur(MSG_CONNECTED)) {
         /*
          * Keep resetting the start time to enforce the state delay
          * after the message is done and the parking brake is released.
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes release");
-    } else if (bp.cur_t - bp.step_start_t >=
-        artificial_delay(STATE_TRANS_DELAY)) {
+    } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
         if (!slave_mode) {
             bool_t backward = true; 
             if (!push_manual.active) {
@@ -3288,8 +3261,7 @@ pb_step_stopping(void) {
     } else {
         if (!slave_mode && !cfg_ignore_park_break)
             brakes_set(B_TRUE);
-        if (bp.cur_t - bp.step_start_t >=
-            artificial_delay(STATE_TRANS_DELAY)) {
+        if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
             msg_play(MSG_OP_COMPLETE);
             bp.stop_from_pause_hold = B_FALSE;
             bp.step++;
@@ -3301,20 +3273,13 @@ pb_step_stopping(void) {
 
 static void
 pb_step_stopped(void) {
-    bool_t parking_brake_set = pbrake_is_set();
-
     if (!slave_mode) {
         turn_nosewheel(0);
         push_at_speed(0, bp.veh.max_accel, B_FALSE, B_FALSE);
-        if (!cfg_ignore_park_break) {
-            if (brakes_set(!parking_brake_set) && parking_brake_set) {
-                /* Recheck the aircraft brake after releasing BPB's hold. */
-                bp.step_start_t = bp.cur_t;
-                return;
-            }
-        }
+        if (!cfg_ignore_park_break)
+            brakes_set(B_TRUE);
     }
-    if (!parking_brake_set && !cfg_ignore_park_break) {
+    if (!pbrake_is_set() && !cfg_ignore_park_break) {
         /*
          * Ignoring Brake status if ignore_park_break is set
          * Keep resetting the start time to enforce a delay
@@ -3322,11 +3287,9 @@ pb_step_stopped(void) {
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes set");
-    } else if (bp.cur_t - bp.step_start_t >=
-               artificial_delay(STATE_TRANS_DELAY) &&
-               bp.cur_t - bp.last_voice_t >=
-                   artificial_delay(msg_dur(MSG_OP_COMPLETE) +
-                       STATE_TRANS_DELAY)) {
+    } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY &&
+               bp.cur_t - bp.last_voice_t >= msg_dur(MSG_OP_COMPLETE) +
+                                             STATE_TRANS_DELAY) {
         msg_play(MSG_DISCO);
         bp.step++;
         bp.step_start_t = bp.cur_t;
@@ -3337,23 +3300,17 @@ pb_step_stopped(void) {
 static void
 pb_step_lowering(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double lift_fract = 1 - handling_fraction(
-        d_t - artificial_delay(STATE_TRANS_DELAY), PB_CONN_LIFT_DURATION);
+    double lift_fract = 1 - ((d_t - STATE_TRANS_DELAY) /
+                             PB_CONN_LIFT_DURATION);
     double lift;
 
     if (!slave_mode) {
         turn_nosewheel(0);
         if (!cfg_ignore_park_break)
-            brakes_set(B_FALSE);
-    }
-    if (!cfg_ignore_park_break && !pbrake_is_set()) {
-        bp_hint_status_str = _("Waiting for the parking brakes set");
-        bp.step_start_t = bp.cur_t;
-        return;
+            brakes_set(B_TRUE);
     }
 
-    if (bp.cur_t - bp.last_voice_t <
-        artificial_delay(msg_dur(MSG_OP_COMPLETE))) {
+    if (bp.cur_t - bp.last_voice_t < msg_dur(MSG_OP_COMPLETE)) {
         /*
          * Keep resetting step_start_t to properly calculate
          * lift_fract relative to our step_start_t.
@@ -3365,7 +3322,7 @@ pb_step_lowering(void) {
     tug_set_lift_in_transit(B_TRUE);
 
     /* Slight delay after the parking brake ann was made */
-    if (d_t <= artificial_delay(STATE_TRANS_DELAY))
+    if (d_t <= STATE_TRANS_DELAY)
         return;
 
     lift_fract = MAX(MIN(lift_fract, 1), 0);
@@ -3390,7 +3347,7 @@ pb_step_lowering(void) {
 static bool_t
 pb_step_ungrabbing_grab(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double cradle_fract = handling_fraction(d_t, PB_CRADLE_DELAY);
+    double cradle_fract = d_t / PB_CRADLE_DELAY;
 
     cradle_fract = MAX(MIN(cradle_fract, 1), 0);
     tug_set_lift_arm_pos(bp_ls.tug, cradle_fract, B_TRUE);
@@ -3398,7 +3355,7 @@ pb_step_ungrabbing_grab(void) {
     if (cradle_fract >= 1.0)
         tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
 
-    return (d_t >= artificial_delay(PB_CRADLE_DELAY + STATE_TRANS_DELAY));
+    return (d_t >= PB_CRADLE_DELAY + STATE_TRANS_DELAY);
 }
 
 static bool_t
@@ -3409,12 +3366,12 @@ pb_step_ungrabbing_winch(void) {
      * enforce some delays between removing the winch strap and
      * driving away
      */
-    if (d_t < artificial_delay(STATE_TRANS_DELAY))
+    if (d_t < STATE_TRANS_DELAY)
         return (B_FALSE);
 
     tug_set_winch_on(bp_ls.tug, B_FALSE);
 
-    if (d_t < artificial_delay(2 * STATE_TRANS_DELAY))
+    if (d_t < 2 * STATE_TRANS_DELAY)
         return (B_FALSE);
 
     return (B_TRUE);
@@ -3423,14 +3380,6 @@ pb_step_ungrabbing_winch(void) {
 static void
 pb_step_ungrabbing(void) {
     bool_t complete;
-
-    if (!cfg_ignore_park_break && !pbrake_is_set()) {
-        if (!slave_mode)
-            brakes_set(B_FALSE);
-        bp_hint_status_str = _("Waiting for the parking brakes set");
-        bp.step_start_t = bp.cur_t;
-        return;
-    }
 
     if (bp_ls.tug->info->lift_type == LIFT_GRAB)
         complete = pb_step_ungrabbing_grab();
@@ -3969,15 +3918,6 @@ main_intf(bool_t force_hide) {
 
 static void
 pb_step_waiting4ok2disco(void) {
-    if (!cfg_ignore_park_break && !pbrake_is_set()) {
-        if (!slave_mode)
-            brakes_set(B_FALSE);
-        bp_hint_status_str = _("Waiting for the parking brakes set");
-        bp.step_start_t = bp.cur_t;
-        return;
-    }
-    if (!slave_mode && !cfg_ignore_park_break)
-        brakes_set(B_FALSE);
     if (bp_classic_mode())
         bp.ok2disco = B_TRUE;
     if (!bp.ok2disco) {
@@ -4067,13 +4007,15 @@ static void
 pb_step_clear_signal(void) {
     double acf2start_lat_displ, acf2start_long_displ;
     vect2_t acf2start, acfdir;
+    bool_t first_display = !bp.clear_signal_gate.displayed;
 
     tug_set_clear_signal(B_TRUE, tug_clear_is_right());
     bp.clear_signal_gate.displayed = true;
 
     if (bp_classic_mode())
         (void)bp_clear_signal_acknowledge(&bp.clear_signal_gate, true);
-    if (!bp_clear_signal_can_depart_after(&bp.clear_signal_gate,
+    if ((bp_classic_mode() && bp_fast_ground_handling() && first_display) ||
+        !bp_clear_signal_can_depart_after(&bp.clear_signal_gate,
         bp.cur_t - bp.step_start_t,
         bp_fast_ground_handling() ? 0 : BP_CLEAR_SIGNAL_MIN_SECONDS))
         return;
@@ -4429,7 +4371,10 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                 dr_seti(&drs.override_steer, 1);
                 brakes_set(B_FALSE);
             }
-            if (!slave_mode) {
+            if (bp.cur_t - bp.step_start_t >= PB_START_DELAY) {
+                bp.step++;
+                bp.step_start_t = bp.cur_t;
+            } else if (!slave_mode) {
                 if (!push_manual.active) {
                     seg_t *seg = list_tail(&bp.segs);
                     ASSERT(seg != NULL);
@@ -4448,11 +4393,6 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                 }
                 turn_nosewheel(0);
                 push_at_speed(0, bp.veh.max_accel, B_FALSE, B_FALSE);
-            }
-            if (bp.cur_t - bp.step_start_t >=
-                artificial_delay(PB_START_DELAY)) {
-                bp.step++;
-                bp.step_start_t = bp.cur_t;
             }
             break;
         case PB_STEP_PUSHING:

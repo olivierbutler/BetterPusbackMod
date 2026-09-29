@@ -55,11 +55,11 @@ happening.
 Preferences also offers two independent options. **Classic Mode** replaces
 Ground Operations with the original four shortcut windows and automatically
 continues through tug disconnect and the final clear signal without displaying
-the new wing walker. It also bypasses saved gate routes: planning stays manual
-and routes are not saved persistently in this mode. **Fast Ground Handling**
-skips timed connect/disconnect animations, artificial pauses and voice-message
-waits; tug travel, winch motion and aircraft checks still run. Both are off by
-default and apply after Save preferences.
+the new wing walker. **Fast Ground Handling** skips non-brake ground handling
+waits and animations. Parking-brake gates and the brake-to-ungrab sequence
+keep their original per-step delays and conditions; tug travel, winch motion,
+towing direction changes and aircraft checks remain unchanged. Both are off
+by default and apply after Save preferences.
 
 - **Compact rail:** Shows only the five stages. Click the rail to expand it.
   Dragging moves it without expanding. Compact mode intentionally has no
@@ -135,10 +135,6 @@ signal-display delay, but does not remove Ground Operations' acknowledgement.
 After the tug departs, every stage is green and the operation is complete.
 
 ## 5. Saved routes
-
-Saved gate routes are available only outside Classic Mode. In Classic Mode the
-planner opens directly for manual planning, without route selection or
-replacement prompts, and does not alter saved slots.
 
 At a published airport start, BetterPushback can identify a gate or stand only
 when the live nosewheel position and heading uniquely match it within the

@@ -90,10 +90,10 @@ For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 Ground Operations is the default operational interface. In Preferences,
 **Classic Mode** switches to the original four "magic squares" shortcuts and
 automatically continues through disconnect and the final clear signal without
-the new wing walker. It opens the manual planner directly and does not load or
-save persistent gate routes. **Fast Ground Handling** independently skips timed
-connect/disconnect animations, artificial pauses and voice-message waits;
-physical tug travel, winch motion and aircraft checks remain.
+the new wing walker. **Fast Ground Handling** independently skips non-brake
+ground handling waits and animations. Parking-brake gates and the brake-to-
+ungrab sequence keep their original per-step delays and conditions; tug travel,
+winch motion, towing direction changes and aircraft checks remain unchanged.
 Both options default to off and take effect after saving preferences.
 
 The legacy shortcut windows can also be enabled at build time with:

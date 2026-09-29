@@ -674,13 +674,13 @@ connect_first_begin(bool_t emergency)
             "and wing-walker rendering are disabled for this session");
     }
 
+    bool_t keep_classic_plan = bp_classic_mode() && !emergency &&
+        !bp_cam_is_running() && bp_num_segs() != 0;
     late_plan_requested = B_TRUE;
     (void)bp_cam_stop();
 
-    /* Classic mode preserves the existing pre-plan for the tug-first path. */
-    if (bp_num_segs() && bp_classic_mode() && !emergency)
-        route_save(&bp.segs);
-    if (bp_num_segs())
+    /* Only a completed classic pre-plan remains available after connection. */
+    if (!keep_classic_plan && bp_num_segs())
         bp_delete_all_segs();
 
     if (!bp_start()) {
