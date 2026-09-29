@@ -12,17 +12,26 @@ typedef struct {
     const char *active;
     const char *parking_brake;
     const char *extra_large;
+    const char *auto_disconnect;
 } translation_expectation_t;
 
 static const translation_expectation_t expectations[] = {
-    {"de", "AKTIV", "Parkbremse setzen", "Sehr groß"},
-    {"es", "ACTIVO", "Aplique el freno de estacionamiento", "Muy grande"},
-    {"fr", "ACTIF", "Serrez le frein de parking", "Très grande"},
-    {"it", "ATTIVO", "Inserire il freno di stazionamento", "Molto grande"},
-    {"pt", "ATIVO", "Acione o travão de estacionamento", "Muito grande"},
-    {"pt_BR", "ATIVO", "Acione o freio de estacionamento", "Muito grande"},
-    {"ru", "АКТИВНО", "Установите стояночный тормоз", "Очень большой"},
-    {"zh", "进行中", "设置停机刹车", "特大"}
+    {"de", "AKTIV", "Parkbremse setzen", "Sehr groß",
+        "Am Ende automatisch trennen"},
+    {"es", "ACTIVO", "Aplique el freno de estacionamiento", "Muy grande",
+        "Desconectar automática cuando termine"},
+    {"fr", "ACTIF", "Serrez le frein de parking", "Très grande",
+        "Déconnexion automatique une fois terminé"},
+    {"it", "ATTIVO", "Inserire il freno di stazionamento", "Molto grande",
+        "Disconnessione automatica al termine"},
+    {"pt", "ATIVO", "Acione o travão de estacionamento", "Muito grande",
+        "Desconexão automática quando terminar"},
+    {"pt_BR", "ATIVO", "Acione o freio de estacionamento", "Muito grande",
+        "Desconexão automática quando terminar"},
+    {"ru", "АКТИВНО", "Установите стояночный тормоз", "Очень большой",
+        "Автоматически отключить при завершении."},
+    {"zh", "进行中", "设置停机刹车", "特大",
+        "完成時自動斷開連接。"}
 };
 
 static const char *const eyebrow_msgids[] = {
@@ -85,6 +94,8 @@ main(int argc, char **argv)
             !check_translation("Set the parking brake",
                 expectation->parking_brake) ||
             !check_translation("Extra large", expectation->extra_large) ||
+            !check_translation("Auto disconnect when done",
+                expectation->auto_disconnect) ||
             !check_translation("METAR -- | ATIS --",
                 "METAR -- | ATIS --")) {
             acfutils_xlate_fini();

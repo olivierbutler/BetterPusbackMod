@@ -62,6 +62,7 @@
 #include "emergency_tow.h"
 #include "ground_ops_ui.h"
 #include "msg.h"
+#include "post_push_automation.h"
 #include "telemetry.h"
 #include "xplane.h"
 
@@ -188,6 +189,7 @@ bp_long_state_t bp_ls = {0};
 static bool_t inited = B_FALSE;
 static XPLMFlightLoopID bp_floop = NULL;
 
+static bool_t cfg_disco_when_done = B_FALSE;
 static bool_t cfg_ignore_park_break = B_FALSE;
 
 static struct {
@@ -1969,6 +1971,9 @@ bp_init(void) {
         goto errout;
 
     XPLMGetNthAircraftModel(0, my_acf, my_path);
+
+    cfg_disco_when_done = B_FALSE;
+    (void)conf_get_b(bp_conf, "disco_when_done", &cfg_disco_when_done);
 
     cfg_ignore_park_break = B_FALSE;
     conf_get_b_per_acf("ignore_park_brake", &cfg_ignore_park_break);
@@ -3899,6 +3904,12 @@ main_intf(bool_t force_hide) {
 
 static void
 pb_step_waiting4ok2disco(void) {
+    if (bp_post_push_should_auto_disconnect(cfg_disco_when_done != B_FALSE,
+        slave_mode != B_FALSE, bp.ok2disco != B_FALSE)) {
+        bp.ok2disco = B_TRUE;
+        logMsg(BP_INFO_LOG "Automatic post-push tug disconnect approved");
+    }
+
     if (!bp.ok2disco) {
         /* Start the post-approval delay only after the pilot chooses. */
         bp.step_start_t = bp.cur_t;
@@ -3988,7 +3999,12 @@ pb_step_clear_signal(void) {
     tug_set_clear_signal(B_TRUE, tug_clear_is_right());
     bp.clear_signal_gate.displayed = true;
 
-    /* Preserve the legacy minimum display time, but never auto-acknowledge. */
+    if (bp_post_push_auto_acknowledge_clear(&bp.clear_signal_gate,
+        cfg_disco_when_done != B_FALSE, slave_mode != B_FALSE)) {
+        logMsg(BP_INFO_LOG "Automatic post-push pin and clear signal acknowledged");
+    }
+
+    /* Preserve the legacy minimum display time in both workflow modes. */
     if (!bp_clear_signal_can_depart(&bp.clear_signal_gate,
         bp.cur_t - bp.step_start_t))
         return;

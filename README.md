@@ -45,6 +45,10 @@ the accepted route and steering state, while **End operation** stops safely and
 continues through the normal disconnect sequence at the current position.
 The Preferences window offers Standard, Large, and Extra-large interface sizes;
 each selection scales the full layout and its controls together with the text.
+The global **Auto disconnect when done** preference can complete the
+post-push disconnect and final clear-signal acknowledgement without another
+pilot input after the requested parking brake has been set. The normal tug
+lowering, separation, side-clear movement, audio, and signal timing are retained.
 
 After a completed normal operation, **Call tow back** starts a guarded one-time
 Emergency Tow. The tug returns and connects, the manual planner opens at the live aircraft
@@ -101,9 +105,11 @@ cmake -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON ...
 
 This switch controls only the four original shortcut windows. Ground
 Operations remains enabled, and the overhead planner and classic menu commands
-remain available. The end sequence disconnects automatically; the original
-disconnect/reconnect window implementation is retained as dormant source and
-is not created.
+remain available. By default, the Ground Operations panel presents the final
+disconnect/reconnect and clear-signal actions. Enabling the global **Auto
+disconnect when done** preference completes those two actions automatically.
+The original disconnect/reconnect window implementation is retained as dormant
+source and is not created.
 
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:

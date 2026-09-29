@@ -72,6 +72,11 @@ Ground Operations sizes. The selected size scales the complete compact rail or
 expanded panel, including its text, controls, spacing, and click targets, so
 larger text is not forced back into the original fixed-size layout.
 
+The global **Auto disconnect when done** preference controls the final
+post-push interaction for every aircraft and is remembered across simulator
+starts. It is off by default, preserving the manual disconnect and clear-signal
+acknowledgements described below.
+
 ## 4. Normal pushback
 
 ### Call the tug
@@ -123,6 +128,13 @@ The wing walker presents STOP, STANDBY, and CLEAR signals during a normal
 operation. When the clear signal is visible, **Acknowledge** it in the panel.
 Acknowledgement does not shorten the established minimum signal-display time.
 After the tug departs, every stage is green and the operation is complete.
+
+With **Auto disconnect when done** enabled, the workflow is unchanged through
+the request to set the parking brake. After the brake is set, BetterPushback
+automatically approves **Disconnect tug** and acknowledges the final pin/clear
+signal. No further pilot action is required, but the tug still lowers, releases,
+moves to the selected side, presents its signals, and observes the same 15-second
+minimum clear-signal display before departure.
 
 ## 5. Saved routes
 
@@ -190,7 +202,8 @@ The current owner-review candidate includes:
 
 - compact and expanded Ground Operations presentations, including pop-out and
   remembered multi-monitor placement;
-- explicit Call tug, Plan push, brake, disconnect, and clear-signal gates;
+- explicit Call tug, Plan push, and brake gates, with manual disconnect and
+  clear-signal gates unless the global automatic option is enabled;
 - manual route planning with the legacy route-following behavior;
 - two guarded saved-route slots per matching gate/stand and aircraft profile;
 - Pause/Resume and safe End operation behavior;

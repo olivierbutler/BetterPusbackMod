@@ -175,12 +175,12 @@ states into it. The UI must never infer motion merely from a caption string.
 | `PB_STEP_STOPPED` | Push | Aircraft stopped | Yes: set parking brake |
 | `PB_STEP_LOWERING` | Clear | Lowering the nose gear | No |
 | `PB_STEP_UNGRABBING` | Clear | Releasing the nose gear | No |
-| `PB_STEP_WAITING4OK2DISCO` | Clear | Ready to disconnect | **Disconnect tug** or **Reconnect** in the Ground Operations panel |
+| `PB_STEP_WAITING4OK2DISCO` | Clear | Ready to disconnect | Manual mode: **Disconnect tug** or **Reconnect** in the Ground Operations panel; automatic mode approves disconnect without pilot input |
 | `PB_STEP_MOVING_AWAY` | Clear | Tug moving clear | No |
 | `PB_STEP_CLOSING_CRADLE` | Clear | Closing the tug cradle | No |
 | `PB_STEP_STARTING2CLEAR` | Clear | Driver moving to clear | No |
 | `PB_STEP_MOVING2CLEAR` | Clear | Driver moving to clear | No |
-| `PB_STEP_CLEAR_SIGNAL` | Clear | Clear signal displayed | Acknowledge the displayed pin/clear signal; departure also requires the original 15-second minimum |
+| `PB_STEP_CLEAR_SIGNAL` | Clear | Clear signal displayed | Manual mode: acknowledge the displayed pin/clear signal; automatic mode acknowledges it internally; both retain the original 15-second minimum |
 | `PB_STEP_DRIVING_AWAY` | Clear | Tug returning to station | Informational: Finalize cockpit checklist |
 
 Pre-push presentation remains separate from `bp.step`:
@@ -289,6 +289,13 @@ yellow **Acknowledge** button. Required task cards use an amber background,
 yellow heading and left accent. Optional controls retain secondary styling;
 destructive End operation confirmation retains its separate warning treatment.
 
+The global **Auto disconnect when done** preference is off by default and is
+persisted across simulator starts for all aircraft.
+When enabled, the controller takes over only after the requested parking brake
+has been set. It approves the disconnect gate and acknowledges the clear-signal
+gate without pilot input while retaining the physical release sequence, audio,
+side-clear movement, signal presentation, and 15-second minimum display time.
+
 During departure, the neutral **CURRENT TASK** is **Finalize cockpit checklist**.
 After completion all five stages are green; visibility follows the legacy
 ground/speed gate, not an invented completion timer.
@@ -383,7 +390,9 @@ windows for upstream compatibility. The switch affects presentation only:
 automatic beacon-triggered tug behavior is evaluated separately, and the
 planner, preferences, and commands remain available. At the final disconnect
 gate, the panel exposes **Disconnect tug** and **Reconnect** through the same
-legacy command handlers without restoring separate floating windows.
+legacy command handlers without restoring separate floating windows. If the
+global **Auto disconnect when done** option is enabled, the controller
+approves both the disconnect and final clear-signal gates automatically.
 
 ## Performance contract
 

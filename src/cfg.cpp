@@ -133,6 +133,9 @@ const char *crew_language_tooltip =
 
 const char *dev_menu_tooltip = "Show the developer menu options.";
 const char *save_prefs_tooltip = "Save current preferences to disk.";
+const char *disco_when_done_tooltip =
+    "Never ask and always automatically disconnect "
+    "the tug when the pushback operation is complete.";
 const char *per_aircraft_is_global_tooltip =
     "When enabled, all per aircraft settings becomes global.";
 const char *always_connect_tug_first_tooltip =
@@ -276,6 +279,7 @@ private:
   const char *lang;
   bool_t is_chinese;
   lang_pref_t lang_pref;
+  bool_t disco_when_done;
   bool_t ignore_park_brake;
   bool_t dont_hide;
   bool_t always_connect_tug_first;
@@ -344,6 +348,9 @@ void SettingsWindow::LoadConfig(void) {
   if (!ground_ops_ui_size_valid(ground_ops_ui_size))
     ground_ops_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
   ground_ops_ui_size_list.selected = ground_ops_ui_size;
+
+  disco_when_done = B_FALSE;
+  (void)conf_get_b(bp_conf, "disco_when_done", &disco_when_done);
 
   initPerAircraftSettings();
 
@@ -789,6 +796,17 @@ void SettingsWindow::buildInterface() {
 
     ImGui::GetWindowDrawList()->AddLine(rowBottomStart, rowBottomEnd,
                                         LINE_COLOR, LINE_THICKNESS);
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Auto disconnect when done"));
+    Tooltip(_(disco_when_done_tooltip));
+
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##disco_when_done_cbox",
+                        (bool *)&disco_when_done)) {
+      (void)conf_set_b(bp_conf, "disco_when_done", disco_when_done);
+    }
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
