@@ -64,6 +64,7 @@
 #include "msg.h"
 #include "post_push_automation.h"
 #include "telemetry.h"
+#include "wing_walker_logic.h"
 #include "xplane.h"
 
 #define    MIN_XPLANE_VERSION    11550    /* X-Plane 11.55 */
@@ -2706,8 +2707,10 @@ pb_step_tug_load(void) {
         bp_ls.tug->info->max_tow_fwd_speed);
     bp.veh.max_rev_spd = MIN(bp.veh.max_rev_spd,
         bp_ls.tug->info->max_tow_rev_speed);
-    if (emergency_tow_allows_wing_walker() &&
-        bp_ls.wing_walker == NULL) {
+    bool_t display_marshaller = B_TRUE;
+    (void)conf_get_b(bp_conf, "display_marshaller", &display_marshaller);
+    if (wing_walker_should_allocate(display_marshaller != B_FALSE,
+        emergency_tow_allows_wing_walker()) && bp_ls.wing_walker == NULL) {
         char *walker_path = mkpathname(bp_xpdir, bp_plugindir, "objects",
             "wing_walker", "wing_walker.obj", NULL);
 
@@ -2716,6 +2719,10 @@ pb_step_tug_load(void) {
     } else if (!emergency_tow_allows_wing_walker()) {
         ASSERT(bp_ls.wing_walker == NULL);
         logMsg(BP_INFO_LOG "Emergency Tow wing-walker guard active; no "
+            "wing-walker object will be loaded or rendered");
+    } else if (!display_marshaller) {
+        ASSERT(bp_ls.wing_walker == NULL);
+        logMsg(BP_INFO_LOG "Marshaller display disabled in Preferences; no "
             "wing-walker object will be loaded or rendered");
     }
     telemetry_start();

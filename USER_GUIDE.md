@@ -156,8 +156,12 @@ At the route end, set the parking brake when requested. The tug lowers and
 releases the nose gear. At **Ready to disconnect**, choose **Disconnect tug** to
 continue or **Reconnect** if the connection must be restored.
 
-The wing walker presents STOP, STANDBY, and CLEAR signals during a normal
-operation. When the clear signal is visible, **Acknowledge** it in the panel.
+The global **Display marshaller** preference controls whether the wing walker
+is used during normal operations and is enabled by default. When displayed, he
+appears at the established 30-yard nose clearance, faces the aircraft, and
+remains fixed at that original ground position even if the aircraft begins to
+taxi before he disappears. He presents STOP, STANDBY, and CLEAR signals. When
+the clear signal is visible, **Acknowledge** it in the panel.
 Acknowledgement does not shorten the established minimum signal-display time.
 After the tug departs, every stage is green and the operation is complete.
 

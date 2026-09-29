@@ -1006,6 +1006,16 @@ msgstr "Bodenbetrieb"
 msgid "Legacy magic squares"
 msgstr "Klassische magische Quadrate"
 
+msgid "Display marshaller"
+msgstr "Marshaller anzeigen"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+"Den Marshaller während normaler Pushback-Vorgänge anzeigen. Beim "
+"Notfallschleppen wird der Marshaller nie angezeigt."
+
 msgid ""
 "Select one global pushback interface. Ground Operations uses the new "
 "panel; Legacy magic squares restores the original operational buttons. "

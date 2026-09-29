@@ -16,40 +16,49 @@ typedef struct {
     const char *auto_expand;
     const char *interface_label;
     const char *legacy_interface;
+    const char *display_marshaller;
 } translation_expectation_t;
 
 static const translation_expectation_t expectations[] = {
     {"de", "AKTIV", "Parkbremse setzen", "Sehr groß",
         "Am Ende automatisch trennen",
         "Bei Pilotenaktionen automatisch erweitern",
-        "Pushback-Benutzeroberfläche", "Klassische magische Quadrate"},
+        "Pushback-Benutzeroberfläche", "Klassische magische Quadrate",
+        "Marshaller anzeigen"},
     {"es", "ACTIVO", "Aplique el freno de estacionamiento", "Muy grande",
         "Desconectar automática cuando termine",
         "Expandir automáticamente para acciones del piloto",
-        "Interfaz de retroceso", "Cuadrados mágicos clásicos"},
+        "Interfaz de retroceso", "Cuadrados mágicos clásicos",
+        "Mostrar señalero"},
     {"fr", "ACTIF", "Serrez le frein de parking", "Très grande",
         "Déconnexion automatique une fois terminé",
         "Développer automatiquement pour les actions du pilote",
-        "Interface de repoussage", "Carrés magiques classiques"},
+        "Interface de repoussage", "Carrés magiques classiques",
+        "Afficher le signaleur"},
     {"it", "ATTIVO", "Inserire il freno di stazionamento", "Molto grande",
         "Disconnessione automatica al termine",
         "Espandi automaticamente per le azioni del pilota",
-        "Interfaccia pushback", "Quadrati magici classici"},
+        "Interfaccia pushback", "Quadrati magici classici",
+        "Mostra il marshaller"},
     {"pt", "ATIVO", "Acione o travão de estacionamento", "Muito grande",
         "Desconexão automática quando terminar",
         "Expandir automaticamente para ações do piloto",
-        "Interface de pushback", "Quadrados mágicos clássicos"},
+        "Interface de pushback", "Quadrados mágicos clássicos",
+        "Mostrar o sinaleiro"},
     {"pt_BR", "ATIVO", "Acione o freio de estacionamento", "Muito grande",
         "Desconexão automática quando terminar",
         "Expandir automaticamente para ações do piloto",
-        "Interface de pushback", "Quadrados mágicos clássicos"},
+        "Interface de pushback", "Quadrados mágicos clássicos",
+        "Exibir o balizador"},
     {"ru", "АКТИВНО", "Установите стояночный тормоз", "Очень большой",
         "Автоматически отключить при завершении.",
         "Автоматически разворачивать для действий пилота",
-        "Интерфейс буксировки", "Классические магические квадраты"},
+        "Интерфейс буксировки", "Классические магические квадраты",
+        "Показывать сигнальщика"},
     {"zh", "进行中", "设置停机刹车", "特大",
         "完成時自動斷開連接。",
-        "需要飛行員操作時自動展開", "推出界面", "傳統魔方按鈕"}
+        "需要飛行員操作時自動展開", "推出界面", "傳統魔方按鈕",
+        "顯示引導員"}
 };
 
 static const char *const eyebrow_msgids[] = {
@@ -120,6 +129,8 @@ main(int argc, char **argv)
                 expectation->interface_label) ||
             !check_translation("Legacy magic squares",
                 expectation->legacy_interface) ||
+            !check_translation("Display marshaller",
+                expectation->display_marshaller) ||
             !check_translation("METAR -- | ATIS --",
                 "METAR -- | ATIS --")) {
             acfutils_xlate_fini();

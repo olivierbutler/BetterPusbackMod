@@ -345,6 +345,18 @@ audio. Preferences remains unavailable during an active pushback.
   returned aircraft is off its unique `apt.dat` anchor, the route remains
   session-only and no cache file can be created or changed.
 
+### Marshaller presentation
+
+- The global **Display marshaller** preference defaults on and prevents object
+  allocation entirely when disabled.
+- The normal-operation position preserves the 30-yard nose clearance and
+  captain-side offset. It is captured when the first visible signal begins,
+  including while asynchronous object loading is still completing.
+- Position and heading remain anchored for the rest of the operation. Aircraft
+  movement after the signal begins cannot pull the marshaller along.
+- The current object heading is rotated 180 degrees from its earlier runtime
+  orientation so the visible character faces the aircraft.
+
 ## Data sources and precedence
 
 Each external value carries source, fetched time, and expiry time.

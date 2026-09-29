@@ -1006,6 +1006,16 @@ msgstr "Operaciones en tierra"
 msgid "Legacy magic squares"
 msgstr "Cuadrados mágicos clásicos"
 
+msgid "Display marshaller"
+msgstr "Mostrar señalero"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+"Muestra el señalero durante las operaciones normales de retroceso. El "
+"remolque de emergencia nunca muestra el señalero."
+
 msgid ""
 "Select one global pushback interface. Ground Operations uses the new "
 "panel; Legacy magic squares restores the original operational buttons. "

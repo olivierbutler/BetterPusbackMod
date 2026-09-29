@@ -595,6 +595,14 @@ msgstr ""
 msgid "Legacy magic squares"
 msgstr ""
 
+msgid "Display marshaller"
+msgstr ""
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+
 msgid ""
 "Select one global pushback interface. Ground Operations uses the new "
 "panel; Legacy magic squares restores the original operational buttons. "

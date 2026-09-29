@@ -237,6 +237,14 @@ msgstr "地面操作"
 msgid "Legacy magic squares"
 msgstr "传统魔方按钮"
 
+msgid "Display marshaller"
+msgstr "显示引导员"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr "正常推出操作期间显示引导员。紧急拖行不会显示引导员。"
+
 msgid ""
 "Select one global pushback interface. Ground Operations uses the new "
 "panel; Legacy magic squares restores the original operational buttons. "
