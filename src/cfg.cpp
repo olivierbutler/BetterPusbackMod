@@ -130,7 +130,8 @@ const char *dev_menu_tooltip = "Show the developer menu options.";
 const char *save_prefs_tooltip = "Save current preferences to disk.";
 const char *classic_mode_tooltip =
     "Use the original pushback shortcuts instead of Ground Operations. "
-    "The clear signal no longer requires a click.";
+    "Saved gate routes are bypassed, and the clear signal no longer "
+    "requires a click.";
 const char *fast_ground_handling_tooltip =
     "Skip timed connect/disconnect animations, artificial pauses and "
     "voice-message waits. Tug travel and aircraft checks remain unchanged.";

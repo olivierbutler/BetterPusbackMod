@@ -2482,6 +2482,12 @@ bp_cam_start(void)
         logMsg(BP_INFO_LOG "Emergency Tow planner opened at the live "
             "nosewheel; saved-route listing, loading, and saving are "
             "disabled");
+    } else if (bp_classic_mode()) {
+        memset(&planner_gate_context, 0, sizeof(planner_gate_context));
+        planner_gate_routes.new_route = list_head(&bp.segs) == NULL;
+        planner_gate_routes.suppress_save = B_TRUE;
+        logMsg(BP_INFO_LOG "Classic Mode planner opened without saved "
+            "gate routes; current route remains session-only");
     } else {
         at_published_start = planner_prepare_gate_context(
             &gate_match_distance, &gate_match_heading);
@@ -2608,6 +2614,9 @@ bp_cam_stop(void)
             logMsg(BP_INFO_LOG "Emergency Tow route accepted for this "
                 "session only; hard persistence guard skipped every gate "
                 "route cache write");
+        } else if (bp_classic_mode()) {
+            logMsg(BP_INFO_LOG "Classic Mode route accepted for this "
+                "session only; saved gate routes were not changed");
         } else if (!planner_gate_context.recognized) {
             logMsg(BP_INFO_LOG "Route remains available for this pushback "
                 "session but was not saved: aircraft did not start at a "

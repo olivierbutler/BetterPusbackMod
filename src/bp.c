@@ -63,6 +63,7 @@
 #include "ground_ops_ui.h"
 #include "handling_timing.h"
 #include "msg.h"
+#include "parking_brake_state.h"
 #include "telemetry.h"
 #include "xplane.h"
 
@@ -148,8 +149,11 @@ typedef struct {
 
 static struct {
     dr_t lbrake, rbrake;
-    dr_t pbrake, pbrake_rat;
+    dr_t pbrake, pbrake_rat, pbrake_valve;
+    dr_t zibo_pbrake, zibo_pbrake_rat;
     bool_t pbrake_is_custom;
+    bool_t has_pbrake_valve;
+    bool_t has_zibo_pbrake;
     dr_t rot_force_M, rot_force_N;
     dr_t axial_force;
     dr_t override_planepath;
@@ -364,17 +368,18 @@ max_steer_angle(void) {
 
 static bool_t
 pbrake_is_set(void) {
-    bool_t result;
-    
     if(slave_mode && pb_set_override) 
         return pb_set_remote;
 
-    if (drs.pbrake_is_custom) {
-        result = (dr_getf(&drs.pbrake) != 0);
-    } else {
-        result = (dr_getf(&drs.pbrake) != 0 || dr_getf(&drs.pbrake_rat) != 0);
-    }
-    return result;
+    if (drs.has_zibo_pbrake)
+        return bp_zibo_parking_brake_is_set(
+            dr_getf(&drs.zibo_pbrake), dr_getf(&drs.zibo_pbrake_rat));
+
+    return bp_parking_brake_is_set(drs.pbrake_is_custom,
+        bp_xp_ver >= 12200, dr_getf(&drs.pbrake),
+        bp_xp_ver < 12200 && !drs.pbrake_is_custom ?
+            dr_getf(&drs.pbrake_rat) : 0.0,
+        drs.has_pbrake_valve && dr_geti(&drs.pbrake_valve) != 0);
 }
 
 static const char *
@@ -1875,6 +1880,7 @@ bp_init(void) {
     const char *reason;
     char my_acf[512], my_path[512];
     char *acf_override_file;
+    XPLMPluginID zibo_plugin;
 
 
     if (inited)
@@ -1894,9 +1900,17 @@ bp_init(void) {
         drs.pbrake_is_custom = B_TRUE;
     }
     if (bp_xp_ver >= 12200) {
-        fdr_find(&drs.pbrake_rat, "sim/cockpit2/controls/wheel_brake_ratio");
+        drs.has_pbrake_valve = dr_find(&drs.pbrake_valve,
+            "sim/cockpit2/controls/park_brake_valve");
     } else {
         fdr_find(&drs.pbrake_rat, "sim/cockpit2/controls/parking_brake_ratio");
+    }
+    zibo_plugin = XPLMFindPluginBySignature("zibomod.by.Zibo");
+    if (zibo_plugin != XPLM_NO_PLUGIN_ID &&
+        XPLMIsPluginEnabled(zibo_plugin) &&
+        dr_find(&drs.zibo_pbrake, "laminar/B738/parking_brake_pos")) {
+        drs.has_zibo_pbrake = dr_find(&drs.zibo_pbrake_rat,
+            "sim/cockpit2/controls/parking_brake_ratio");
     }
     fdr_find(&drs.rot_force_M, "sim/flightmodel/forces/M_plug_acf");
     fdr_find(&drs.rot_force_N, "sim/flightmodel/forces/N_plug_acf");
@@ -3266,7 +3280,7 @@ pb_step_stopping(void) {
         bp.step_start_t = bp.cur_t;
     } else {
         if (!slave_mode && !cfg_ignore_park_break)
-            brakes_set(B_TRUE);
+            brakes_set(B_FALSE);
         if (bp.cur_t - bp.step_start_t >=
             artificial_delay(STATE_TRANS_DELAY)) {
             msg_play(MSG_OP_COMPLETE);
@@ -3284,7 +3298,7 @@ pb_step_stopped(void) {
         turn_nosewheel(0);
         push_at_speed(0, bp.veh.max_accel, B_FALSE, B_FALSE);
         if (!cfg_ignore_park_break)
-            brakes_set(B_TRUE);
+            brakes_set(B_FALSE);
     }
     if (!pbrake_is_set() && !cfg_ignore_park_break) {
         /*
@@ -3316,7 +3330,12 @@ pb_step_lowering(void) {
     if (!slave_mode) {
         turn_nosewheel(0);
         if (!cfg_ignore_park_break)
-            brakes_set(B_TRUE);
+            brakes_set(B_FALSE);
+    }
+    if (!cfg_ignore_park_break && !pbrake_is_set()) {
+        bp_hint_status_str = _("Waiting for the parking brakes set");
+        bp.step_start_t = bp.cur_t;
+        return;
     }
 
     if (bp.cur_t - bp.last_voice_t <
@@ -3390,6 +3409,14 @@ pb_step_ungrabbing_winch(void) {
 static void
 pb_step_ungrabbing(void) {
     bool_t complete;
+
+    if (!cfg_ignore_park_break && !pbrake_is_set()) {
+        if (!slave_mode)
+            brakes_set(B_FALSE);
+        bp_hint_status_str = _("Waiting for the parking brakes set");
+        bp.step_start_t = bp.cur_t;
+        return;
+    }
 
     if (bp_ls.tug->info->lift_type == LIFT_GRAB)
         complete = pb_step_ungrabbing_grab();
@@ -3928,6 +3955,15 @@ main_intf(bool_t force_hide) {
 
 static void
 pb_step_waiting4ok2disco(void) {
+    if (!cfg_ignore_park_break && !pbrake_is_set()) {
+        if (!slave_mode)
+            brakes_set(B_FALSE);
+        bp_hint_status_str = _("Waiting for the parking brakes set");
+        bp.step_start_t = bp.cur_t;
+        return;
+    }
+    if (!slave_mode && !cfg_ignore_park_break)
+        brakes_set(B_FALSE);
     if (bp_classic_mode())
         bp.ok2disco = B_TRUE;
     if (!bp.ok2disco) {
