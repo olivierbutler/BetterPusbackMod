@@ -994,3 +994,23 @@ msgstr ""
 "Разворачивает компактную панель наземных операций, когда "
 "требуется действие пилота, и сворачивает её вскоре после "
 "выполнения действия."
+
+msgid "Pushback interface"
+msgstr "Интерфейс буксировки"
+
+msgid "Ground Operations"
+msgstr "Наземные операции"
+
+msgid "Legacy magic squares"
+msgstr "Классические магические квадраты"
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Выберите единый интерфейс буксировки. Наземные операции использует новую "
+"панель; Классические магические квадраты восстанавливает исходные кнопки. "
+"Выбор применяется сразу в режиме ожидания. Сохраните настройки, чтобы "
+"использовать его при следующем запуске симулятора."

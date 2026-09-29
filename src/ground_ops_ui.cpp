@@ -1302,8 +1302,7 @@ load_preferences(void)
     int saved_mode = GROUND_OPS_WINDOW_FLOAT;
     int saved_size = GROUND_OPS_UI_SIZE_STANDARD;
 
-    /* Ground Operations and its captions are part of the standard UI. */
-    ui_enabled = B_TRUE;
+    /* Interface selection is owned by xplane.c and survives UI reinitialization. */
     captions_enabled = B_TRUE;
     auto_expand_for_actions = B_FALSE;
     (void)conf_get_b(bp_conf, "ground_ops_auto_expand_actions",
@@ -2059,7 +2058,13 @@ ground_ops_ui_reset_context(void)
 extern "C" bool_t
 ground_ops_ui_is_enabled(void)
 {
-    return (B_TRUE);
+    return (ui_enabled);
+}
+
+extern "C" void
+ground_ops_ui_set_enabled(bool_t enabled)
+{
+    ui_enabled = enabled != B_FALSE ? B_TRUE : B_FALSE;
 }
 
 extern "C" bool_t

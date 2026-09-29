@@ -1142,3 +1142,23 @@ msgid ""
 msgstr ""
 "Développe le panneau compact des opérations au sol lorsqu'une action du "
 "pilote est requise, puis le réduit peu après la fin de l'action."
+
+msgid "Pushback interface"
+msgstr "Interface de repoussage"
+
+msgid "Ground Operations"
+msgstr "Opérations au sol"
+
+msgid "Legacy magic squares"
+msgstr "Carrés magiques classiques"
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Sélectionnez une interface globale de repoussage. Opérations au sol utilise "
+"le nouveau panneau ; Carrés magiques classiques restaure les boutons "
+"d'origine. La sélection s'applique immédiatement au repos. Enregistrez les "
+"préférences pour la conserver au prochain démarrage du simulateur."

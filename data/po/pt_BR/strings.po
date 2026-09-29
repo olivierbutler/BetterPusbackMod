@@ -954,3 +954,23 @@ msgid ""
 msgstr ""
 "Expande o painel compacto de Operações em Solo quando uma ação do piloto "
 "é necessária e o recolhe novamente pouco depois que a ação é concluída."
+
+msgid "Pushback interface"
+msgstr "Interface de pushback"
+
+msgid "Ground Operations"
+msgstr "Operações em solo"
+
+msgid "Legacy magic squares"
+msgstr "Quadrados mágicos clássicos"
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Selecione uma interface global de pushback. Operações em solo usa o novo "
+"painel; Quadrados mágicos clássicos restaura os botões operacionais originais. "
+"A seleção é aplicada imediatamente quando o sistema está inativo. Salve as "
+"preferências para mantê-la na próxima inicialização do simulador."

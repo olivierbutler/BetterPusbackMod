@@ -84,6 +84,7 @@ static int ground_ops_expand_collapse_menu_item;
 static bool_t prefs_enable, stop_pb_plan_enable,
     stop_pb_enable, conn_first_enable, cab_cam_enable;
 bool_t start_pb_plan_enable, start_pb_enable;
+static bp_interface_mode_t interface_mode = BP_INTERFACE_MODE_GROUND_OPS;
 
 static bool_t pref_widget_active_status = B_FALSE;
 bool_t hide_main_intf = B_FALSE;
@@ -147,6 +148,10 @@ static void bp_priv_disable(void);
 static float bp_do_reload(float, float, int, void *);
 
 static bool_t reload_rqst = B_FALSE;
+static bool_t interface_mode_change_rqst = B_FALSE;
+static bool_t legacy_magic_squares_reposition_rqst = B_FALSE;
+static bp_interface_mode_t requested_interface_mode =
+    BP_INTERFACE_MODE_GROUND_OPS;
 static XPLMCreateFlightLoop_t reload_floop = {
     .structSize = sizeof(reload_floop),
     .phase = xplm_FlightLoop_Phase_AfterFlightModel,
@@ -332,6 +337,98 @@ enable_menu_items()
         ground_ops_ui_is_enabled());
     XPLMEnableMenuItem(root_menu, ground_ops_expand_collapse_menu_item,
         ground_ops_ui_is_enabled());
+}
+
+bp_interface_mode_t
+bp_get_interface_mode(void)
+{
+    return (interface_mode);
+}
+
+static bool_t
+apply_interface_mode(bp_interface_mode_t requested_mode)
+{
+    bp_interface_mode_t new_mode = bp_interface_mode_normalize(
+        requested_mode);
+
+    if (new_mode == interface_mode)
+        return (B_TRUE);
+    if (bp_started || planner_open) {
+        logMsg(BP_WARN_LOG "Pushback interface cannot be changed during "
+            "an active operation or while the planner is open");
+        return (B_FALSE);
+    }
+
+    if (bp_interface_mode_uses_legacy_magic_squares(new_mode)) {
+        /* Capture the Ground Operations geometry before shutting it down. */
+        ground_ops_ui_fini();
+        interface_mode = new_mode;
+        ground_ops_ui_set_enabled(B_FALSE);
+        (void)conf_set_i(bp_conf, BP_INTERFACE_MODE_CONFIG_KEY,
+            interface_mode);
+        main_intf(B_FALSE);
+        logMsg(BP_INFO_LOG "Pushback interface changed to legacy magic "
+            "squares");
+    } else {
+        main_intf_hide();
+        interface_mode = new_mode;
+        ground_ops_ui_set_enabled(B_TRUE);
+        if (!ground_ops_ui_init()) {
+            ground_ops_ui_fini();
+            interface_mode = BP_INTERFACE_MODE_LEGACY_MAGIC_SQUARES;
+            ground_ops_ui_set_enabled(B_FALSE);
+            (void)conf_set_i(bp_conf, BP_INTERFACE_MODE_CONFIG_KEY,
+                interface_mode);
+            main_intf(B_FALSE);
+            enable_menu_items();
+            logMsg(BP_ERROR_LOG "Unable to enable Ground Operations; "
+                "restored the legacy magic-squares interface");
+            return (B_FALSE);
+        }
+        (void)conf_set_i(bp_conf, BP_INTERFACE_MODE_CONFIG_KEY,
+            interface_mode);
+        main_intf(B_FALSE);
+        logMsg(BP_INFO_LOG "Pushback interface changed to Ground "
+            "Operations");
+    }
+
+    enable_menu_items();
+    return (B_TRUE);
+}
+
+bool_t
+bp_set_interface_mode(bp_interface_mode_t requested_mode)
+{
+    bp_interface_mode_t new_mode = bp_interface_mode_normalize(
+        requested_mode);
+
+    if (bp_started || planner_open) {
+        logMsg(BP_WARN_LOG "Pushback interface cannot be changed during "
+            "an active operation or while the planner is open");
+        return (B_FALSE);
+    }
+
+    (void)conf_set_i(bp_conf, BP_INTERFACE_MODE_CONFIG_KEY, new_mode);
+    if (new_mode == interface_mode) {
+        interface_mode_change_rqst = B_FALSE;
+        return (B_TRUE);
+    }
+
+    requested_interface_mode = new_mode;
+    interface_mode_change_rqst = B_TRUE;
+    ASSERT(reload_floop_ID != NULL);
+    XPLMScheduleFlightLoop(reload_floop_ID, -1.0f, 1);
+    logMsg(BP_INFO_LOG "Queued pushback interface change for the next safe "
+        "simulator callback");
+    return (B_TRUE);
+}
+
+void
+bp_request_legacy_magic_squares_reposition(void)
+{
+    legacy_magic_squares_reposition_rqst = B_TRUE;
+    ASSERT(reload_floop_ID != NULL);
+    XPLMScheduleFlightLoop(reload_floop_ID, -1.0f, 1);
 }
 
 static int
@@ -1310,6 +1407,7 @@ bp_priv_enable(void)
     airport_cache_manifest_t scenery_before = {0}, scenery_after = {0};
     bool have_scenery_manifest;
     bool_t dont_hide_xp_tug = B_FALSE;
+    int saved_interface_mode = BP_INTERFACE_MODE_GROUND_OPS;
 
     ASSERT(!inited);
     XPLMEnableFeature("XPLM_USE_NATIVE_WIDGET_WINDOWS", 1);
@@ -1322,6 +1420,11 @@ bp_priv_enable(void)
     bp_conf_fini();
     if (!bp_conf_init())
         return (0);
+    (void)conf_get_i(bp_conf, BP_INTERFACE_MODE_CONFIG_KEY,
+        &saved_interface_mode);
+    interface_mode = bp_interface_mode_normalize(saved_interface_mode);
+    ground_ops_ui_set_enabled(bp_interface_mode_uses_ground_ops(
+        interface_mode) ? B_TRUE : B_FALSE);
     init_core_state();
 
     have_scenery_manifest = airport_cache_manifest_compute(bp_xpdir,
@@ -1435,7 +1538,13 @@ bp_priv_enable(void)
     start_pb_plan_enable = B_TRUE;
     stop_pb_plan_enable = B_FALSE;
     cab_cam_enable = B_FALSE;
-    (void)ground_ops_ui_init();
+    if (ground_ops_ui_is_enabled() && !ground_ops_ui_init()) {
+        ground_ops_ui_fini();
+        interface_mode = BP_INTERFACE_MODE_LEGACY_MAGIC_SQUARES;
+        ground_ops_ui_set_enabled(B_FALSE);
+        logMsg(BP_ERROR_LOG "Unable to initialize Ground Operations; "
+            "using the legacy magic-squares interface for this session");
+    }
     enable_menu_items();
 
     XPLMRegisterFlightLoopCallback(status_check, STATUS_CHECK_INTVAL, NULL);
@@ -1473,6 +1582,7 @@ bp_priv_disable(void)
 
     set_xp11_tug_hidden(B_FALSE);
     ground_ops_ui_fini();
+    main_intf_hide();
 
     XPLMUnregisterCommandHandler(start_pb, start_pb_handler, 1, NULL);
     XPLMUnregisterCommandHandler(stop_pb, stop_pb_handler, 1, NULL);
@@ -1520,6 +1630,22 @@ bp_do_reload(float u1, float u2, int u3, void *u4)
     UNUSED(u2);
     UNUSED(u3);
     UNUSED(u4);
+    if (interface_mode_change_rqst)
+    {
+        bp_interface_mode_t new_mode = requested_interface_mode;
+
+        interface_mode_change_rqst = B_FALSE;
+        if (!apply_interface_mode(new_mode)) {
+            (void)conf_set_i(bp_conf, BP_INTERFACE_MODE_CONFIG_KEY,
+                interface_mode);
+        }
+    }
+    if (legacy_magic_squares_reposition_rqst)
+    {
+        legacy_magic_squares_reposition_rqst = B_FALSE;
+        if (bp_interface_mode_uses_legacy_magic_squares(interface_mode))
+            main_intf_reposition();
+    }
     if (reload_rqst)
     {
         bp_priv_disable();

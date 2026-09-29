@@ -110,25 +110,21 @@ or later).
 
 For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 
-### Legacy operational UI compatibility
+### Operational interface selection
 
-This fork uses the Ground Operations panel as its operational interface. The
-original BetterPushback "magic squares" windows remain in the source tree but
-are disabled by default so both interfaces are not displayed together. An
-upstream maintainer can restore the original windows without reverting source
-by configuring the build with:
+The global **Pushback interface** preference selects either the Ground
+Operations panel or the original BetterPushback **Legacy magic squares**.
+The choice is remembered across simulator starts and the two interfaces are
+mutually exclusive. Both use the same planner, commands, tug controller,
+physics, route cache, and automatic-completion option.
+When legacy mode is selected, the original per-aircraft **Magic squares
+position** slider is available in Preferences and moves the complete stack
+vertically between 20% and 80% of the selected monitor.
 
-```
-cmake -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON ...
-```
-
-This switch controls only the four original shortcut windows. Ground
-Operations remains enabled, and the overhead planner and classic menu commands
-remain available. By default, the Ground Operations panel presents the final
-disconnect/reconnect and clear-signal actions. Enabling the global **Auto
-disconnect when done** preference completes those two actions automatically.
-The original disconnect/reconnect window implementation is retained as dormant
-source and is not created.
+Ground Operations presents disconnect/reconnect and clear-signal actions in
+the panel. Legacy mode restores the original shortcut windows and its original
+disconnect/reconnect buttons. Enabling the global **Auto disconnect when done**
+preference completes the post-push actions automatically in either mode.
 
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:
