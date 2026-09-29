@@ -163,6 +163,95 @@ test_effective_visibility(void)
         true));
 }
 
+static void
+test_auto_expand_for_pilot_actions(void)
+{
+    ground_ops_auto_expand_state_t state = {0};
+
+    assert(ground_ops_auto_expand_update(&state, false, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 1.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, false,
+        GROUND_OPS_PRESENTATION_ORB, true, 2.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 3.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_EXPAND);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, true, 3.5) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 4.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 4.999) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 5.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
+
+    ground_ops_auto_expand_reset(&state);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 10.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_EXPAND);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 11.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, true, 11.5) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 12.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 13.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
+
+    ground_ops_auto_expand_reset(&state);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, true, 20.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 21.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+
+    ground_ops_auto_expand_reset(&state);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 30.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_EXPAND);
+    ground_ops_auto_expand_note_manual(&state, true);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 30.5) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, false, 31.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+
+    ground_ops_auto_expand_reset(&state);
+    ground_ops_auto_expand_note_manual(&state, true);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 40.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 41.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
+
+    ground_ops_auto_expand_reset(&state);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, true, 50.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 51.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 52.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
+
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, NAN) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+}
+
 int
 main(void)
 {
@@ -225,6 +314,7 @@ main(void)
     test_missing_monitor_recovery();
     test_click_drag_threshold();
     test_effective_visibility();
+    test_auto_expand_for_pilot_actions();
     puts("ground operations window state tests passed");
     return (0);
 }

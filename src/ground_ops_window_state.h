@@ -27,12 +27,25 @@ extern "C" {
 #define GROUND_OPS_WINDOW_MARGIN 24
 #define GROUND_OPS_CLICK_DRAG_THRESHOLD 5
 #define GROUND_OPS_COLLAPSE_DWELL_SECONDS 1.0
+#define GROUND_OPS_AUTO_COLLAPSE_DELAY_SECONDS 1.0
 
 typedef struct {
     bool tracking;
     bool fired;
     double entered;
 } ground_ops_dwell_t;
+
+typedef struct {
+    bool action_active;
+    bool collapse_pending;
+    double action_completed_at;
+} ground_ops_auto_expand_state_t;
+
+typedef enum {
+    GROUND_OPS_AUTO_PRESENTATION_NONE = 0,
+    GROUND_OPS_AUTO_PRESENTATION_EXPAND,
+    GROUND_OPS_AUTO_PRESENTATION_COLLAPSE
+} ground_ops_auto_presentation_t;
 
 #ifndef APL
 #define APL 0
@@ -109,6 +122,13 @@ bool ground_ops_click_is_activation(int horizontal_displacement,
     int vertical_displacement, int threshold);
 bool ground_ops_dwell_update(ground_ops_dwell_t *state, bool eligible,
     double now);
+void ground_ops_auto_expand_reset(ground_ops_auto_expand_state_t *state);
+void ground_ops_auto_expand_note_manual(
+    ground_ops_auto_expand_state_t *state, bool action_required);
+ground_ops_auto_presentation_t ground_ops_auto_expand_update(
+    ground_ops_auto_expand_state_t *state, bool enabled,
+    bool window_visible, ground_ops_presentation_t presentation,
+    bool action_required, double now);
 bool ground_ops_rect_nearest_right(const ground_ops_rect_t *rect,
     const ground_ops_monitor_t *monitor);
 void ground_ops_rect_clamp(ground_ops_rect_t *rect,

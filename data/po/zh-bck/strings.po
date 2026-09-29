@@ -217,3 +217,13 @@ msgid ""
 msgstr ""
 "不再询问，并在推出操作完成时自动断开 "
 "牵引车连接。"
+
+msgid "Auto-expand for pilot actions"
+msgstr "需要飞行员操作时自动展开"
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr ""
+"需要飞行员操作时展开精简的地面操作面板，"
+"操作完成后不久自动收起。"
