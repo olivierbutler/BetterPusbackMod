@@ -78,6 +78,8 @@ typedef struct {
 } ground_ops_monitor_t;
 
 bool ground_ops_presentation_valid(int presentation);
+ground_ops_presentation_t ground_ops_startup_presentation(
+    int saved_presentation, int saved_last_visible);
 bool ground_ops_window_mode_valid(int mode);
 bool ground_ops_window_effectively_visible(bool window_exists,
     bool planner_suspended, bool legacy_gate_hidden,

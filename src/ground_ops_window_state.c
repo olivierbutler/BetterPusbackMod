@@ -35,6 +35,21 @@ ground_ops_presentation_valid(int presentation)
         presentation <= GROUND_OPS_PRESENTATION_PANEL);
 }
 
+ground_ops_presentation_t
+ground_ops_startup_presentation(int saved_presentation,
+    int saved_last_visible)
+{
+    if (saved_presentation == GROUND_OPS_PRESENTATION_ORB ||
+        saved_presentation == GROUND_OPS_PRESENTATION_PANEL) {
+        return ((ground_ops_presentation_t)saved_presentation);
+    }
+    if (saved_last_visible == GROUND_OPS_PRESENTATION_ORB ||
+        saved_last_visible == GROUND_OPS_PRESENTATION_PANEL) {
+        return ((ground_ops_presentation_t)saved_last_visible);
+    }
+    return (GROUND_OPS_PRESENTATION_PANEL);
+}
+
 bool
 ground_ops_window_mode_valid(int mode)
 {

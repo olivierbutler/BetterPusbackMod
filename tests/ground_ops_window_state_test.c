@@ -62,6 +62,16 @@ test_contract_sizes(void)
     assert(ground_ops_presentation_valid(GROUND_OPS_PRESENTATION_HIDDEN));
     assert(ground_ops_presentation_valid(GROUND_OPS_PRESENTATION_PANEL));
     assert(!ground_ops_presentation_valid(3));
+    assert(ground_ops_startup_presentation(GROUND_OPS_PRESENTATION_ORB,
+        GROUND_OPS_PRESENTATION_PANEL) == GROUND_OPS_PRESENTATION_ORB);
+    assert(ground_ops_startup_presentation(GROUND_OPS_PRESENTATION_PANEL,
+        GROUND_OPS_PRESENTATION_ORB) == GROUND_OPS_PRESENTATION_PANEL);
+    assert(ground_ops_startup_presentation(GROUND_OPS_PRESENTATION_HIDDEN,
+        GROUND_OPS_PRESENTATION_ORB) == GROUND_OPS_PRESENTATION_ORB);
+    assert(ground_ops_startup_presentation(GROUND_OPS_PRESENTATION_HIDDEN,
+        GROUND_OPS_PRESENTATION_HIDDEN) == GROUND_OPS_PRESENTATION_PANEL);
+    assert(ground_ops_startup_presentation(-1, 99) ==
+        GROUND_OPS_PRESENTATION_PANEL);
     assert(ground_ops_window_mode_valid(GROUND_OPS_WINDOW_FLOAT));
     assert(ground_ops_window_mode_valid(GROUND_OPS_WINDOW_POPOUT));
     assert(!ground_ops_window_mode_valid(2));

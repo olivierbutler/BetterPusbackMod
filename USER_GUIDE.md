@@ -15,8 +15,8 @@ package and its published compatibility notes.
 2. Back up the current `BetterPushback` plugin folder and any saved route data.
 3. Copy the complete release `BetterPushback` folder into
    `X-Plane/Resources/plugins`.
-4. Start X-Plane, load the aircraft at a stand, and use the X-Plane Plugins menu
-   or `BetterPushback/ground_ops_show_hide` command to show Ground Operations.
+4. Start X-Plane and load the aircraft at a stand. Ground Operations opens
+   automatically when BetterPushback connects to the simulator.
 
 Do not copy only the `.xpl` binary. Tug objects, sounds, configuration files,
 the wing walker, and supporting resources are part of the plugin.
@@ -62,10 +62,14 @@ happening.
 - **Pop-out:** Use the pop-out control to move Ground Operations into a native
   operating-system window, including another display.
 - **Hidden:** Use the X control or the show/hide command. Hiding the window does
-  not cancel the operation.
+  not cancel the operation. The window remains hidden for the current session
+  until the pilot shows it again, but opens automatically at the next simulator
+  start.
 
 Positions are remembered by window mode, monitor, and side. If a saved display
 is removed or resized, the window is recovered into a visible area.
+The last visible compact or expanded presentation is also remembered. A first
+install, or an older saved hidden state without that history, opens expanded.
 
 The Preferences window provides **Standard**, **Large**, and **Extra large**
 Ground Operations sizes. The selected size scales the complete compact rail or
