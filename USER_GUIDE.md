@@ -67,6 +67,11 @@ happening.
 Positions are remembered by window mode, monitor, and side. If a saved display
 is removed or resized, the window is recovered into a visible area.
 
+The Preferences window provides **Standard**, **Large**, and **Extra large**
+Ground Operations sizes. The selected size scales the complete compact rail or
+expanded panel, including its text, controls, spacing, and click targets, so
+larger text is not forced back into the original fixed-size layout.
+
 ## 4. Normal pushback
 
 ### Call the tug

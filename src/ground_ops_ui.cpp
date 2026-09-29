@@ -9,10 +9,12 @@
  * CDDL HEADER END
  */
 
+#include <algorithm>
 #include <cmath>
 #include <cfloat>
 #include <cstdio>
 #include <cstdint>
+#include <iterator>
 #include <new>
 
 #include <XPLMDataAccess.h>
@@ -55,6 +57,7 @@ enum class UiAction {
     ToggleVisible,
     ToggleExpanded,
     ToggleWindowMode,
+    ApplySize,
     CallTug,
     CallEmergencyTow,
     OpenPlanner,
@@ -101,6 +104,7 @@ static bool_t ui_enabled = B_TRUE;
 static bool_t captions_enabled = B_TRUE;
 static bool_t planner_suspended = B_FALSE;
 static bool_t legacy_gate_hidden = B_FALSE;
+static bool_t manual_visibility_override = B_FALSE;
 static bool_t have_float_rect = B_FALSE;
 static bool_t have_os_rect = B_FALSE;
 static ground_ops_rect_t float_rect = {};
@@ -110,6 +114,7 @@ static ground_ops_presentation_t presentation =
 static ground_ops_window_mode_t window_mode = GROUND_OPS_WINDOW_FLOAT;
 static int preferred_monitor = -1;
 static UiAction pending_action = UiAction::None;
+static ground_ops_ui_size_t pending_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
 static DrawPerformance orb_performance;
 static DrawPerformance panel_performance;
 static uint64_t geometry_recoveries = 0;
@@ -1289,10 +1294,16 @@ load_preferences(void)
 {
     int saved_presentation = GROUND_OPS_PRESENTATION_HIDDEN;
     int saved_mode = GROUND_OPS_WINDOW_FLOAT;
+    int saved_size = GROUND_OPS_UI_SIZE_STANDARD;
 
     /* Ground Operations and its captions are part of the standard UI. */
     ui_enabled = B_TRUE;
     captions_enabled = B_TRUE;
+    if (!conf_get_i(bp_conf, "ground_ops_ui_size", &saved_size) ||
+        !ground_ops_ui_size_valid(saved_size)) {
+        saved_size = GROUND_OPS_UI_SIZE_STANDARD;
+    }
+    ground_ops_ui_size_set(static_cast<ground_ops_ui_size_t>(saved_size));
     if (conf_get_i(bp_conf, "ground_ops_presentation", &saved_presentation) &&
         ground_ops_presentation_valid(saved_presentation)) {
         presentation = static_cast<ground_ops_presentation_t>(
@@ -1353,6 +1364,8 @@ load_preferences(void)
 static void
 persist_preferences(bool write_file)
 {
+    (void)conf_set_i(bp_conf, "ground_ops_ui_size",
+        ground_ops_ui_size_get());
     (void)conf_set_i(bp_conf, "ground_ops_presentation", presentation);
     (void)conf_set_i(bp_conf, "ground_ops_window_mode", window_mode);
     (void)conf_set_i(bp_conf, "ground_ops_preferred_monitor",
@@ -1373,10 +1386,16 @@ persist_preferences(bool write_file)
     /* Do not turn hiding the UI into an implicit Save Preferences action. */
     for (int mode = 0; mode < 2; ++mode) {
         const ExpansionOrigin &origin = expansion_origin[mode];
-        if (!origin.valid) continue;
-        const int values[] = {origin.compact.left, origin.compact.top,
-            origin.compact.right, origin.compact.bottom, origin.expanded.left,
-            origin.expanded.top, origin.expanded.right, origin.expanded.bottom};
+        int values[8] = {};
+        if (origin.valid) {
+            const int saved_values[] = {origin.compact.left,
+                origin.compact.top, origin.compact.right,
+                origin.compact.bottom, origin.expanded.left,
+                origin.expanded.top, origin.expanded.right,
+                origin.expanded.bottom};
+            std::copy(std::begin(saved_values), std::end(saved_values),
+                values);
+        }
         for (int field = 0; field < 8; ++field) {
             char key[64];
             std::snprintf(key, sizeof(key), "ground_ops_expansion_%d_%d", mode, field);
@@ -1544,6 +1563,7 @@ hide_window(const char *reason)
 {
     if (ground_window == nullptr) {
         presentation = GROUND_OPS_PRESENTATION_HIDDEN;
+        manual_visibility_override = B_FALSE;
         return;
     }
     capture_geometry();
@@ -1552,6 +1572,7 @@ hide_window(const char *reason)
     ground_window = nullptr;
     presentation = GROUND_OPS_PRESENTATION_HIDDEN;
     planner_suspended = B_FALSE;
+    manual_visibility_override = B_FALSE;
     persist_preferences(true);
 }
 
@@ -1559,6 +1580,7 @@ static void
 apply_legacy_visibility(bool_t visible)
 {
     bool_t hidden = visible ? B_FALSE : B_TRUE;
+    bool_t effectively_visible;
 
     if (legacy_gate_hidden == hidden)
         return;
@@ -1568,12 +1590,17 @@ apply_legacy_visibility(bool_t visible)
         return;
     }
 
-    ground_window->SetVisible(visible);
+    effectively_visible = ground_ops_window_effectively_visible(true, false,
+        hidden != B_FALSE, manual_visibility_override != B_FALSE) ?
+        B_TRUE : B_FALSE;
+    ground_window->SetVisible(effectively_visible);
     if (manager_loop != nullptr) {
-        XPLMScheduleFlightLoop(manager_loop, visible ? -1.0f : 0.0f, 1);
+        XPLMScheduleFlightLoop(manager_loop,
+            effectively_visible ? -1.0f : 0.0f, 1);
     }
-    logMsg(BP_INFO_LOG "Ground Ops UI %s by the legacy ground-speed gate",
-        visible ? "restored" : "temporarily hidden");
+    logMsg(BP_INFO_LOG "Ground Ops UI %s by the legacy ground-speed gate%s",
+        effectively_visible ? "restored" : "temporarily hidden",
+        manual_visibility_override ? " (manual override active)" : "");
 }
 
 static void
@@ -1613,6 +1640,66 @@ toggle_window_mode(void)
 }
 
 static void
+apply_ui_size(ground_ops_ui_size_t next)
+{
+    int old_width = 0, old_height = 0, new_width = 0, new_height = 0;
+
+    if (!ground_ops_ui_size_valid(next) ||
+        next == ground_ops_ui_size_get()) {
+        return;
+    }
+
+    if (ground_window != nullptr) {
+        capture_geometry();
+        ground_ops_presentation_size(presentation, &old_width, &old_height);
+    }
+
+    ground_ops_ui_size_set(next);
+    for (ExpansionOrigin &origin : expansion_origin)
+        origin = {};
+
+    if (ground_window == nullptr) {
+        persist_preferences(false);
+        return;
+    }
+
+    ground_window->set_presentation(presentation);
+    ground_ops_presentation_size(presentation, &new_width, &new_height);
+    have_polled_rect = false;
+
+    if (ground_window->IsInVR()) {
+        ground_window->SetWindowGeometryVR(new_width, new_height);
+    } else if (window_mode == GROUND_OPS_WINDOW_POPOUT) {
+        int pixel_width = os_rect.right - os_rect.left;
+        int pixel_height = os_rect.top - os_rect.bottom;
+        double horizontal_scale = old_width > 0 && pixel_width > 0 ?
+            static_cast<double>(pixel_width) / old_width : 1.0;
+        double vertical_scale = old_height > 0 && pixel_height > 0 ?
+            static_cast<double>(pixel_height) / old_height : 1.0;
+        int next_pixel_width = static_cast<int>(std::lround(
+            new_width * horizontal_scale));
+        int next_pixel_height = static_cast<int>(std::lround(
+            new_height * vertical_scale));
+
+        (void)resize_rect_visible(&os_rect, next_pixel_width,
+            next_pixel_height, true, 0);
+        ground_window->SetWindowGeometryOS(os_rect.left, os_rect.top,
+            os_rect.right, os_rect.bottom);
+        have_os_rect = B_TRUE;
+    } else {
+        (void)resize_rect_visible(&float_rect, new_width, new_height,
+            false, 0);
+        ground_window->SetWindowGeometry(float_rect.left, float_rect.top,
+            float_rect.right, float_rect.bottom);
+        have_float_rect = B_TRUE;
+    }
+
+    persist_preferences(false);
+    logMsg(BP_INFO_LOG "Ground Ops interface size changed to %d (%d by %d)",
+        static_cast<int>(next), new_width, new_height);
+}
+
+static void
 process_action(UiAction action)
 {
     switch (action) {
@@ -1632,21 +1719,40 @@ process_action(UiAction action)
         hide_window("hidden");
         break;
     case UiAction::ToggleVisible:
-        if (ground_window == nullptr)
-            (void)create_window(GROUND_OPS_PRESENTATION_ORB);
-        else
+        if (!ground_ops_window_effectively_visible(ground_window != nullptr,
+            planner_suspended != B_FALSE, legacy_gate_hidden != B_FALSE,
+            manual_visibility_override != B_FALSE)) {
+            manual_visibility_override = B_TRUE;
+            if (ground_window == nullptr)
+                (void)create_window(GROUND_OPS_PRESENTATION_ORB);
+            else
+                ground_window->SetVisible(B_TRUE);
+        } else {
             hide_window("visibility toggle");
+        }
         break;
     case UiAction::ToggleExpanded:
-        if (ground_window == nullptr)
-            (void)create_window(GROUND_OPS_PRESENTATION_PANEL);
-        else if (presentation == GROUND_OPS_PRESENTATION_PANEL)
+        if (!ground_ops_window_effectively_visible(ground_window != nullptr,
+            planner_suspended != B_FALSE, legacy_gate_hidden != B_FALSE,
+            manual_visibility_override != B_FALSE)) {
+            manual_visibility_override = B_TRUE;
+            if (ground_window == nullptr)
+                (void)create_window(GROUND_OPS_PRESENTATION_PANEL);
+            else {
+                ground_window->SetVisible(B_TRUE);
+                apply_presentation_geometry(GROUND_OPS_PRESENTATION_PANEL);
+            }
+        } else if (presentation == GROUND_OPS_PRESENTATION_PANEL) {
             apply_presentation_geometry(GROUND_OPS_PRESENTATION_ORB);
-        else
+        } else {
             apply_presentation_geometry(GROUND_OPS_PRESENTATION_PANEL);
+        }
         break;
     case UiAction::ToggleWindowMode:
         toggle_window_mode();
+        break;
+    case UiAction::ApplySize:
+        apply_ui_size(pending_ui_size);
         break;
     case UiAction::CallTug:
         XPLMCommandOnce(conn_first);
@@ -1711,8 +1817,9 @@ manager_callback(float elapsed, float elapsed_flight, int counter,
     pending_action = UiAction::None;
     if (action != UiAction::None)
         process_action(action);
-    if (ground_window != nullptr && !planner_suspended &&
-        !legacy_gate_hidden) {
+    if (ground_ops_window_effectively_visible(ground_window != nullptr,
+        planner_suspended != B_FALSE, legacy_gate_hidden != B_FALSE,
+        manual_visibility_override != B_FALSE)) {
         local_data_poll_elapsed += elapsed;
         if (local_data_poll_elapsed >= LOCAL_DATA_POLL_SECONDS) {
             (void)refresh_local_data_context();
@@ -1774,6 +1881,10 @@ ground_ops_ui_init(void)
         return (B_TRUE);
 
     load_preferences();
+    /* A saved visible presentation is an explicit pilot choice, just like
+     * opening the window from the Show/Hide command in the current session. */
+    manual_visibility_override =
+        presentation != GROUND_OPS_PRESENTATION_HIDDEN ? B_TRUE : B_FALSE;
     bp_ui_click_init();
     disconnect_tug_cmd = XPLMFindCommand("BetterPushback/disconnect");
     reconnect_tug_cmd = XPLMFindCommand("BetterPushback/reconnect");
@@ -1872,6 +1983,7 @@ ground_ops_ui_fini(void)
     pending_action = UiAction::None;
     planner_suspended = B_FALSE;
     legacy_gate_hidden = B_FALSE;
+    manual_visibility_override = B_FALSE;
     geometry_poll_elapsed = 0;
     local_data_poll_elapsed = LOCAL_DATA_POLL_SECONDS;
     local_data_logged = false;
@@ -1907,8 +2019,9 @@ ground_ops_ui_is_enabled(void)
 extern "C" bool_t
 ground_ops_ui_is_visible(void)
 {
-    return (ground_window != nullptr && !planner_suspended &&
-        !legacy_gate_hidden);
+    return (ground_ops_window_effectively_visible(ground_window != nullptr,
+        planner_suspended != B_FALSE, legacy_gate_hidden != B_FALSE,
+        manual_visibility_override != B_FALSE) ? B_TRUE : B_FALSE);
 }
 
 extern "C" void
@@ -1925,6 +2038,19 @@ ground_ops_ui_set_captions_enabled(bool_t enabled)
         !planner_suspended) {
         XPLMScheduleFlightLoop(manager_loop, -1.0f, 1);
     }
+}
+
+extern "C" void
+ground_ops_ui_set_size(ground_ops_ui_size_t size)
+{
+    if (!ground_ops_ui_size_valid(size))
+        size = GROUND_OPS_UI_SIZE_STANDARD;
+    if (!initialized) {
+        ground_ops_ui_size_set(size);
+        return;
+    }
+    pending_ui_size = size;
+    queue_action(UiAction::ApplySize);
 }
 
 extern "C" void
@@ -1956,13 +2082,18 @@ ground_ops_ui_suspend_for_planner(void)
 extern "C" void
 ground_ops_ui_resume_after_planner(void)
 {
+    bool_t visible;
+
     if (ground_window == nullptr || !planner_suspended)
         return;
     planner_suspended = B_FALSE;
     (void)refresh_local_data_context();
     refresh_snapshot();
-    ground_window->SetVisible(!legacy_gate_hidden);
-    if (manager_loop != nullptr && !legacy_gate_hidden)
+    visible = ground_ops_window_effectively_visible(true, false,
+        legacy_gate_hidden != B_FALSE,
+        manual_visibility_override != B_FALSE) ? B_TRUE : B_FALSE;
+    ground_window->SetVisible(visible);
+    if (manager_loop != nullptr && visible)
         XPLMScheduleFlightLoop(manager_loop, -1.0f, 1);
     logMsg(BP_INFO_LOG "Ground Ops UI restored after planner close");
 }

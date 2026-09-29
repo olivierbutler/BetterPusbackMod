@@ -64,8 +64,10 @@ cockpit.
 ### Compact progress rail
 
 - Default active mode.
-- Nominal size on Windows/Linux: 58 by 244 boxels. macOS uses a proportional
-  1.35 scale (78 by 329), including text and hit targets.
+- Standard size on Windows/Linux is 58 by 244 boxels. Large is 73 by 305 and
+  Extra large is 87 by 366. macOS retains its proportional 1.35 platform
+  scale, including text and hit targets, before applying the selected user
+  size.
 - Contains the same Tug, Connect, Comms, Push, and Clear nodes used by the
   expanded panel, without any additional dashboard content.
 - Completed stages are filled green. The current stage is bright green while
@@ -84,8 +86,10 @@ cockpit.
 
 ### Expanded panel
 
-- Nominal fixed size on Windows/Linux: 292 by 420 boxels. macOS uses a
-  proportional 1.35 scale (394 by 567), including text and hit targets.
+- Standard size on Windows/Linux is 292 by 420 boxels. Large is 365 by 525 and
+  Extra large is 438 by 630. macOS retains its proportional 1.35 platform
+  scale, including text and hit targets, before applying the selected user
+  size.
 - Narrow vertical layout with a five-stage rail on the left.
 - The upper-left grip/title region moves the window.
 - Drawn pop-out/in, minus and close controls do not depend on font glyphs.
@@ -141,7 +145,8 @@ Persisted UI state covers:
 - preferred monitor.
 
 Platform scale is selected at build time. Windows/Linux use 1.0; macOS uses
-1.35. A development build can enable `BP_EMULATE_MAC_UI_SCALE`.
+1.35. The user preference then applies a 1.0, 1.25, or 1.5 multiplier to the
+complete interface. A development build can enable `BP_EMULATE_MAC_UI_SCALE`.
 
 Exact key names are an implementation detail, but configuration migration must
 be backward compatible.

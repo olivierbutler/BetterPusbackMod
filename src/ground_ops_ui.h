@@ -7,6 +7,8 @@
 
 #include <acfutils/types.h>
 
+#include "ground_ops_window_state.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,6 +20,7 @@ bool_t ground_ops_ui_is_enabled(void);
 bool_t ground_ops_ui_is_visible(void);
 void ground_ops_ui_set_legacy_visibility(bool_t visible);
 void ground_ops_ui_set_captions_enabled(bool_t enabled);
+void ground_ops_ui_set_size(ground_ops_ui_size_t size);
 void ground_ops_ui_toggle_visible(void);
 void ground_ops_ui_toggle_expanded(void);
 void ground_ops_ui_suspend_for_planner(void);

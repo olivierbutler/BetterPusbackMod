@@ -11,17 +11,18 @@ typedef struct {
     const char *language;
     const char *active;
     const char *parking_brake;
+    const char *extra_large;
 } translation_expectation_t;
 
 static const translation_expectation_t expectations[] = {
-    {"de", "AKTIV", "Parkbremse setzen"},
-    {"es", "ACTIVO", "Aplique el freno de estacionamiento"},
-    {"fr", "ACTIF", "Serrez le frein de parking"},
-    {"it", "ATTIVO", "Inserire il freno di stazionamento"},
-    {"pt", "ATIVO", "Acione o travão de estacionamento"},
-    {"pt_BR", "ATIVO", "Acione o freio de estacionamento"},
-    {"ru", "АКТИВНО", "Установите стояночный тормоз"},
-    {"zh", "进行中", "设置停机刹车"}
+    {"de", "AKTIV", "Parkbremse setzen", "Sehr groß"},
+    {"es", "ACTIVO", "Aplique el freno de estacionamiento", "Muy grande"},
+    {"fr", "ACTIF", "Serrez le frein de parking", "Très grande"},
+    {"it", "ATTIVO", "Inserire il freno di stazionamento", "Molto grande"},
+    {"pt", "ATIVO", "Acione o travão de estacionamento", "Muito grande"},
+    {"pt_BR", "ATIVO", "Acione o freio de estacionamento", "Muito grande"},
+    {"ru", "АКТИВНО", "Установите стояночный тормоз", "Очень большой"},
+    {"zh", "进行中", "设置停机刹车", "特大"}
 };
 
 static const char *const eyebrow_msgids[] = {
@@ -83,6 +84,7 @@ main(int argc, char **argv)
         if (!check_translation("ACTIVE", expectation->active) ||
             !check_translation("Set the parking brake",
                 expectation->parking_brake) ||
+            !check_translation("Extra large", expectation->extra_large) ||
             !check_translation("METAR -- | ATIS --",
                 "METAR -- | ATIS --")) {
             acfutils_xlate_fini();

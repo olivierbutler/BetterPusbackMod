@@ -971,3 +971,18 @@ msgstr "Acione o travão de estacionamento"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "Tamanho da interface de operações em terra"
+
+msgid "Standard"
+msgstr "Padrão"
+
+msgid "Large"
+msgstr "Grande"
+
+msgid "Extra large"
+msgstr "Muito grande"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "Dimensiona toda a interface de operações em terra, incluindo texto, controlos, espaçamento e áreas de interação."
