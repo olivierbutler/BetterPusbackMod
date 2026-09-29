@@ -171,6 +171,13 @@ profile can have two independent route slots.
 If no unique published start is recognized, plan the route normally for the
 current operation. The panel and log explain why persistent saving is disabled.
 
+BetterPushback checks the active scenery order and the existence, size, and
+modification time of each active `apt.dat` when the plugin starts. If custom or
+global airport scenery has changed, its derived airport database is rebuilt
+automatically. Saved push-route slots are stored separately and are not removed
+by this rebuild. The first startup after a scenery change can therefore take
+longer than usual.
+
 ## 6. Emergency Tow
 
 After a completed normal operation, **Call tow back** starts a guarded one-time
