@@ -585,3 +585,19 @@ msgid ""
 "Expand the compact Ground Operations panel for required pilot actions, "
 "then collapse it shortly after the action is completed."
 msgstr  ""
+
+msgid "Pushback interface"
+msgstr ""
+
+msgid "Ground Operations"
+msgstr ""
+
+msgid "Legacy magic squares"
+msgstr ""
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""

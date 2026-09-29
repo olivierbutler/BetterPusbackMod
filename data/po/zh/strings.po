@@ -1003,3 +1003,21 @@ msgid ""
 msgstr ""
 "需要飛行員操作時展開精簡的地面操作面板，"
 "操作完成後不久自動收合。"
+
+msgid "Pushback interface"
+msgstr "推出界面"
+
+msgid "Ground Operations"
+msgstr "地面操作"
+
+msgid "Legacy magic squares"
+msgstr "傳統魔方按鈕"
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"選擇一個全域推出界面。地面操作使用新面板；傳統魔方按鈕恢復原始操作按鈕。"
+"空閒時選擇會立即生效。儲存偏好設定後，下次啟動模擬器時仍會保留。"

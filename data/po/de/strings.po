@@ -996,3 +996,23 @@ msgid ""
 msgstr ""
 "Das kompakte Ground-Operations-Fenster bei erforderlichen Pilotenaktionen "
 "erweitern und kurz nach Abschluss der Aktion wieder einklappen."
+
+msgid "Pushback interface"
+msgstr "Pushback-Benutzeroberfläche"
+
+msgid "Ground Operations"
+msgstr "Bodenbetrieb"
+
+msgid "Legacy magic squares"
+msgstr "Klassische magische Quadrate"
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Eine globale Pushback-Benutzeroberfläche auswählen. Bodenbetrieb verwendet "
+"das neue Fenster; Klassische magische Quadrate stellt die ursprünglichen "
+"Bedientasten wieder her. Die Auswahl gilt im Leerlauf sofort. Einstellungen "
+"speichern, um sie beim nächsten Simulatorstart beizubehalten."

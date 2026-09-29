@@ -82,6 +82,19 @@ Ground Operations sizes. The selected size scales the complete compact rail or
 expanded panel, including its text, controls, spacing, and click targets, so
 larger text is not forced back into the original fixed-size layout.
 
+The global **Pushback interface** preference selects either **Ground
+Operations** or the original **Legacy magic squares**. The selection changes
+immediately while BetterPushback is idle and is retained after **Save
+preferences**. Only one operational interface runs at a time. Changing this
+preference does not change the planner, tug physics, route cache, or pushback
+controller. Ground Operations size and auto-expand settings are preserved while
+legacy mode is selected and return unchanged when Ground Operations is selected
+again.
+
+In Legacy magic squares mode, use **Magic squares position** in Preferences to
+move the complete stack vertically. This is the original legacy placement
+control; the squares themselves are buttons and are not dragged directly.
+
 The global **Auto-expand for pilot actions** preference is off by default. When
 enabled, a compact visible rail expands when a new pilot action is required and
 collapses one second after that action is completed. The completed action

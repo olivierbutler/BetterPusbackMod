@@ -402,17 +402,25 @@ state. The stationary hold freezes steering and cannot resume through a set
 parking brake. End operation uses the compatible terminating stop path and
 discards the route only after confirmation.
 
-The Ground Operations panel is the fork's standard operational interface.
-The original four "magic squares" windows remain preserved in `bp.c`, but the
-build defaults `BP_ENABLE_LEGACY_MAGIC_SQUARES` to `OFF` so duplicate controls
-are not rendered. Configuring that CMake option `ON` restores the original
-windows for upstream compatibility. The switch affects presentation only:
-automatic beacon-triggered tug behavior is evaluated separately, and the
-planner, preferences, and commands remain available. At the final disconnect
-gate, the panel exposes **Disconnect tug** and **Reconnect** through the same
-legacy command handlers without restoring separate floating windows. If the
-global **Auto disconnect when done** option is enabled, the controller
-approves both the disconnect and final clear-signal gates automatically.
+The global **Pushback interface** preference selects the fork's Ground
+Operations panel or the original **Legacy magic squares** at runtime. The
+selection is global, remembered, and mutually exclusive: only the selected
+interface owns operational windows and update loops. Switching is allowed only
+while the pushback controller and planner are idle.
+
+Legacy mode restores the original per-aircraft **Magic squares position**
+slider. Position changes are queued to the simulator callback and move the
+existing windows without destroying them from inside the Preferences draw
+callback.
+
+The switch affects presentation and pilot interaction only. Automatic
+beacon-triggered tug behavior is evaluated separately, and the shared planner,
+preferences, commands, controller, cache, and tug physics remain available.
+Ground Operations exposes **Disconnect tug**, **Reconnect**, and clear-signal
+acknowledgement in the panel. Legacy mode restores its original floating
+disconnect/reconnect buttons and timed clear-signal departure. If the global
+**Auto disconnect when done** option is enabled, the controller approves the
+post-push gates automatically in either mode.
 
 ## Performance contract
 

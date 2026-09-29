@@ -1017,3 +1017,23 @@ msgid ""
 msgstr ""
 "Espande il pannello compatto delle operazioni a terra quando è richiesta "
 "un'azione del pilota, quindi lo comprime poco dopo il completamento dell'azione."
+
+msgid "Pushback interface"
+msgstr "Interfaccia pushback"
+
+msgid "Ground Operations"
+msgstr "Operazioni di terra"
+
+msgid "Legacy magic squares"
+msgstr "Quadrati magici classici"
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Seleziona un'interfaccia pushback globale. Operazioni di terra usa il nuovo "
+"pannello; Quadrati magici classici ripristina i pulsanti operativi originali. "
+"La selezione si applica immediatamente quando il sistema è inattivo. Salva "
+"le preferenze per mantenerla al prossimo avvio del simulatore."

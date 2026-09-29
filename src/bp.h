@@ -208,6 +208,8 @@ void main_intf(bool_t);
 
 void main_intf_hide(void);
 
+void main_intf_reposition(void);
+
 void manual_bp_start(void);
 void manual_bp_request(bool_t);
 void manual_bp_stop(void);

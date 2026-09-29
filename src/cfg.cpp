@@ -122,6 +122,15 @@ const char *ground_ops_auto_expand_tooltip =
     "Expand the compact Ground Operations panel for required pilot actions, "
     "then collapse it shortly after the action is completed.";
 
+const char *pushback_interface_tooltip =
+    "Select one global pushback interface. Ground Operations uses the new "
+    "panel; Legacy magic squares restores the original operational buttons. "
+    "The selection applies immediately while idle. Save preferences to keep "
+    "it for the next simulator start.";
+
+const char *magic_squares_height_tooltip =
+    "Slide this bar to move the magic squares up or down.";
+
 const char *crew_language_tooltip =
     "My language only at domestic airports:\n"
     "Ground crew speaks my language only if the country the airport is "
@@ -225,6 +234,14 @@ comboList_t ground_ops_ui_size_list = {
     ground_ops_ui_size_list_, IM_ARRAYSIZE(ground_ops_ui_size_list_),
     "##ground_ops_ui_size", GROUND_OPS_UI_SIZE_STANDARD};
 
+comboList_t_ pushback_interface_list_[] = {
+    {"Ground Operations", B_FALSE, "0"},
+    {"Legacy magic squares", B_FALSE, "1"}};
+
+comboList_t pushback_interface_list = {
+    pushback_interface_list_, IM_ARRAYSIZE(pushback_interface_list_),
+    "##pushback_interface", BP_INTERFACE_MODE_GROUND_OPS};
+
 comboList_t_ crew_lang_list_[] = {
     {"My language only at domestic airports", B_FALSE, "0"},
     {"My language at all airports", B_FALSE, "1"},
@@ -292,7 +309,9 @@ private:
   bool_t is_destroy;
   bool_t tug_starts_next_plane;
   bool_t tug_auto_start;
+  int pushback_interface_mode;
   int ground_ops_ui_size;
+  int magic_squares_height;
   int monitor_id;
   int for_credit;
   int doors_check;
@@ -326,6 +345,11 @@ void SettingsWindow::initPerAircraftSettings(void) {
   doors_check = DOOR_CHECK_ActiveWithMessage;
   (void)conf_get_i_per_acf((char *)"doors_check", &doors_check);
 
+  magic_squares_height = 50;
+  (void)conf_get_i_per_acf((char *)"magic_squares_height",
+                           &magic_squares_height);
+  magic_squares_height = MAX(20, MIN(80, magic_squares_height));
+
 }
 void SettingsWindow::LoadConfig(void) {
 
@@ -346,6 +370,9 @@ void SettingsWindow::LoadConfig(void) {
   lang_pref = LANG_PREF_MATCH_REAL;
   conf_get_i(bp_conf, "lang_pref", (int *)&lang_pref);
   crew_lang_list.selected = lang_pref;
+
+  pushback_interface_mode = bp_get_interface_mode();
+  pushback_interface_list.selected = pushback_interface_mode;
 
   ground_ops_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
   (void)conf_get_i(bp_conf, "ground_ops_ui_size", &ground_ops_ui_size);
@@ -642,29 +669,66 @@ void SettingsWindow::buildInterface() {
     ImGui::TableNextRow();
 
     ImGui::TableNextColumn();
-    ImGui::Text("%s", _("Ground Operations interface size"));
-    Tooltip(_(ground_ops_ui_size_tooltip));
+    ImGui::Text("%s", _("Pushback interface"));
+    Tooltip(_(pushback_interface_tooltip));
 
     ImGui::TableNextColumn();
     ImGui::SetNextItemWidth(combowithWidth);
-    if (comboList(&ground_ops_ui_size_list)) {
-      ground_ops_ui_size = ground_ops_ui_size_list.selected;
-      conf_set_i(bp_conf, "ground_ops_ui_size", ground_ops_ui_size);
-      ground_ops_ui_set_size(
-          static_cast<ground_ops_ui_size_t>(ground_ops_ui_size));
+    if (comboList(&pushback_interface_list)) {
+      bp_interface_mode_t requested = bp_interface_mode_normalize(
+          pushback_interface_list.selected);
+      if (bp_set_interface_mode(requested)) {
+        pushback_interface_mode = requested;
+      } else {
+        pushback_interface_mode = bp_get_interface_mode();
+        pushback_interface_list.selected = pushback_interface_mode;
+      }
     }
 
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    ImGui::Text("%s", _("Auto-expand for pilot actions"));
-    Tooltip(_(ground_ops_auto_expand_tooltip));
+    if (bp_interface_mode_uses_legacy_magic_squares(
+            static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
+      ImGui::TableNextRow();
 
-    ImGui::TableNextColumn();
-    if (ImGui::Checkbox("##ground_ops_auto_expand_actions",
-                        (bool *)&auto_expand_actions)) {
-      (void)conf_set_b(bp_conf, "ground_ops_auto_expand_actions",
-                       auto_expand_actions);
-      ground_ops_ui_set_auto_expand_actions(auto_expand_actions);
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", _("Magic squares position"));
+      Tooltip(_(magic_squares_height_tooltip));
+
+      ImGui::TableNextColumn();
+      ImGui::SetNextItemWidth(combowithWidth);
+      if (ImGui::SliderInt("##magic_position", &magic_squares_height, 20, 80,
+                           "%d %%", ImGuiSliderFlags_AlwaysClamp)) {
+        conf_set_i_per_acf((char *)"magic_squares_height",
+                           magic_squares_height);
+        bp_request_legacy_magic_squares_reposition();
+      }
+    } else {
+      ImGui::TableNextRow();
+
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", _("Ground Operations interface size"));
+      Tooltip(_(ground_ops_ui_size_tooltip));
+
+      ImGui::TableNextColumn();
+      ImGui::SetNextItemWidth(combowithWidth);
+      if (comboList(&ground_ops_ui_size_list)) {
+        ground_ops_ui_size = ground_ops_ui_size_list.selected;
+        conf_set_i(bp_conf, "ground_ops_ui_size", ground_ops_ui_size);
+        ground_ops_ui_set_size(
+            static_cast<ground_ops_ui_size_t>(ground_ops_ui_size));
+      }
+
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", _("Auto-expand for pilot actions"));
+      Tooltip(_(ground_ops_auto_expand_tooltip));
+
+      ImGui::TableNextColumn();
+      if (ImGui::Checkbox("##ground_ops_auto_expand_actions",
+                          (bool *)&auto_expand_actions)) {
+        (void)conf_set_b(bp_conf, "ground_ops_auto_expand_actions",
+                         auto_expand_actions);
+        ground_ops_ui_set_auto_expand_actions(auto_expand_actions);
+      }
     }
 
     ImGui::TableNextRow();
@@ -725,10 +789,6 @@ void SettingsWindow::buildInterface() {
         conf_set_i(bp_conf, "monitor_id", monitor_list.selected - 1);
       }
     }
-
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    ImGui::Text(" ");
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();

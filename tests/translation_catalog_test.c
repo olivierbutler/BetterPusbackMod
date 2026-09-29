@@ -14,33 +14,42 @@ typedef struct {
     const char *extra_large;
     const char *auto_disconnect;
     const char *auto_expand;
+    const char *interface_label;
+    const char *legacy_interface;
 } translation_expectation_t;
 
 static const translation_expectation_t expectations[] = {
     {"de", "AKTIV", "Parkbremse setzen", "Sehr groß",
         "Am Ende automatisch trennen",
-        "Bei Pilotenaktionen automatisch erweitern"},
+        "Bei Pilotenaktionen automatisch erweitern",
+        "Pushback-Benutzeroberfläche", "Klassische magische Quadrate"},
     {"es", "ACTIVO", "Aplique el freno de estacionamiento", "Muy grande",
         "Desconectar automática cuando termine",
-        "Expandir automáticamente para acciones del piloto"},
+        "Expandir automáticamente para acciones del piloto",
+        "Interfaz de retroceso", "Cuadrados mágicos clásicos"},
     {"fr", "ACTIF", "Serrez le frein de parking", "Très grande",
         "Déconnexion automatique une fois terminé",
-        "Développer automatiquement pour les actions du pilote"},
+        "Développer automatiquement pour les actions du pilote",
+        "Interface de repoussage", "Carrés magiques classiques"},
     {"it", "ATTIVO", "Inserire il freno di stazionamento", "Molto grande",
         "Disconnessione automatica al termine",
-        "Espandi automaticamente per le azioni del pilota"},
+        "Espandi automaticamente per le azioni del pilota",
+        "Interfaccia pushback", "Quadrati magici classici"},
     {"pt", "ATIVO", "Acione o travão de estacionamento", "Muito grande",
         "Desconexão automática quando terminar",
-        "Expandir automaticamente para ações do piloto"},
+        "Expandir automaticamente para ações do piloto",
+        "Interface de pushback", "Quadrados mágicos clássicos"},
     {"pt_BR", "ATIVO", "Acione o freio de estacionamento", "Muito grande",
         "Desconexão automática quando terminar",
-        "Expandir automaticamente para ações do piloto"},
+        "Expandir automaticamente para ações do piloto",
+        "Interface de pushback", "Quadrados mágicos clássicos"},
     {"ru", "АКТИВНО", "Установите стояночный тормоз", "Очень большой",
         "Автоматически отключить при завершении.",
-        "Автоматически разворачивать для действий пилота"},
+        "Автоматически разворачивать для действий пилота",
+        "Интерфейс буксировки", "Классические магические квадраты"},
     {"zh", "进行中", "设置停机刹车", "特大",
         "完成時自動斷開連接。",
-        "需要飛行員操作時自動展開"}
+        "需要飛行員操作時自動展開", "推出界面", "傳統魔方按鈕"}
 };
 
 static const char *const eyebrow_msgids[] = {
@@ -107,6 +116,10 @@ main(int argc, char **argv)
                 expectation->auto_disconnect) ||
             !check_translation("Auto-expand for pilot actions",
                 expectation->auto_expand) ||
+            !check_translation("Pushback interface",
+                expectation->interface_label) ||
+            !check_translation("Legacy magic squares",
+                expectation->legacy_interface) ||
             !check_translation("METAR -- | ATIS --",
                 "METAR -- | ATIS --")) {
             acfutils_xlate_fini();
