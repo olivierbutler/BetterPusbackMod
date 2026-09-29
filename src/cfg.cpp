@@ -33,6 +33,7 @@
 
 #include "bp.h"
 #include "cfg.h"
+#include "ground_ops_ui.h"
 #include "msg.h"
 #include "ui_runtime.h"
 #include "ui_click_sound.h"
@@ -113,6 +114,10 @@ const char *ground_crew_audio_volume_tooltip =
     "Ground crew audio relative default audio volume:\n"
     "The volume can be changed here or by using the dataref:\n"
     "'bp/ground_crew_audio_volume'";
+
+const char *ground_ops_ui_size_tooltip =
+    "Scales the complete Ground Operations interface, including text, "
+    "controls, spacing and hit targets.";
 
 const char *crew_language_tooltip =
     "My language only at domestic airports:\n"
@@ -205,6 +210,15 @@ comboList_t_ language_list_[] = {{_("X-Plane's language"), B_FALSE, "xp_l"},
 comboList_t language_list = {language_list_, IM_ARRAYSIZE(language_list_),
                              "##lang_list", 0};
 
+comboList_t_ ground_ops_ui_size_list_[] = {
+    {"Standard", B_FALSE, "0"},
+    {"Large", B_FALSE, "1"},
+    {"Extra large", B_FALSE, "2"}};
+
+comboList_t ground_ops_ui_size_list = {
+    ground_ops_ui_size_list_, IM_ARRAYSIZE(ground_ops_ui_size_list_),
+    "##ground_ops_ui_size", GROUND_OPS_UI_SIZE_STANDARD};
+
 comboList_t_ crew_lang_list_[] = {
     {"My language only at domestic airports", B_FALSE, "0"},
     {"My language at all airports", B_FALSE, "1"},
@@ -270,6 +284,7 @@ private:
   bool_t is_destroy;
   bool_t tug_starts_next_plane;
   bool_t tug_auto_start;
+  int ground_ops_ui_size;
   int monitor_id;
   int for_credit;
   int doors_check;
@@ -323,6 +338,12 @@ void SettingsWindow::LoadConfig(void) {
   lang_pref = LANG_PREF_MATCH_REAL;
   conf_get_i(bp_conf, "lang_pref", (int *)&lang_pref);
   crew_lang_list.selected = lang_pref;
+
+  ground_ops_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
+  (void)conf_get_i(bp_conf, "ground_ops_ui_size", &ground_ops_ui_size);
+  if (!ground_ops_ui_size_valid(ground_ops_ui_size))
+    ground_ops_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
+  ground_ops_ui_size_list.selected = ground_ops_ui_size;
 
   initPerAircraftSettings();
 
@@ -603,6 +624,21 @@ void SettingsWindow::buildInterface() {
     if (is_chinese) {
       ImGui::PushFont(ImgWindow::fontChinese);
     }
+    ImGui::TableNextRow();
+
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Ground Operations interface size"));
+    Tooltip(_(ground_ops_ui_size_tooltip));
+
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(combowithWidth);
+    if (comboList(&ground_ops_ui_size_list)) {
+      ground_ops_ui_size = ground_ops_ui_size_list.selected;
+      conf_set_i(bp_conf, "ground_ops_ui_size", ground_ops_ui_size);
+      ground_ops_ui_set_size(
+          static_cast<ground_ops_ui_size_t>(ground_ops_ui_size));
+    }
+
     ImGui::TableNextRow();
 
     ImGui::TableNextColumn();

@@ -14,6 +14,8 @@
 
 #include "ground_ops_window_state.h"
 
+static ground_ops_ui_size_t current_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
+
 static int
 minimum(int first, int second)
 {
@@ -40,10 +42,54 @@ ground_ops_window_mode_valid(int mode)
         mode <= GROUND_OPS_WINDOW_POPOUT);
 }
 
+bool
+ground_ops_window_effectively_visible(bool window_exists,
+    bool planner_suspended, bool legacy_gate_hidden,
+    bool manual_visibility_override)
+{
+    return (window_exists && !planner_suspended &&
+        (manual_visibility_override || !legacy_gate_hidden));
+}
+
+bool
+ground_ops_ui_size_valid(int size)
+{
+    return (size >= GROUND_OPS_UI_SIZE_STANDARD &&
+        size <= GROUND_OPS_UI_SIZE_EXTRA_LARGE);
+}
+
+double
+ground_ops_ui_size_multiplier(ground_ops_ui_size_t size)
+{
+    switch (size) {
+    case GROUND_OPS_UI_SIZE_LARGE:
+        return (1.25);
+    case GROUND_OPS_UI_SIZE_EXTRA_LARGE:
+        return (1.5);
+    case GROUND_OPS_UI_SIZE_STANDARD:
+    default:
+        return (1.0);
+    }
+}
+
+ground_ops_ui_size_t
+ground_ops_ui_size_get(void)
+{
+    return (current_ui_size);
+}
+
+void
+ground_ops_ui_size_set(ground_ops_ui_size_t size)
+{
+    current_ui_size = ground_ops_ui_size_valid(size) ? size :
+        GROUND_OPS_UI_SIZE_STANDARD;
+}
+
 double
 ground_ops_ui_scale(void)
 {
-    return (GROUND_OPS_UI_SCALE);
+    return (GROUND_OPS_UI_SCALE *
+        ground_ops_ui_size_multiplier(current_ui_size));
 }
 
 int

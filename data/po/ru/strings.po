@@ -968,3 +968,18 @@ msgstr "Установите стояночный тормоз"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "Размер интерфейса наземных операций"
+
+msgid "Standard"
+msgstr "Стандартный"
+
+msgid "Large"
+msgstr "Большой"
+
+msgid "Extra large"
+msgstr "Очень большой"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "Масштабирует весь интерфейс наземных операций, включая текст, элементы управления, интервалы и области взаимодействия."

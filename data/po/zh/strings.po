@@ -978,3 +978,18 @@ msgstr "设置停机刹车"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "地面操作界面大小"
+
+msgid "Standard"
+msgstr "标准"
+
+msgid "Large"
+msgstr "大"
+
+msgid "Extra large"
+msgstr "特大"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "缩放整个地面操作界面，包括文本、控件、间距和点击区域。"

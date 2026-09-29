@@ -43,6 +43,8 @@ the complete status and action panel, or popped out as a native X-Plane window
 and moved to another monitor. During an automatic push, **Pause/Resume** retains
 the accepted route and steering state, while **End operation** stops safely and
 continues through the normal disconnect sequence at the current position.
+The Preferences window offers Standard, Large, and Extra-large interface sizes;
+each selection scales the full layout and its controls together with the text.
 
 After a completed normal operation, **Call tow back** starts a guarded one-time
 Emergency Tow. The tug returns and connects, the manual planner opens at the live aircraft

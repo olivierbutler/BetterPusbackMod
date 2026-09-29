@@ -49,6 +49,12 @@ typedef struct {
 #endif
 
 typedef enum {
+    GROUND_OPS_UI_SIZE_STANDARD = 0,
+    GROUND_OPS_UI_SIZE_LARGE = 1,
+    GROUND_OPS_UI_SIZE_EXTRA_LARGE = 2
+} ground_ops_ui_size_t;
+
+typedef enum {
     GROUND_OPS_PRESENTATION_HIDDEN = 0,
     GROUND_OPS_PRESENTATION_ORB = 1,
     GROUND_OPS_PRESENTATION_PANEL = 2
@@ -73,6 +79,13 @@ typedef struct {
 
 bool ground_ops_presentation_valid(int presentation);
 bool ground_ops_window_mode_valid(int mode);
+bool ground_ops_window_effectively_visible(bool window_exists,
+    bool planner_suspended, bool legacy_gate_hidden,
+    bool manual_visibility_override);
+bool ground_ops_ui_size_valid(int size);
+double ground_ops_ui_size_multiplier(ground_ops_ui_size_t size);
+ground_ops_ui_size_t ground_ops_ui_size_get(void);
+void ground_ops_ui_size_set(ground_ops_ui_size_t size);
 double ground_ops_ui_scale(void);
 int ground_ops_scaled_pixels(int logical_pixels);
 void ground_ops_presentation_size(ground_ops_presentation_t presentation,

@@ -992,3 +992,18 @@ msgstr "Inserire il freno di stazionamento"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "Dimensione dell'interfaccia operazioni a terra"
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Large"
+msgstr "Grande"
+
+msgid "Extra large"
+msgstr "Molto grande"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "Ridimensiona l'intera interfaccia delle operazioni a terra, inclusi testo, controlli, spaziatura e aree di interazione."

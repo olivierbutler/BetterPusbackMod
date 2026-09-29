@@ -971,3 +971,18 @@ msgstr "Parkbremse setzen"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "Größe der Bodenbetriebsoberfläche"
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Large"
+msgstr "Groß"
+
+msgid "Extra large"
+msgstr "Sehr groß"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "Skaliert die gesamte Bodenbetriebsoberfläche einschließlich Text, Steuerelementen, Abständen und Klickflächen."
