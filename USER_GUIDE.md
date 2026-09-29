@@ -66,6 +66,12 @@ happening.
   until the pilot shows it again, but opens automatically at the next simulator
   start.
 
+At simulator start, Ground Operations is visible while the aircraft is stopped
+on the ground. Outside an active operation, it automatically hides once the
+aircraft begins taxiing and restores when the aircraft stops. This applies to GA
+aircraft and airliners. Using the show command while moving is a manual override
+that keeps the window visible until the pilot hides it again.
+
 Positions are remembered by window mode, monitor, and side. If a saved display
 is removed or resized, the window is recovered into a visible area.
 The last visible compact or expanded presentation is also remembered. A first
@@ -75,6 +81,15 @@ The Preferences window provides **Standard**, **Large**, and **Extra large**
 Ground Operations sizes. The selected size scales the complete compact rail or
 expanded panel, including its text, controls, spacing, and click targets, so
 larger text is not forced back into the original fixed-size layout.
+
+The global **Auto-expand for pilot actions** preference is off by default. When
+enabled, a compact visible rail expands when a new pilot action is required and
+collapses one second after that action is completed. The completed action
+collapses the expanded panel whether it was opened automatically or manually.
+It never reopens a hidden window. A second required action during the delay
+keeps the panel expanded. With the preference disabled, expand and collapse are
+entirely manual. Toggling the option takes effect immediately; select **Save
+preferences** to retain it across simulator starts.
 
 The global **Auto disconnect when done** preference controls the final
 post-push interaction for every aircraft and is remembered across simulator

@@ -285,6 +285,77 @@ ground_ops_dwell_update(ground_ops_dwell_t *state, bool eligible, double now)
     return false;
 }
 
+void
+ground_ops_auto_expand_reset(ground_ops_auto_expand_state_t *state)
+{
+    if (state != NULL)
+        *state = (ground_ops_auto_expand_state_t){0};
+}
+
+void
+ground_ops_auto_expand_note_manual(ground_ops_auto_expand_state_t *state,
+    bool action_required)
+{
+    if (state == NULL)
+        return;
+    state->action_active = action_required;
+    state->collapse_pending = false;
+    state->action_completed_at = 0;
+}
+
+ground_ops_auto_presentation_t
+ground_ops_auto_expand_update(ground_ops_auto_expand_state_t *state,
+    bool enabled, bool window_visible,
+    ground_ops_presentation_t presentation, bool action_required,
+    double now)
+{
+    bool continue_action_cycle;
+
+    if (state == NULL)
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    if (!enabled || !window_visible || !isfinite(now)) {
+        ground_ops_auto_expand_reset(state);
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    }
+
+    if (action_required) {
+        continue_action_cycle = state->collapse_pending;
+        state->collapse_pending = false;
+        if (!state->action_active) {
+            state->action_active = true;
+            if (continue_action_cycle)
+                return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+            if (presentation == GROUND_OPS_PRESENTATION_ORB)
+                return (GROUND_OPS_AUTO_PRESENTATION_EXPAND);
+        }
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    }
+
+    if (state->action_active) {
+        state->action_active = false;
+        if (presentation == GROUND_OPS_PRESENTATION_PANEL) {
+            state->collapse_pending = true;
+            state->action_completed_at = now;
+        } else {
+            state->collapse_pending = false;
+        }
+    }
+    if (!state->collapse_pending)
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    if (presentation != GROUND_OPS_PRESENTATION_PANEL ||
+        now < state->action_completed_at) {
+        state->collapse_pending = false;
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    }
+    if (now - state->action_completed_at <
+        GROUND_OPS_AUTO_COLLAPSE_DELAY_SECONDS) {
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    }
+
+    state->collapse_pending = false;
+    return (GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
+}
+
 bool
 ground_ops_rect_nearest_right(const ground_ops_rect_t *rect,
     const ground_ops_monitor_t *monitor)

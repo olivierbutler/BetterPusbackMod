@@ -986,3 +986,13 @@ msgstr "Muito grande"
 
 msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
 msgstr "Dimensiona toda a interface de operações em terra, incluindo texto, controlos, espaçamento e áreas de interação."
+
+msgid "Auto-expand for pilot actions"
+msgstr "Expandir automaticamente para ações do piloto"
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr ""
+"Expande o painel compacto de Operações de Solo quando é necessária uma "
+"ação do piloto e volta a recolhê-lo pouco depois de a ação ser concluída."

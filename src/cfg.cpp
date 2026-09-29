@@ -118,6 +118,9 @@ const char *ground_crew_audio_volume_tooltip =
 const char *ground_ops_ui_size_tooltip =
     "Scales the complete Ground Operations interface, including text, "
     "controls, spacing and hit targets.";
+const char *ground_ops_auto_expand_tooltip =
+    "Expand the compact Ground Operations panel for required pilot actions, "
+    "then collapse it shortly after the action is completed.";
 
 const char *crew_language_tooltip =
     "My language only at domestic airports:\n"
@@ -280,6 +283,7 @@ private:
   bool_t is_chinese;
   lang_pref_t lang_pref;
   bool_t disco_when_done;
+  bool_t auto_expand_actions;
   bool_t ignore_park_brake;
   bool_t dont_hide;
   bool_t always_connect_tug_first;
@@ -348,6 +352,10 @@ void SettingsWindow::LoadConfig(void) {
   if (!ground_ops_ui_size_valid(ground_ops_ui_size))
     ground_ops_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
   ground_ops_ui_size_list.selected = ground_ops_ui_size;
+
+  auto_expand_actions = B_FALSE;
+  (void)conf_get_b(bp_conf, "ground_ops_auto_expand_actions",
+                   &auto_expand_actions);
 
   disco_when_done = B_FALSE;
   (void)conf_get_b(bp_conf, "disco_when_done", &disco_when_done);
@@ -644,6 +652,19 @@ void SettingsWindow::buildInterface() {
       conf_set_i(bp_conf, "ground_ops_ui_size", ground_ops_ui_size);
       ground_ops_ui_set_size(
           static_cast<ground_ops_ui_size_t>(ground_ops_ui_size));
+    }
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Auto-expand for pilot actions"));
+    Tooltip(_(ground_ops_auto_expand_tooltip));
+
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##ground_ops_auto_expand_actions",
+                        (bool *)&auto_expand_actions)) {
+      (void)conf_set_b(bp_conf, "ground_ops_auto_expand_actions",
+                       auto_expand_actions);
+      ground_ops_ui_set_auto_expand_actions(auto_expand_actions);
     }
 
     ImGui::TableNextRow();

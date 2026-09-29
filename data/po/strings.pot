@@ -577,3 +577,11 @@ msgstr  ""
 
 msgid   "Ground crew audio volume"
 msgstr  ""
+
+msgid "Auto-expand for pilot actions"
+msgstr ""
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr  ""

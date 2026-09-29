@@ -993,3 +993,13 @@ msgstr "特大"
 
 msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
 msgstr "缩放整个地面操作界面，包括文本、控件、间距和点击区域。"
+
+msgid "Auto-expand for pilot actions"
+msgstr "需要飛行員操作時自動展開"
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr ""
+"需要飛行員操作時展開精簡的地面操作面板，"
+"操作完成後不久自動收合。"

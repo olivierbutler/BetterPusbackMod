@@ -59,8 +59,10 @@ cockpit.
 - Available before a ground operation through the plugin menu and a command.
 - Applies only after a pilot hides the window during the current simulator
   session. The next simulator/plugin connection always starts visible.
-- The startup presentation and later pilot Show/Hide commands are authoritative;
-  the legacy ground-speed gate cannot hide an explicitly visible presentation.
+- The startup presentation follows the ground-speed gate: it hides while the
+  aircraft is taxiing and restores when the aircraft is stopped on the ground.
+- A later pilot **Show** command is authoritative and can keep the presentation
+  visible while moving; **Hide** removes that manual override.
 
 ### Compact progress rail
 
@@ -80,6 +82,12 @@ cockpit.
 - Dragging moves the rail without expanding it. The implementation must use a
   small movement threshold to distinguish a click from a drag.
 - Compact mode has no tooltips and never expands from hover; click to expand.
+- With the global **Auto-expand for pilot actions** preference enabled, a new
+  required action expands a visible compact rail. The panel collapses one
+  second after the action clears whether it was expanded automatically or by
+  the pilot. Hidden windows remain hidden, and a new action during the delay
+  cancels the pending collapse. With the preference disabled, presentation
+  changes remain entirely manual.
 - Red is reserved for a future explicit fault or safety-stop state reported by
   the controller. Normal pilot gates, deliberate pause holds, disconnect
   approval, and destructive alternatives do not make a stage red.
@@ -155,8 +163,9 @@ be backward compatible.
 At startup, a saved compact or expanded presentation is restored visibly. A
 saved hidden presentation restores the last visible presentation instead. If
 no visible history exists, as on a first install or migration from an older
-hidden state, the expanded panel is the default. Pilot Show/Hide control remains
-authoritative after that one startup decision.
+hidden state, the expanded panel is the default. Startup visibility is automatic,
+so the ground-speed gate may hide the window while taxiing and restore it after
+the aircraft stops. An explicit pilot Show/Hide choice remains authoritative.
 
 ## Workflow stages and existing pushback states
 
