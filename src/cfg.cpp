@@ -132,8 +132,9 @@ const char *classic_mode_tooltip =
     "Use the original pushback shortcuts instead of Ground Operations. "
     "The clear signal no longer requires a click.";
 const char *fast_ground_handling_tooltip =
-    "Skip non-brake ground handling waits and animations. "
-    "The brake-to-ungrab sequence, towing and tug travel keep normal timing.";
+    "Skip artificial ground handling waits and animations, including "
+    "disconnect after parking brake set. Brake checks, towing and tug travel "
+    "keep normal behavior.";
 const char *per_aircraft_is_global_tooltip =
     "When enabled, all per aircraft settings becomes global.";
 const char *always_connect_tug_first_tooltip =

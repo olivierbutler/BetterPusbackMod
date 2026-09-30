@@ -5,6 +5,7 @@
 #include "ground_ops_state.h"
 #include "clear_signal_gate.h"
 #include "handling_timing.h"
+#include "fast_brake_handoff.h"
 #include "intl_test_stub.h"
 
 static ground_ops_raw_state_t
@@ -242,6 +243,123 @@ test_waiting_state_has_no_timer_progress(void)
     before = state.snapshot;
     assert(!ground_ops_state_update(&state, &raw));
     assert(memcmp(&before, &state.snapshot, sizeof(before)) == 0);
+}
+
+static void
+test_fast_brake_handoff_holds_then_releases_and_verifies(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    bp_fast_brake_handoff_reset(&handoff, true);
+
+    assert(bp_fast_brake_handoff_update(&handoff, 10.0, false) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 10.1, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 11.59, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 11.6, true) ==
+        BP_FAST_BRAKE_RELEASE);
+    assert(bp_fast_brake_handoff_update(&handoff, 11.65, true) ==
+        BP_FAST_BRAKE_VERIFY);
+    assert(bp_fast_brake_handoff_update(&handoff, 12.0, true) ==
+        BP_FAST_BRAKE_VERIFY);
+    assert(bp_fast_brake_handoff_update(&handoff, 12.59, true) ==
+        BP_FAST_BRAKE_VERIFY);
+    assert(bp_fast_brake_handoff_update(&handoff, 12.61, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+}
+
+static void
+test_fast_brake_handoff_retries_without_unset_reading(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    bp_fast_brake_handoff_reset(&handoff, true);
+
+    assert(bp_fast_brake_handoff_update(&handoff, 20.0, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 21.5, true) ==
+        BP_FAST_BRAKE_RELEASE);
+    assert(bp_fast_brake_handoff_update(&handoff, 21.55, false) ==
+        BP_FAST_BRAKE_RESTORE);
+    assert(bp_fast_brake_handoff_update(&handoff, 21.6, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 23.09, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 23.11, true) ==
+        BP_FAST_BRAKE_RELEASE);
+    assert(bp_fast_brake_handoff_update(&handoff, 24.1, true) ==
+        BP_FAST_BRAKE_VERIFY);
+    assert(bp_fast_brake_handoff_update(&handoff, 24.12, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+    assert(bp_fast_brake_handoff_update(&handoff, 24.2, false) ==
+        BP_FAST_BRAKE_RESTORE);
+}
+
+static void
+test_fast_brake_handoff_rejects_late_transient(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    bp_fast_brake_handoff_reset(&handoff, true);
+
+    assert(bp_fast_brake_handoff_update(&handoff, 30.0, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 31.1, false) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 31.3, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 32.79, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 32.81, true) ==
+        BP_FAST_BRAKE_RELEASE);
+    assert(bp_fast_brake_handoff_update(&handoff, 33.5, false) ==
+        BP_FAST_BRAKE_RESTORE);
+    assert(bp_fast_brake_handoff_update(&handoff, 33.6, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 35.11, true) ==
+        BP_FAST_BRAKE_RELEASE);
+    assert(bp_fast_brake_handoff_update(&handoff, 36.12, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+}
+
+static void
+test_fast_brake_handoff_resets_for_each_disconnect(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    bp_fast_brake_handoff_reset(&handoff, true);
+    assert(bp_fast_brake_handoff_update(&handoff, 40.0, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 41.5, true) ==
+        BP_FAST_BRAKE_RELEASE);
+    assert(bp_fast_brake_handoff_update(&handoff, 42.5, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+
+    bp_fast_brake_handoff_reset(&handoff, true);
+    assert(bp_fast_brake_handoff_update(&handoff, 50.0, true) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, 51.5, true) ==
+        BP_FAST_BRAKE_RELEASE);
+    assert(bp_fast_brake_handoff_update(&handoff, 52.49, true) ==
+        BP_FAST_BRAKE_VERIFY);
+    assert(bp_fast_brake_handoff_update(&handoff, 52.5, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+}
+
+static void
+test_fast_brake_handoff_mode_and_abort_exceptions(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    for (int required = 0; required <= 1; required++) {
+        bp_fast_brake_handoff_reset(&handoff, required != 0);
+        for (int fast = 0; fast <= 1; fast++) {
+            for (int slave = 0; slave <= 1; slave++) {
+                for (int ignore = 0; ignore <= 1; ignore++) {
+                    assert(bp_fast_brake_handoff_enabled(&handoff,
+                        fast != 0, slave != 0, ignore != 0) ==
+                        (required && fast && !slave && !ignore));
+                }
+            }
+        }
+    }
 }
 
 static void
@@ -573,6 +691,12 @@ main(void)
     assert(bp_handling_fraction(10.0, 10.0, false) == 1.0);
     assert(bp_handling_fraction(12.0, 10.0, false) == 1.2);
     assert(bp_handling_fraction(0.0, 10.0, true) == 1.0);
+    assert(bp_handling_duration(2.0, false) == 2.0);
+    assert(bp_handling_duration(12.0, false) == 12.0);
+    assert(bp_handling_duration(2.0, true) == 0.0);
+    assert(bp_handling_duration(12.0, true) == 0.0);
+    assert(bp_handling_fraction(0.0, 9.0, false) == 0.0);
+    assert(bp_handling_fraction(0.0, 9.0, true) == 1.0);
 
     bp_clear_signal_gate_t gate = {0};
     assert(!bp_clear_signal_acknowledge(&gate, false));
@@ -638,6 +762,11 @@ main(void)
     test_formatting_only_changes_for_display_values();
     test_captions_follow_message_state();
     test_waiting_state_has_no_timer_progress();
+    test_fast_brake_handoff_holds_then_releases_and_verifies();
+    test_fast_brake_handoff_retries_without_unset_reading();
+    test_fast_brake_handoff_rejects_late_transient();
+    test_fast_brake_handoff_resets_for_each_disconnect();
+    test_fast_brake_handoff_mode_and_abort_exceptions();
     test_stage_visuals_distinguish_blocking_from_automatic_progress();
     test_pre_lift_connection_hold_exposes_plan_action();
     test_pause_resume_actions_preserve_push_stage();

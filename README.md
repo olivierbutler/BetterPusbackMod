@@ -90,10 +90,19 @@ For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 Ground Operations is the default operational interface. In Preferences,
 **Classic Mode** switches to the original four "magic squares" shortcuts and
 automatically continues through disconnect and the final clear signal without
-the new wing walker. **Fast Ground Handling** independently skips non-brake
-ground handling waits and animations. Parking-brake gates and the brake-to-
-ungrab sequence keep their original per-step delays and conditions; tug travel,
-winch motion, towing direction changes and aircraft checks remain unchanged.
+the new wing walker. The planner automatically recalls routes from the 1.13
+position/heading cache and saves them when pushback starts (or when a late plan
+is accepted), without showing the 1.14 gate-slot selection or replacement
+dialogs. Existing in-session plans are retained; Emergency Tow never loads or
+saves routes. The 1.14 gate slots remain separate and unchanged.
+**Fast Ground Handling** independently skips artificial
+ground handling waits and animations, including the post-parking-brake lowering
+and disconnect sequence. Before releasing BPB's service brakes, Fast requires
+a stable parking-brake indication for 1.5 seconds, then verifies it for one
+second with BPB's brake request released. A failed check restores BPB's brakes
+and retries; reconnect starts a fresh check. Cancelling before the nose gear is
+lifted bypasses this extra check. Tug travel, towing direction changes, and
+aircraft checks retain their normal behavior.
 Both options default to off and take effect after saving preferences.
 
 The legacy shortcut windows can also be enabled at build time with:

@@ -934,6 +934,43 @@ brakes_set(bool_t flag) {
     dr_setf(&drs.rbrake, val);
 }
 
+static bool_t
+fast_brake_handoff_ready(void)
+{
+    bool_t parking_brake_set = pbrake_is_set();
+    bp_fast_brake_action_t action = bp_fast_brake_handoff_update(
+        &bp.fast_brake_handoff, bp.cur_t, parking_brake_set != B_FALSE);
+
+    switch (action) {
+    case BP_FAST_BRAKE_HOLD:
+        brakes_set(B_TRUE);
+        bp_hint_status_str = _("Waiting for the parking brakes set");
+        return (B_FALSE);
+    case BP_FAST_BRAKE_RELEASE:
+        brakes_set(B_FALSE);
+        return (B_FALSE);
+    case BP_FAST_BRAKE_VERIFY:
+        return (B_FALSE);
+    case BP_FAST_BRAKE_RESTORE:
+        brakes_set(B_TRUE);
+        bp_hint_status_str = _("Waiting for the parking brakes set");
+        return (B_FALSE);
+    case BP_FAST_BRAKE_COMPLETE:
+        return (B_TRUE);
+    }
+    VERIFY_FAIL();
+    return (B_FALSE);
+}
+
+static void
+pb_enter_ungrabbing(bool_t require_parking_brake)
+{
+    bp_fast_brake_handoff_reset(&bp.fast_brake_handoff,
+        require_parking_brake != B_FALSE);
+    bp.step = PB_STEP_UNGRABBING;
+    bp.step_start_t = bp.cur_t;
+}
+
 /*
  * Initializes the doors dataref list
  *
@@ -2153,6 +2190,12 @@ bp_start(void) {
         bp_floop = XPLMCreateFlightLoop(&floop);
     XPLMScheduleFlightLoop(bp_floop, -1, 1);
 
+    if (bp_classic_mode() && emergency_tow_allows_persistent_routes() &&
+        !slave_mode && !late_plan_requested && !push_manual.active &&
+        list_head(&bp.segs) != NULL) {
+        route_save_legacy(&bp.segs);
+    }
+
     bp_started = B_TRUE;
     bp_conf_set_save_enabled(!bp_started);
 
@@ -3017,6 +3060,12 @@ pb_step_lift(void) {
         late_plan_requested = B_FALSE;
         if (!slave_mode) {
             plan_complete = B_TRUE; /* BP_DATAREF plan_complete */
+            /* Late planning reaches the 1.13 save point after connection. */
+            if (bp_classic_mode() &&
+                emergency_tow_allows_persistent_routes() &&
+                !push_manual.active && list_head(&bp.segs) != NULL) {
+                route_save_legacy(&bp.segs);
+            }
         }
         bp.step_start_t = bp.cur_t;
         logMsg(BP_INFO_LOG "%s plan accepted; beginning nose-gear lift "
@@ -3287,9 +3336,11 @@ pb_step_stopped(void) {
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes set");
-    } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY &&
-               bp.cur_t - bp.last_voice_t >= msg_dur(MSG_OP_COMPLETE) +
-                                             STATE_TRANS_DELAY) {
+    } else if (bp.cur_t - bp.step_start_t >=
+               artificial_delay(STATE_TRANS_DELAY) &&
+               bp.cur_t - bp.last_voice_t >=
+               artificial_delay(msg_dur(MSG_OP_COMPLETE) +
+                   STATE_TRANS_DELAY)) {
         msg_play(MSG_DISCO);
         bp.step++;
         bp.step_start_t = bp.cur_t;
@@ -3300,8 +3351,8 @@ pb_step_stopped(void) {
 static void
 pb_step_lowering(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double lift_fract = 1 - ((d_t - STATE_TRANS_DELAY) /
-                             PB_CONN_LIFT_DURATION);
+    double lift_fract = 1 - handling_fraction(
+        d_t - artificial_delay(STATE_TRANS_DELAY), PB_CONN_LIFT_DURATION);
     double lift;
 
     if (!slave_mode) {
@@ -3310,7 +3361,8 @@ pb_step_lowering(void) {
             brakes_set(B_TRUE);
     }
 
-    if (bp.cur_t - bp.last_voice_t < msg_dur(MSG_OP_COMPLETE)) {
+    if (bp.cur_t - bp.last_voice_t <
+        artificial_delay(msg_dur(MSG_OP_COMPLETE))) {
         /*
          * Keep resetting step_start_t to properly calculate
          * lift_fract relative to our step_start_t.
@@ -3322,7 +3374,7 @@ pb_step_lowering(void) {
     tug_set_lift_in_transit(B_TRUE);
 
     /* Slight delay after the parking brake ann was made */
-    if (d_t <= STATE_TRANS_DELAY)
+    if (d_t <= artificial_delay(STATE_TRANS_DELAY))
         return;
 
     lift_fract = MAX(MIN(lift_fract, 1), 0);
@@ -3339,15 +3391,14 @@ pb_step_lowering(void) {
 
     if (lift_fract == 0) {
         tug_set_cradle_air_on(bp_ls.tug, B_FALSE, bp.cur_t);
-        bp.step++;
-        bp.step_start_t = bp.cur_t;
+        pb_enter_ungrabbing(B_TRUE);
     }
 }
 
 static bool_t
 pb_step_ungrabbing_grab(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double cradle_fract = d_t / PB_CRADLE_DELAY;
+    double cradle_fract = handling_fraction(d_t, PB_CRADLE_DELAY);
 
     cradle_fract = MAX(MIN(cradle_fract, 1), 0);
     tug_set_lift_arm_pos(bp_ls.tug, cradle_fract, B_TRUE);
@@ -3355,7 +3406,7 @@ pb_step_ungrabbing_grab(void) {
     if (cradle_fract >= 1.0)
         tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
 
-    return (d_t >= PB_CRADLE_DELAY + STATE_TRANS_DELAY);
+    return (d_t >= artificial_delay(PB_CRADLE_DELAY + STATE_TRANS_DELAY));
 }
 
 static bool_t
@@ -3366,12 +3417,12 @@ pb_step_ungrabbing_winch(void) {
      * enforce some delays between removing the winch strap and
      * driving away
      */
-    if (d_t < STATE_TRANS_DELAY)
+    if (d_t < artificial_delay(STATE_TRANS_DELAY))
         return (B_FALSE);
 
     tug_set_winch_on(bp_ls.tug, B_FALSE);
 
-    if (d_t < 2 * STATE_TRANS_DELAY)
+    if (d_t < artificial_delay(2 * STATE_TRANS_DELAY))
         return (B_FALSE);
 
     return (B_TRUE);
@@ -3387,8 +3438,16 @@ pb_step_ungrabbing(void) {
         complete = pb_step_ungrabbing_winch();
 
     if (complete) {
-        if (!slave_mode)
-            brakes_set(B_FALSE);
+        if (!slave_mode) {
+            if (bp_fast_brake_handoff_enabled(&bp.fast_brake_handoff,
+                bp_fast_ground_handling() != B_FALSE, slave_mode != B_FALSE,
+                cfg_ignore_park_break != B_FALSE)) {
+                if (!fast_brake_handoff_ready())
+                    return;
+            } else {
+                brakes_set(B_FALSE);
+            }
+        }
 
         tug_set_lift_in_transit(B_FALSE);
         tug_set_TE_override(bp_ls.tug, B_FALSE);
@@ -4224,8 +4283,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             bp.awaiting_plan = B_FALSE;
             tug_set_lift_pos(0);
             tug_set_lift_in_transit(B_TRUE);
-            bp.step = PB_STEP_UNGRABBING;
-            bp.step_start_t = bp.cur_t;
+            pb_enter_ungrabbing(B_FALSE);
         } else if (bp.step < PB_STEP_GRABBING) {
             bp_complete();
             return (0);

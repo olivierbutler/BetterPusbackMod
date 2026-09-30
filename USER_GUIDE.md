@@ -55,11 +55,22 @@ happening.
 Preferences also offers two independent options. **Classic Mode** replaces
 Ground Operations with the original four shortcut windows and automatically
 continues through tug disconnect and the final clear signal without displaying
-the new wing walker. **Fast Ground Handling** skips non-brake ground handling
-waits and animations. Parking-brake gates and the brake-to-ungrab sequence
-keep their original per-step delays and conditions; tug travel, winch motion,
-towing direction changes and aircraft checks remain unchanged. Both are off
-by default and apply after Save preferences.
+the new wing walker. Opening the planner automatically displays a saved 1.13
+route within 30 metres and 10 degrees of its start, unless a current plan
+already exists. Routes are saved when pushback starts, or when a late plan is
+accepted after connection. No gate-slot selection or replacement dialog is
+shown. Classic uses the legacy cache, not the separate 1.14 gate slots;
+Emergency Tow never loads or saves routes.
+**Fast Ground Handling** skips artificial ground handling
+waits and animations, including lowering and disconnect after the parking brake
+is set. A short parking-brake handoff remains: BPB holds its service brakes
+until the parking-brake indication has stayed set for 1.5 seconds, then releases
+its request and checks the indication for one second before continuing. If the
+indication drops, BPB restores its service brakes and retries automatically.
+Reconnect starts a fresh check. Cancelling before the nose gear is lifted
+bypasses this extra check. Tug travel, towing direction changes, and aircraft
+checks retain their normal behavior. Both options are off by default and apply
+after Save preferences.
 
 - **Compact rail:** Shows only the five stages. Click the rail to expand it.
   Dragging moves it without expanding. Compact mode intentionally has no
