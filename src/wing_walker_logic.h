@@ -26,7 +26,22 @@ typedef enum {
     WING_WALKER_SIGNAL_CLEAR = 3
 } wing_walker_signal_t;
 
+typedef struct {
+    bool captured;
+    double x;
+    double y;
+    double heading;
+} wing_walker_anchor_t;
+
 wing_walker_signal_t wing_walker_signal_for_step(pushback_step_t step,
     bool reconnecting);
+
+bool wing_walker_should_allocate(bool display_enabled,
+    bool operation_allows_walker);
+
+bool wing_walker_anchor_capture(wing_walker_anchor_t *anchor,
+    double aircraft_x, double aircraft_y, double aircraft_heading,
+    double aircraft_nose_forward, double nose_clearance,
+    double captain_offset);
 
 #endif /* _WING_WALKER_LOGIC_H_ */

@@ -33,6 +33,7 @@
 
 #include "bp.h"
 #include "cfg.h"
+#include "ground_ops_ui.h"
 #include "msg.h"
 #include "ui_runtime.h"
 #include "ui_click_sound.h"
@@ -114,6 +115,26 @@ const char *ground_crew_audio_volume_tooltip =
     "The volume can be changed here or by using the dataref:\n"
     "'bp/ground_crew_audio_volume'";
 
+const char *ground_ops_ui_size_tooltip =
+    "Scales the complete Ground Operations interface, including text, "
+    "controls, spacing and hit targets.";
+const char *ground_ops_auto_expand_tooltip =
+    "Expand the compact Ground Operations panel for required pilot actions, "
+    "then collapse it shortly after the action is completed.";
+
+const char *pushback_interface_tooltip =
+    "Select one global pushback interface. Ground Operations uses the new "
+    "panel; Legacy magic squares restores the original operational buttons. "
+    "The selection applies immediately while idle. Save preferences to keep "
+    "it for the next simulator start.";
+
+const char *magic_squares_height_tooltip =
+    "Slide this bar to move the magic squares up or down.";
+
+const char *display_marshaller_tooltip =
+    "Show the marshaller during normal pushback operations. Emergency Tow "
+    "never displays the marshaller.";
+
 const char *crew_language_tooltip =
     "My language only at domestic airports:\n"
     "Ground crew speaks my language only if the country the airport is "
@@ -128,6 +149,9 @@ const char *crew_language_tooltip =
 
 const char *dev_menu_tooltip = "Show the developer menu options.";
 const char *save_prefs_tooltip = "Save current preferences to disk.";
+const char *disco_when_done_tooltip =
+    "Never ask and always automatically disconnect "
+    "the tug when the pushback operation is complete.";
 const char *per_aircraft_is_global_tooltip =
     "When enabled, all per aircraft settings becomes global.";
 const char *always_connect_tug_first_tooltip =
@@ -205,6 +229,23 @@ comboList_t_ language_list_[] = {{_("X-Plane's language"), B_FALSE, "xp_l"},
 comboList_t language_list = {language_list_, IM_ARRAYSIZE(language_list_),
                              "##lang_list", 0};
 
+comboList_t_ ground_ops_ui_size_list_[] = {
+    {"Standard", B_FALSE, "0"},
+    {"Large", B_FALSE, "1"},
+    {"Extra large", B_FALSE, "2"}};
+
+comboList_t ground_ops_ui_size_list = {
+    ground_ops_ui_size_list_, IM_ARRAYSIZE(ground_ops_ui_size_list_),
+    "##ground_ops_ui_size", GROUND_OPS_UI_SIZE_STANDARD};
+
+comboList_t_ pushback_interface_list_[] = {
+    {"Ground Operations", B_FALSE, "0"},
+    {"Legacy magic squares", B_FALSE, "1"}};
+
+comboList_t pushback_interface_list = {
+    pushback_interface_list_, IM_ARRAYSIZE(pushback_interface_list_),
+    "##pushback_interface", BP_INTERFACE_MODE_GROUND_OPS};
+
 comboList_t_ crew_lang_list_[] = {
     {"My language only at domestic airports", B_FALSE, "0"},
     {"My language at all airports", B_FALSE, "1"},
@@ -262,6 +303,9 @@ private:
   const char *lang;
   bool_t is_chinese;
   lang_pref_t lang_pref;
+  bool_t disco_when_done;
+  bool_t display_marshaller;
+  bool_t auto_expand_actions;
   bool_t ignore_park_brake;
   bool_t dont_hide;
   bool_t always_connect_tug_first;
@@ -270,6 +314,9 @@ private:
   bool_t is_destroy;
   bool_t tug_starts_next_plane;
   bool_t tug_auto_start;
+  int pushback_interface_mode;
+  int ground_ops_ui_size;
+  int magic_squares_height;
   int monitor_id;
   int for_credit;
   int doors_check;
@@ -303,6 +350,11 @@ void SettingsWindow::initPerAircraftSettings(void) {
   doors_check = DOOR_CHECK_ActiveWithMessage;
   (void)conf_get_i_per_acf((char *)"doors_check", &doors_check);
 
+  magic_squares_height = 50;
+  (void)conf_get_i_per_acf((char *)"magic_squares_height",
+                           &magic_squares_height);
+  magic_squares_height = MAX(20, MIN(80, magic_squares_height));
+
 }
 void SettingsWindow::LoadConfig(void) {
 
@@ -323,6 +375,25 @@ void SettingsWindow::LoadConfig(void) {
   lang_pref = LANG_PREF_MATCH_REAL;
   conf_get_i(bp_conf, "lang_pref", (int *)&lang_pref);
   crew_lang_list.selected = lang_pref;
+
+  pushback_interface_mode = bp_get_interface_mode();
+  pushback_interface_list.selected = pushback_interface_mode;
+
+  ground_ops_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
+  (void)conf_get_i(bp_conf, "ground_ops_ui_size", &ground_ops_ui_size);
+  if (!ground_ops_ui_size_valid(ground_ops_ui_size))
+    ground_ops_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
+  ground_ops_ui_size_list.selected = ground_ops_ui_size;
+
+  auto_expand_actions = B_FALSE;
+  (void)conf_get_b(bp_conf, "ground_ops_auto_expand_actions",
+                   &auto_expand_actions);
+
+  disco_when_done = B_FALSE;
+  (void)conf_get_b(bp_conf, "disco_when_done", &disco_when_done);
+
+  display_marshaller = B_TRUE;
+  (void)conf_get_b(bp_conf, "display_marshaller", &display_marshaller);
 
   initPerAircraftSettings();
 
@@ -606,6 +677,71 @@ void SettingsWindow::buildInterface() {
     ImGui::TableNextRow();
 
     ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Pushback interface"));
+    Tooltip(_(pushback_interface_tooltip));
+
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(combowithWidth);
+    if (comboList(&pushback_interface_list)) {
+      bp_interface_mode_t requested = bp_interface_mode_normalize(
+          pushback_interface_list.selected);
+      if (bp_set_interface_mode(requested)) {
+        pushback_interface_mode = requested;
+      } else {
+        pushback_interface_mode = bp_get_interface_mode();
+        pushback_interface_list.selected = pushback_interface_mode;
+      }
+    }
+
+    if (bp_interface_mode_uses_legacy_magic_squares(
+            static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
+      ImGui::TableNextRow();
+
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", _("Magic squares position"));
+      Tooltip(_(magic_squares_height_tooltip));
+
+      ImGui::TableNextColumn();
+      ImGui::SetNextItemWidth(combowithWidth);
+      if (ImGui::SliderInt("##magic_position", &magic_squares_height, 20, 80,
+                           "%d %%", ImGuiSliderFlags_AlwaysClamp)) {
+        conf_set_i_per_acf((char *)"magic_squares_height",
+                           magic_squares_height);
+        bp_request_legacy_magic_squares_reposition();
+      }
+    } else {
+      ImGui::TableNextRow();
+
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", _("Ground Operations interface size"));
+      Tooltip(_(ground_ops_ui_size_tooltip));
+
+      ImGui::TableNextColumn();
+      ImGui::SetNextItemWidth(combowithWidth);
+      if (comboList(&ground_ops_ui_size_list)) {
+        ground_ops_ui_size = ground_ops_ui_size_list.selected;
+        conf_set_i(bp_conf, "ground_ops_ui_size", ground_ops_ui_size);
+        ground_ops_ui_set_size(
+            static_cast<ground_ops_ui_size_t>(ground_ops_ui_size));
+      }
+
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", _("Auto-expand for pilot actions"));
+      Tooltip(_(ground_ops_auto_expand_tooltip));
+
+      ImGui::TableNextColumn();
+      if (ImGui::Checkbox("##ground_ops_auto_expand_actions",
+                          (bool *)&auto_expand_actions)) {
+        (void)conf_set_b(bp_conf, "ground_ops_auto_expand_actions",
+                         auto_expand_actions);
+        ground_ops_ui_set_auto_expand_actions(auto_expand_actions);
+      }
+    }
+
+    ImGui::TableNextRow();
+
+    ImGui::TableNextColumn();
     ImGui::Text("%s", _("Ground crew audio"));
     Tooltip(_(crew_language_tooltip));
 
@@ -661,10 +797,6 @@ void SettingsWindow::buildInterface() {
         conf_set_i(bp_conf, "monitor_id", monitor_list.selected - 1);
       }
     }
-
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    ImGui::Text(" ");
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
@@ -734,10 +866,6 @@ void SettingsWindow::buildInterface() {
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    ImGui::Text(" ");
-    ImGui::TableNextRow();
-
-    ImGui::TableNextColumn();
     rowMin = ImGui::GetItemRectMin();
     ImGui::Text("%s", _("Miscellaneous"));
     ImGui::TableNextColumn();
@@ -753,6 +881,28 @@ void SettingsWindow::buildInterface() {
 
     ImGui::GetWindowDrawList()->AddLine(rowBottomStart, rowBottomEnd,
                                         LINE_COLOR, LINE_THICKNESS);
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Display marshaller"));
+    Tooltip(_(display_marshaller_tooltip));
+
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##display_marshaller",
+                        (bool *)&display_marshaller)) {
+      (void)conf_set_b(bp_conf, "display_marshaller", display_marshaller);
+    }
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Auto disconnect when done"));
+    Tooltip(_(disco_when_done_tooltip));
+
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##disco_when_done_cbox",
+                        (bool *)&disco_when_done)) {
+      (void)conf_set_b(bp_conf, "disco_when_done", disco_when_done);
+    }
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();

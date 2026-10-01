@@ -62,12 +62,10 @@
 #include "emergency_tow.h"
 #include "ground_ops_ui.h"
 #include "msg.h"
+#include "post_push_automation.h"
 #include "telemetry.h"
+#include "wing_walker_logic.h"
 #include "xplane.h"
-
-#ifndef BP_ENABLE_LEGACY_MAGIC_SQUARES
-#define BP_ENABLE_LEGACY_MAGIC_SQUARES 0
-#endif
 
 #define    MIN_XPLANE_VERSION    11550    /* X-Plane 11.55 */
 #define    MIN_XPLANE_VERSION_STR    "11.55"    /* X-Plane 11.55 */
@@ -188,6 +186,7 @@ bp_long_state_t bp_ls = {0};
 static bool_t inited = B_FALSE;
 static XPLMFlightLoopID bp_floop = NULL;
 
+static bool_t cfg_disco_when_done = B_FALSE;
 static bool_t cfg_ignore_park_break = B_FALSE;
 
 static struct {
@@ -303,13 +302,11 @@ static const char *const bp_step_names[] = {
 static XPLMCommandRef disco_cmd = NULL;
 static XPLMCommandRef clear_ack_cmd = NULL;
 static XPLMCommandRef recon_cmd = NULL;
-#if 0
 static button_t disco_buttons[] = {
         {.filename = "disconnect.png", .vk = -1, .tex = 0, .tex_data = NULL},
         {.filename = "reconnect.png", .vk = -1, .tex = 0, .tex_data = NULL},
         {.filename = NULL},
 };
-#endif
 
 static button_t magic_buttons[] = {
         {.filename = "planner.png", .vk = -1, .tex = 0, .tex_data = NULL, .wind_id = NULL},
@@ -1965,10 +1962,17 @@ bp_init(void) {
 
     if (!bp_state_init())
         goto errout;
-    if (!audio_sys_init() || !load_buttons())
+    if (!audio_sys_init() || !load_buttons() ||
+        (bp_interface_mode_uses_legacy_magic_squares(
+            bp_get_interface_mode()) &&
+        (!load_icon(&disco_buttons[0]) ||
+        !load_icon(&disco_buttons[1]))))
         goto errout;
 
     XPLMGetNthAircraftModel(0, my_acf, my_path);
+
+    cfg_disco_when_done = B_FALSE;
+    (void)conf_get_b(bp_conf, "disco_when_done", &cfg_disco_when_done);
 
     cfg_ignore_park_break = B_FALSE;
     conf_get_b_per_acf("ignore_park_brake", &cfg_ignore_park_break);
@@ -1999,6 +2003,11 @@ bp_init(void) {
     XPLMUnregisterCommandHandler(clear_ack_cmd, clear_ack_handler, 1, NULL);
     XPLMUnregisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
     msg_fini();
+    if (bp_interface_mode_uses_legacy_magic_squares(
+        bp_get_interface_mode())) {
+        unload_icon(&disco_buttons[0]);
+        unload_icon(&disco_buttons[1]);
+    }
     unload_buttons();
     if (bp_ls.outline != NULL) {
         acf_outline_free(bp_ls.outline);
@@ -2213,6 +2222,11 @@ bp_fini(void) {
     list_destroy(&bp.segs);
 
     unload_buttons();
+    if (bp_interface_mode_uses_legacy_magic_squares(
+        bp_get_interface_mode())) {
+        unload_icon(&disco_buttons[0]);
+        unload_icon(&disco_buttons[1]);
+    }
 
     radio_volume_warn = B_FALSE;
 
@@ -2693,8 +2707,10 @@ pb_step_tug_load(void) {
         bp_ls.tug->info->max_tow_fwd_speed);
     bp.veh.max_rev_spd = MIN(bp.veh.max_rev_spd,
         bp_ls.tug->info->max_tow_rev_speed);
-    if (emergency_tow_allows_wing_walker() &&
-        bp_ls.wing_walker == NULL) {
+    bool_t display_marshaller = B_TRUE;
+    (void)conf_get_b(bp_conf, "display_marshaller", &display_marshaller);
+    if (wing_walker_should_allocate(display_marshaller != B_FALSE,
+        emergency_tow_allows_wing_walker()) && bp_ls.wing_walker == NULL) {
         char *walker_path = mkpathname(bp_xpdir, bp_plugindir, "objects",
             "wing_walker", "wing_walker.obj", NULL);
 
@@ -2703,6 +2719,10 @@ pb_step_tug_load(void) {
     } else if (!emergency_tow_allows_wing_walker()) {
         ASSERT(bp_ls.wing_walker == NULL);
         logMsg(BP_INFO_LOG "Emergency Tow wing-walker guard active; no "
+            "wing-walker object will be loaded or rendered");
+    } else if (!display_marshaller) {
+        ASSERT(bp_ls.wing_walker == NULL);
+        logMsg(BP_INFO_LOG "Marshaller display disabled in Preferences; no "
             "wing-walker object will be loaded or rendered");
     }
     telemetry_start();
@@ -3426,12 +3446,7 @@ pb_step_closing_cradle(void) {
     }
 }
 
-/*
- * The original disconnect/reconnect windows are kept here for reference, but
- * the standard workflow below disconnects automatically and never creates
- * either window.
- */
-#if 0
+/* Original legacy disconnect/reconnect magic-square windows. */
 static void
 disco_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
     int w, h, mx, my;
@@ -3461,7 +3476,6 @@ disco_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
                   B_FALSE, is_lit);
     }
 }
-#endif
 
 static int
 disco_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
@@ -3513,7 +3527,6 @@ recon_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     return (1);
 }
 
-#if 0
 static int
 disco_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
                 void *inRefcon) {
@@ -3530,7 +3543,6 @@ disco_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
 
     return (1);
 }
-#endif
 
 static XPLMCursorStatus
 nil_win_cursor(XPLMWindowID inWindowID, int x, int y, void *inRefcon) {
@@ -3553,7 +3565,6 @@ nil_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
     return (1);
 }
 
-#if 0
 static void
 disco_intf_show(void) {
     XPLMCreateWindow_t disco_ops = {
@@ -3588,7 +3599,6 @@ disco_intf_show(void) {
     ASSERT(bp_ls.recon_win != NULL);
     XPLMBringWindowToFront(bp_ls.recon_win);
 }
-#endif
 
 static void
 disco_intf_hide(void) {
@@ -3863,6 +3873,45 @@ main_intf_hide(void) {
         magic_buttons[1].wind_id = NULL;
         bp_ls.conn_tug_first = NULL;
     }
+    hide_bp_status();
+}
+
+void
+main_intf_reposition(void)
+{
+    int top;
+
+    initMonitorOrigin();
+
+    if (bp_ls.planner_win != NULL) {
+        top = monitor_def.y_origin + monitor_def.magic_squares_height;
+        XPLMSetWindowGeometry(bp_ls.planner_win, monitor_def.x_origin, top,
+            monitor_def.x_origin + magic_buttons[0].w,
+            top - magic_buttons[0].h);
+    }
+    if (bp_ls.conn_tug_first != NULL) {
+        top = monitor_def.y_origin + monitor_def.magic_squares_height -
+            1.5 * magic_buttons[1].h;
+        XPLMSetWindowGeometry(bp_ls.conn_tug_first, monitor_def.x_origin, top,
+            monitor_def.x_origin + magic_buttons[1].w,
+            top - magic_buttons[1].h);
+    }
+    if (bp_ls.start_pb_win != NULL) {
+        top = monitor_def.y_origin + monitor_def.magic_squares_height -
+            3 * magic_buttons[2].h;
+        XPLMSetWindowGeometry(bp_ls.start_pb_win, monitor_def.x_origin, top,
+            monitor_def.x_origin + magic_buttons[2].w,
+            top - magic_buttons[2].h);
+    }
+    if (bp_ls.pb_status_win != NULL) {
+        top = monitor_def.y_origin + monitor_def.magic_squares_height -
+            4.5 * magic_buttons[3].h;
+        XPLMSetWindowGeometry(bp_ls.pb_status_win, monitor_def.x_origin, top,
+            monitor_def.x_origin + magic_buttons[3].w,
+            top - magic_buttons[3].h);
+    }
+
+    hide_bp_status();
 }
 
 void
@@ -3870,36 +3919,40 @@ main_intf(bool_t force_hide) {
     /*
      * Preserve the owner's legacy visibility gate for the replacement Ground
      * Operations panel: remain visible for an active operation, otherwise
-     * require an airliner on the ground moving at less than 1 m/s.
+     * require any aircraft to be on the ground moving at less than 1 m/s.
      */
     ground_ops_ui_set_legacy_visibility(bp_started ||
-        (acf_is_airliner() && acf_on_gnd_stopped(NULL)));
+        acf_on_gnd_stopped(NULL));
     main_intf_update_automation();
 
-    /*
-     * Our Ground Operations panel replaces only the original operational
-     * magic-squares display. The complete legacy implementation remains above
-     * for upstream review and can be restored at configure time with:
-     *   -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON
-     */
-    if (!BP_ENABLE_LEGACY_MAGIC_SQUARES) {
+    if (!bp_interface_mode_uses_legacy_magic_squares(
+        bp_get_interface_mode())) {
         main_intf_hide();
-        hide_bp_status();
         return;
     }
 
     if (get_pref_widget_status() // show also the magic button while in the pref window
-     || (( bp_started || (acf_is_airliner() && acf_on_gnd_stopped(NULL))) && !force_hide) ) {
+     || ((bp_started || acf_on_gnd_stopped(NULL)) && !force_hide)) {
         main_intf_show();
     } else {
         main_intf_hide();
-        hide_bp_status();
     }
 }
 
 static void
 pb_step_waiting4ok2disco(void) {
+    if (bp_post_push_should_auto_disconnect(cfg_disco_when_done != B_FALSE,
+        slave_mode != B_FALSE, bp.ok2disco != B_FALSE)) {
+        bp.ok2disco = B_TRUE;
+        logMsg(BP_INFO_LOG "Automatic post-push tug disconnect approved");
+    }
+
     if (!bp.ok2disco) {
+        if (bp_interface_mode_uses_legacy_magic_squares(
+            bp_get_interface_mode()) && bp_ls.disco_win == NULL &&
+            !slave_mode) {
+            disco_intf_show();
+        }
         /* Start the post-approval delay only after the pilot chooses. */
         bp.step_start_t = bp.cur_t;
         return;
@@ -3988,7 +4041,17 @@ pb_step_clear_signal(void) {
     tug_set_clear_signal(B_TRUE, tug_clear_is_right());
     bp.clear_signal_gate.displayed = true;
 
-    /* Preserve the legacy minimum display time, but never auto-acknowledge. */
+    if (bp_interface_mode_uses_legacy_magic_squares(
+        bp_get_interface_mode())) {
+        /* The original interface displayed the pin/clear signal for the
+         * minimum delay and then departed without a separate acknowledgement. */
+        (void)bp_clear_signal_acknowledge(&bp.clear_signal_gate, true);
+    } else if (bp_post_push_auto_acknowledge_clear(&bp.clear_signal_gate,
+        cfg_disco_when_done != B_FALSE, slave_mode != B_FALSE)) {
+        logMsg(BP_INFO_LOG "Automatic post-push pin and clear signal acknowledged");
+    }
+
+    /* Preserve the legacy minimum display time in both workflow modes. */
     if (!bp_clear_signal_can_depart(&bp.clear_signal_gate,
         bp.cur_t - bp.step_start_t))
         return;

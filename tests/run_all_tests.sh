@@ -4,12 +4,14 @@ set -eu
 test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 for runner in \
+    run_airport_cache_manifest_tests.sh \
     run_emergency_tow_tests.sh \
     run_gate_route_math_tests.sh \
     run_gate_route_slots_tests.sh \
     run_ground_ops_data_tests.sh \
     run_ground_ops_state_tests.sh \
     run_ground_ops_text_fit_tests.sh \
+    run_interface_mode_tests.sh \
     run_translation_catalog_tests.sh \
     run_ui_click_sound_tests.sh \
     run_ground_ops_window_state_tests.sh \

@@ -13,28 +13,65 @@ static void
 test_contract_sizes(void)
 {
     int width = 0, height = 0;
+    static const ground_ops_ui_size_t sizes[] = {
+        GROUND_OPS_UI_SIZE_STANDARD,
+        GROUND_OPS_UI_SIZE_LARGE,
+        GROUND_OPS_UI_SIZE_EXTRA_LARGE
+    };
+#if APL || BP_EMULATE_MAC_UI_SCALE
+    static const double scales[] = {1.35, 1.6875, 2.025};
+    static const int orb_widths[] = {78, 98, 117};
+    static const int orb_heights[] = {329, 412, 494};
+    static const int panel_widths[] = {394, 493, 591};
+    static const int panel_heights[] = {567, 709, 851};
+#else
+    static const double scales[] = {1.0, 1.25, 1.5};
+    static const int orb_widths[] = {58, 73, 87};
+    static const int orb_heights[] = {244, 305, 366};
+    static const int panel_widths[] = {292, 365, 438};
+    static const int panel_heights[] = {420, 525, 630};
+#endif
 
-    ground_ops_presentation_size(GROUND_OPS_PRESENTATION_ORB,
-        &width, &height);
-#if APL || BP_EMULATE_MAC_UI_SCALE
-    assert(ground_ops_ui_scale() == 1.35);
-    assert(width == 78 && height == 329);
-#else
-    assert(ground_ops_ui_scale() == 1.0);
-    assert(width == 58 && height == 244);
-#endif
-    ground_ops_presentation_size(GROUND_OPS_PRESENTATION_PANEL,
-        &width, &height);
-#if APL || BP_EMULATE_MAC_UI_SCALE
-    assert(width == 394 && height == 567);
-    assert(ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD) == 7);
-#else
-    assert(width == 292 && height == 420);
-    assert(ground_ops_scaled_pixels(GROUND_OPS_CLICK_DRAG_THRESHOLD) == 5);
-#endif
+    assert(ground_ops_ui_size_valid(GROUND_OPS_UI_SIZE_STANDARD));
+    assert(ground_ops_ui_size_valid(GROUND_OPS_UI_SIZE_LARGE));
+    assert(ground_ops_ui_size_valid(GROUND_OPS_UI_SIZE_EXTRA_LARGE));
+    assert(!ground_ops_ui_size_valid(-1));
+    assert(!ground_ops_ui_size_valid(3));
+    assert(ground_ops_ui_size_multiplier(GROUND_OPS_UI_SIZE_STANDARD) == 1.0);
+    assert(ground_ops_ui_size_multiplier(GROUND_OPS_UI_SIZE_LARGE) == 1.25);
+    assert(ground_ops_ui_size_multiplier(
+        GROUND_OPS_UI_SIZE_EXTRA_LARGE) == 1.5);
+
+    for (size_t index = 0; index < sizeof (sizes) / sizeof (sizes[0]);
+        index++) {
+        ground_ops_ui_size_set(sizes[index]);
+        assert(ground_ops_ui_size_get() == sizes[index]);
+        assert(fabs(ground_ops_ui_scale() - scales[index]) < 0.000001);
+        ground_ops_presentation_size(GROUND_OPS_PRESENTATION_ORB,
+            &width, &height);
+        assert(width == orb_widths[index]);
+        assert(height == orb_heights[index]);
+        ground_ops_presentation_size(GROUND_OPS_PRESENTATION_PANEL,
+            &width, &height);
+        assert(width == panel_widths[index]);
+        assert(height == panel_heights[index]);
+    }
+    ground_ops_ui_size_set((ground_ops_ui_size_t)99);
+    assert(ground_ops_ui_size_get() == GROUND_OPS_UI_SIZE_STANDARD);
+    ground_ops_ui_size_set(GROUND_OPS_UI_SIZE_STANDARD);
     assert(ground_ops_presentation_valid(GROUND_OPS_PRESENTATION_HIDDEN));
     assert(ground_ops_presentation_valid(GROUND_OPS_PRESENTATION_PANEL));
     assert(!ground_ops_presentation_valid(3));
+    assert(ground_ops_startup_presentation(GROUND_OPS_PRESENTATION_ORB,
+        GROUND_OPS_PRESENTATION_PANEL) == GROUND_OPS_PRESENTATION_ORB);
+    assert(ground_ops_startup_presentation(GROUND_OPS_PRESENTATION_PANEL,
+        GROUND_OPS_PRESENTATION_ORB) == GROUND_OPS_PRESENTATION_PANEL);
+    assert(ground_ops_startup_presentation(GROUND_OPS_PRESENTATION_HIDDEN,
+        GROUND_OPS_PRESENTATION_ORB) == GROUND_OPS_PRESENTATION_ORB);
+    assert(ground_ops_startup_presentation(GROUND_OPS_PRESENTATION_HIDDEN,
+        GROUND_OPS_PRESENTATION_HIDDEN) == GROUND_OPS_PRESENTATION_PANEL);
+    assert(ground_ops_startup_presentation(-1, 99) ==
+        GROUND_OPS_PRESENTATION_PANEL);
     assert(ground_ops_window_mode_valid(GROUND_OPS_WINDOW_FLOAT));
     assert(ground_ops_window_mode_valid(GROUND_OPS_WINDOW_POPOUT));
     assert(!ground_ops_window_mode_valid(2));
@@ -109,6 +146,112 @@ test_click_drag_threshold(void)
     assert(!ground_ops_click_is_activation(0, -6, 5));
 }
 
+static void
+test_effective_visibility(void)
+{
+    assert(!ground_ops_window_effectively_visible(false, false, false,
+        false));
+    assert(!ground_ops_window_effectively_visible(true, true, false,
+        false));
+    assert(ground_ops_window_effectively_visible(true, false, false,
+        false));
+    assert(!ground_ops_window_effectively_visible(true, false, true,
+        false));
+    assert(ground_ops_window_effectively_visible(true, false, true,
+        true));
+    assert(!ground_ops_window_effectively_visible(true, true, true,
+        true));
+}
+
+static void
+test_auto_expand_for_pilot_actions(void)
+{
+    ground_ops_auto_expand_state_t state = {0};
+
+    assert(ground_ops_auto_expand_update(&state, false, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 1.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, false,
+        GROUND_OPS_PRESENTATION_ORB, true, 2.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 3.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_EXPAND);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, true, 3.5) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 4.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 4.999) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 5.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
+
+    ground_ops_auto_expand_reset(&state);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 10.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_EXPAND);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 11.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, true, 11.5) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 12.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 13.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
+
+    ground_ops_auto_expand_reset(&state);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, true, 20.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 21.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+
+    ground_ops_auto_expand_reset(&state);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 30.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_EXPAND);
+    ground_ops_auto_expand_note_manual(&state, true);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, 30.5) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, false, 31.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+
+    ground_ops_auto_expand_reset(&state);
+    ground_ops_auto_expand_note_manual(&state, true);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 40.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 41.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
+
+    ground_ops_auto_expand_reset(&state);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, true, 50.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 51.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_PANEL, false, 52.0) ==
+        GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
+
+    assert(ground_ops_auto_expand_update(&state, true, true,
+        GROUND_OPS_PRESENTATION_ORB, true, NAN) ==
+        GROUND_OPS_AUTO_PRESENTATION_NONE);
+}
+
 int
 main(void)
 {
@@ -170,6 +313,8 @@ main(void)
     test_edge_aware_expansion();
     test_missing_monitor_recovery();
     test_click_drag_threshold();
+    test_effective_visibility();
+    test_auto_expand_for_pilot_actions();
     puts("ground operations window state tests passed");
     return (0);
 }

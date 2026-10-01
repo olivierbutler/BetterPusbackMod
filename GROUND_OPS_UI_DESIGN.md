@@ -57,15 +57,20 @@ cockpit.
 
 - No visible X-Plane window and no UI draw callback.
 - Available before a ground operation through the plugin menu and a command.
-- The legacy visibility gate keeps the UI visible during an active operation.
-  After completion it hides when the aircraft is no longer on the ground below
-  1 m/s, and restores the same presentation when that condition is met again.
+- Applies only after a pilot hides the window during the current simulator
+  session. The next simulator/plugin connection always starts visible.
+- The startup presentation follows the ground-speed gate: it hides while the
+  aircraft is taxiing and restores when the aircraft is stopped on the ground.
+- A later pilot **Show** command is authoritative and can keep the presentation
+  visible while moving; **Hide** removes that manual override.
 
 ### Compact progress rail
 
 - Default active mode.
-- Nominal size on Windows/Linux: 58 by 244 boxels. macOS uses a proportional
-  1.35 scale (78 by 329), including text and hit targets.
+- Standard size on Windows/Linux is 58 by 244 boxels. Large is 73 by 305 and
+  Extra large is 87 by 366. macOS retains its proportional 1.35 platform
+  scale, including text and hit targets, before applying the selected user
+  size.
 - Contains the same Tug, Connect, Comms, Push, and Clear nodes used by the
   expanded panel, without any additional dashboard content.
 - Completed stages are filled green. The current stage is bright green while
@@ -77,6 +82,12 @@ cockpit.
 - Dragging moves the rail without expanding it. The implementation must use a
   small movement threshold to distinguish a click from a drag.
 - Compact mode has no tooltips and never expands from hover; click to expand.
+- With the global **Auto-expand for pilot actions** preference enabled, a new
+  required action expands a visible compact rail. The panel collapses one
+  second after the action clears whether it was expanded automatically or by
+  the pilot. Hidden windows remain hidden, and a new action during the delay
+  cancels the pending collapse. With the preference disabled, presentation
+  changes remain entirely manual.
 - Red is reserved for a future explicit fault or safety-stop state reported by
   the controller. Normal pilot gates, deliberate pause holds, disconnect
   approval, and destructive alternatives do not make a stage red.
@@ -84,8 +95,10 @@ cockpit.
 
 ### Expanded panel
 
-- Nominal fixed size on Windows/Linux: 292 by 420 boxels. macOS uses a
-  proportional 1.35 scale (394 by 567), including text and hit targets.
+- Standard size on Windows/Linux is 292 by 420 boxels. Large is 365 by 525 and
+  Extra large is 438 by 630. macOS retains its proportional 1.35 platform
+  scale, including text and hit targets, before applying the selected user
+  size.
 - Narrow vertical layout with a five-stage rail on the left.
 - The upper-left grip/title region moves the window.
 - Drawn pop-out/in, minus and close controls do not depend on font glyphs.
@@ -135,16 +148,24 @@ Required behavior:
 
 Persisted UI state covers:
 
-- presentation mode: hidden, compact rail, or panel;
+- current presentation mode plus the last visible compact or panel mode;
 - floating geometry;
 - popped-out operating-system geometry;
 - preferred monitor.
 
 Platform scale is selected at build time. Windows/Linux use 1.0; macOS uses
-1.35. A development build can enable `BP_EMULATE_MAC_UI_SCALE`.
+1.35. The user preference then applies a 1.0, 1.25, or 1.5 multiplier to the
+complete interface. A development build can enable `BP_EMULATE_MAC_UI_SCALE`.
 
 Exact key names are an implementation detail, but configuration migration must
 be backward compatible.
+
+At startup, a saved compact or expanded presentation is restored visibly. A
+saved hidden presentation restores the last visible presentation instead. If
+no visible history exists, as on a first install or migration from an older
+hidden state, the expanded panel is the default. Startup visibility is automatic,
+so the ground-speed gate may hide the window while taxiing and restore it after
+the aircraft stops. An explicit pilot Show/Hide choice remains authoritative.
 
 ## Workflow stages and existing pushback states
 
@@ -170,12 +191,12 @@ states into it. The UI must never infer motion merely from a caption string.
 | `PB_STEP_STOPPED` | Push | Aircraft stopped | Yes: set parking brake |
 | `PB_STEP_LOWERING` | Clear | Lowering the nose gear | No |
 | `PB_STEP_UNGRABBING` | Clear | Releasing the nose gear | No |
-| `PB_STEP_WAITING4OK2DISCO` | Clear | Ready to disconnect | **Disconnect tug** or **Reconnect** in the Ground Operations panel |
+| `PB_STEP_WAITING4OK2DISCO` | Clear | Ready to disconnect | Manual mode: **Disconnect tug** or **Reconnect** in the Ground Operations panel; automatic mode approves disconnect without pilot input |
 | `PB_STEP_MOVING_AWAY` | Clear | Tug moving clear | No |
 | `PB_STEP_CLOSING_CRADLE` | Clear | Closing the tug cradle | No |
 | `PB_STEP_STARTING2CLEAR` | Clear | Driver moving to clear | No |
 | `PB_STEP_MOVING2CLEAR` | Clear | Driver moving to clear | No |
-| `PB_STEP_CLEAR_SIGNAL` | Clear | Clear signal displayed | Acknowledge the displayed pin/clear signal; departure also requires the original 15-second minimum |
+| `PB_STEP_CLEAR_SIGNAL` | Clear | Clear signal displayed | Manual mode: acknowledge the displayed pin/clear signal; automatic mode acknowledges it internally; both retain the original 15-second minimum |
 | `PB_STEP_DRIVING_AWAY` | Clear | Tug returning to station | Informational: Finalize cockpit checklist |
 
 Pre-push presentation remains separate from `bp.step`:
@@ -245,6 +266,10 @@ The UI must not fabricate a flight identity or weather value.
 - Persistent route reuse is available only when the live nosewheel uniquely
   matches a published `apt.dat` start within 1 m and 1 degree. Two isolated
   route slots are available per published gate and compatible aircraft profile.
+- The derived airport database records an ordered manifest of active `apt.dat`
+  inputs, including existence, file size, and modification time. A changed
+  manifest invalidates and rebuilds only the airport database at startup;
+  persistent gate-route slots are stored separately and remain untouched.
 - An arbitrary or saved-situation start remains usable for the current session,
   but it cannot list, load, save, or modify persistent gate-route slots.
 - The planner's blue legacy route and magenta danger band remain visual
@@ -284,6 +309,13 @@ yellow **Acknowledge** button. Required task cards use an amber background,
 yellow heading and left accent. Optional controls retain secondary styling;
 destructive End operation confirmation retains its separate warning treatment.
 
+The global **Auto disconnect when done** preference is off by default and is
+persisted across simulator starts for all aircraft.
+When enabled, the controller takes over only after the requested parking brake
+has been set. It approves the disconnect gate and acknowledges the clear-signal
+gate without pilot input while retaining the physical release sequence, audio,
+side-clear movement, signal presentation, and 15-second minimum display time.
+
 During departure, the neutral **CURRENT TASK** is **Finalize cockpit checklist**.
 After completion all five stages are green; visibility follows the legacy
 ground/speed gate, not an invented completion timer.
@@ -312,6 +344,18 @@ audio. Preferences remains unavailable during an active pushback.
 - A later normal operation again uses the normal published-start guard. If the
   returned aircraft is off its unique `apt.dat` anchor, the route remains
   session-only and no cache file can be created or changed.
+
+### Marshaller presentation
+
+- The global **Display marshaller** preference defaults on and prevents object
+  allocation entirely when disabled.
+- The normal-operation position preserves the 30-yard nose clearance and
+  captain-side offset. It is captured when the first visible signal begins,
+  including while asynchronous object loading is still completing.
+- Position and heading remain anchored for the rest of the operation. Aircraft
+  movement after the signal begins cannot pull the marshaller along.
+- The current object heading is rotated 180 degrees from its earlier runtime
+  orientation so the visible character faces the aircraft.
 
 ## Data sources and precedence
 
@@ -370,15 +414,25 @@ state. The stationary hold freezes steering and cannot resume through a set
 parking brake. End operation uses the compatible terminating stop path and
 discards the route only after confirmation.
 
-The Ground Operations panel is the fork's standard operational interface.
-The original four "magic squares" windows remain preserved in `bp.c`, but the
-build defaults `BP_ENABLE_LEGACY_MAGIC_SQUARES` to `OFF` so duplicate controls
-are not rendered. Configuring that CMake option `ON` restores the original
-windows for upstream compatibility. The switch affects presentation only:
-automatic beacon-triggered tug behavior is evaluated separately, and the
-planner, preferences, and commands remain available. At the final disconnect
-gate, the panel exposes **Disconnect tug** and **Reconnect** through the same
-legacy command handlers without restoring separate floating windows.
+The global **Pushback interface** preference selects the fork's Ground
+Operations panel or the original **Legacy magic squares** at runtime. The
+selection is global, remembered, and mutually exclusive: only the selected
+interface owns operational windows and update loops. Switching is allowed only
+while the pushback controller and planner are idle.
+
+Legacy mode restores the original per-aircraft **Magic squares position**
+slider. Position changes are queued to the simulator callback and move the
+existing windows without destroying them from inside the Preferences draw
+callback.
+
+The switch affects presentation and pilot interaction only. Automatic
+beacon-triggered tug behavior is evaluated separately, and the shared planner,
+preferences, commands, controller, cache, and tug physics remain available.
+Ground Operations exposes **Disconnect tug**, **Reconnect**, and clear-signal
+acknowledgement in the panel. Legacy mode restores its original floating
+disconnect/reconnect buttons and timed clear-signal departure. If the global
+**Auto disconnect when done** option is enabled, the controller approves the
+post-push gates automatically in either mode.
 
 ## Performance contract
 

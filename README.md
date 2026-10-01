@@ -37,19 +37,46 @@ airport, gate or stand, and compatible aircraft profile. Each matching profile
 has two independent saved-route slots with explicit selection and replacement.
 Saved-situation, arbitrary-position, off-anchor, and Emergency Tow routes remain
 session-only and cannot load, replace, or save persistent routes.
+BetterPushback validates its derived airport database against the active scenery
+order and every contributing `apt.dat` file at startup. Adding, removing, or
+updating custom scenery automatically rebuilds that airport database without
+deleting the separately stored push-route slots.
 
 Ground Operations can be shown as a compact five-orb stage rail, expanded into
 the complete status and action panel, or popped out as a native X-Plane window
-and moved to another monitor. During an automatic push, **Pause/Resume** retains
+and moved to another monitor. It opens automatically when BetterPushback
+connects to the simulator, restoring the last visible compact or expanded
+presentation. A first-time install, or an older hidden state without visible
+presentation history, opens expanded. The pilot can then show or hide it
+normally. Outside an active operation it automatically hides while the aircraft
+is taxiing and returns when the aircraft stops on the ground. An explicit pilot
+Show command can keep it visible while moving. During an automatic push,
+**Pause/Resume** retains
 the accepted route and steering state, while **End operation** stops safely and
 continues through the normal disconnect sequence at the current position.
+The Preferences window offers Standard, Large, and Extra-large interface sizes;
+each selection scales the full layout and its controls together with the text.
+The global **Auto-expand for pilot actions** preference lets the pilot leave
+Ground Operations compact: a newly required action expands the panel, and an
+automatic one-second delay collapses only that automatically opened panel after
+the action is complete. While this preference is enabled, completing a pilot
+action collapses an expanded panel regardless of whether the plugin or the
+pilot expanded it. Hidden windows are not changed.
+The checkbox takes effect immediately; Save preferences keeps it for later
+simulator starts.
+The global **Auto disconnect when done** preference can complete the
+post-push disconnect and final clear-signal acknowledgement without another
+pilot input after the requested parking brake has been set. The normal tug
+lowering, separation, side-clear movement, audio, and signal timing are retained.
 
 After a completed normal operation, **Call tow back** starts a guarded one-time
 Emergency Tow. The tug returns and connects, the manual planner opens at the live aircraft
 position, and the plugin returns to its normal start state after towing and
 disconnect are complete. Emergency Tow does not use the saved-route cache or
 render the wing walker. Normal pushbacks retain the accepted STOP, STANDBY, and
-CLEAR wing-walker sequence.
+CLEAR wing-walker sequence when the global **Display marshaller** preference is
+enabled. The marshaller faces the aircraft and is anchored to his initial world
+position so early aircraft movement cannot make him follow the aircraft.
 
 ### About this Fork and Copyright
 
@@ -85,23 +112,21 @@ or later).
 
 For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 
-### Legacy operational UI compatibility
+### Operational interface selection
 
-This fork uses the Ground Operations panel as its operational interface. The
-original BetterPushback "magic squares" windows remain in the source tree but
-are disabled by default so both interfaces are not displayed together. An
-upstream maintainer can restore the original windows without reverting source
-by configuring the build with:
+The global **Pushback interface** preference selects either the Ground
+Operations panel or the original BetterPushback **Legacy magic squares**.
+The choice is remembered across simulator starts and the two interfaces are
+mutually exclusive. Both use the same planner, commands, tug controller,
+physics, route cache, and automatic-completion option.
+When legacy mode is selected, the original per-aircraft **Magic squares
+position** slider is available in Preferences and moves the complete stack
+vertically between 20% and 80% of the selected monitor.
 
-```
-cmake -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON ...
-```
-
-This switch controls only the four original shortcut windows. Ground
-Operations remains enabled, and the overhead planner and classic menu commands
-remain available. The end sequence disconnects automatically; the original
-disconnect/reconnect window implementation is retained as dormant source and
-is not created.
+Ground Operations presents disconnect/reconnect and clear-signal actions in
+the panel. Legacy mode restores the original shortcut windows and its original
+disconnect/reconnect buttons. Enabling the global **Auto disconnect when done**
+preference completes the post-push actions automatically in either mode.
 
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:

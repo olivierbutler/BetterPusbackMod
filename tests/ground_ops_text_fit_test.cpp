@@ -31,7 +31,9 @@ int main(int argc, char **argv)
     ImFont *font = argc > 1 ? atlas->AddFontFromFileTTF(argv[1], 17, nullptr,
         atlas->GetGlyphRangesCyrillic()) : atlas->AddFontDefault();
     assert(font != nullptr && atlas->Build());
-    for (float scale : {1.0f, 1.35f, 2.0f}) {
+    /* Windows/Linux and macOS platform scales at Standard, Large and
+     * Extra-large user-selected sizes. */
+    for (float scale : {1.0f, 1.25f, 1.5f, 1.35f, 1.6875f, 2.025f}) {
         for (int step = PB_STEP_OFF; step < PB_STEP_COUNT; ++step) {
             for (int variant = 0; variant < 64; ++variant) {
                 for (int caption = 0; caption < GROUND_OPS_CAPTION_COUNT; ++caption) {

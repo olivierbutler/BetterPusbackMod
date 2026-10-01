@@ -43,6 +43,7 @@ struct wing_walker {
     bool_t terrain_warning_shown;
     bool_t signal_initialized;
     wing_walker_signal_t last_signal;
+    wing_walker_anchor_t anchor;
 };
 
 static const char *wing_walker_datarefs[] = {
@@ -157,12 +158,12 @@ wing_walker_update(wing_walker_t *walker, vect2_t aircraft_pos,
     XPLMDrawInfo_t draw_info = {.structSize = sizeof(draw_info)};
     XPLMProbeInfo_t probe_info = {.structSize = sizeof(probe_info)};
     wing_walker_signal_t signal;
-    vect2_t aircraft_direction, captain_left, walker_pos;
+    vect2_t walker_pos;
     vect3_t normal, normal_heading, grounded_pos;
     float instance_data[1];
     double walker_heading;
 
-    if (walker == NULL || walker->instance == NULL)
+    if (walker == NULL)
         return;
 
     signal = wing_walker_signal_for_step(step, reconnecting != B_FALSE);
@@ -172,12 +173,24 @@ wing_walker_update(wing_walker_t *walker, vect2_t aircraft_pos,
         walker->last_signal = signal;
         walker->signal_initialized = B_TRUE;
     }
-    aircraft_direction = hdg2dir(aircraft_heading);
-    captain_left = vect2_norm(aircraft_direction, B_FALSE);
-    walker_pos = vect2_add(aircraft_pos, vect2_scmul(aircraft_direction,
-        aircraft_nose_forward + WING_WALKER_NOSE_CLEARANCE));
-    walker_pos = vect2_add(walker_pos, vect2_scmul(captain_left,
-        WING_WALKER_CAPTAIN_OFFSET));
+    if (signal != WING_WALKER_SIGNAL_HIDDEN && !walker->anchor.captured &&
+        wing_walker_anchor_capture(&walker->anchor, aircraft_pos.x,
+        aircraft_pos.y, aircraft_heading, aircraft_nose_forward,
+        WING_WALKER_NOSE_CLEARANCE, WING_WALKER_CAPTAIN_OFFSET)) {
+        logMsg(BP_INFO_LOG "Wing walker anchored at %.2f, %.2f heading %.1f; "
+            "subsequent aircraft movement will not move the worker",
+            walker->anchor.x, walker->anchor.y, walker->anchor.heading);
+    }
+
+    if (walker->instance == NULL)
+        return;
+
+    if (signal == WING_WALKER_SIGNAL_HIDDEN && !walker->anchor.captured) {
+        instance_data[0] = WING_WALKER_SIGNAL_HIDDEN;
+        XPLMInstanceSetPosition(walker->instance, &draw_info, instance_data);
+        return;
+    }
+    walker_pos = VECT2(walker->anchor.x, walker->anchor.y);
 
     if (XPLMProbeTerrainXYZ(walker->probe, walker_pos.x, 0,
         -walker_pos.y, &probe_info) != xplm_ProbeHitTerrain) {
@@ -197,7 +210,7 @@ wing_walker_update(wing_walker_t *walker, vect2_t aircraft_pos,
     grounded_pos = VECT3(walker_pos.x, probe_info.locationY, -walker_pos.y);
     grounded_pos = vect3_add(grounded_pos, vect3_set_abs(normal,
         WING_WALKER_GROUND_CLEARANCE));
-    walker_heading = normalize_hdg(aircraft_heading + 180);
+    walker_heading = walker->anchor.heading;
     normal_heading = vect3_rot(VECT3(probe_info.normalX,
         probe_info.normalY, -probe_info.normalZ), walker_heading, 1);
 

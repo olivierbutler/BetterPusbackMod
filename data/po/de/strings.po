@@ -971,3 +971,58 @@ msgstr "Parkbremse setzen"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "Größe der Bodenbetriebsoberfläche"
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Large"
+msgstr "Groß"
+
+msgid "Extra large"
+msgstr "Sehr groß"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "Skaliert die gesamte Bodenbetriebsoberfläche einschließlich Text, Steuerelementen, Abständen und Klickflächen."
+
+msgid "Auto-expand for pilot actions"
+msgstr "Bei Pilotenaktionen automatisch erweitern"
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr ""
+"Das kompakte Ground-Operations-Fenster bei erforderlichen Pilotenaktionen "
+"erweitern und kurz nach Abschluss der Aktion wieder einklappen."
+
+msgid "Pushback interface"
+msgstr "Pushback-Benutzeroberfläche"
+
+msgid "Ground Operations"
+msgstr "Bodenbetrieb"
+
+msgid "Legacy magic squares"
+msgstr "Klassische magische Quadrate"
+
+msgid "Display marshaller"
+msgstr "Marshaller anzeigen"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+"Den Marshaller während normaler Pushback-Vorgänge anzeigen. Beim "
+"Notfallschleppen wird der Marshaller nie angezeigt."
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Eine globale Pushback-Benutzeroberfläche auswählen. Bodenbetrieb verwendet "
+"das neue Fenster; Klassische magische Quadrate stellt die ursprünglichen "
+"Bedientasten wieder her. Die Auswahl gilt im Leerlauf sofort. Einstellungen "
+"speichern, um sie beim nächsten Simulatorstart beizubehalten."

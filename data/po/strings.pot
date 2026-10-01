@@ -577,3 +577,35 @@ msgstr  ""
 
 msgid   "Ground crew audio volume"
 msgstr  ""
+
+msgid "Auto-expand for pilot actions"
+msgstr ""
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr  ""
+
+msgid "Pushback interface"
+msgstr ""
+
+msgid "Ground Operations"
+msgstr ""
+
+msgid "Legacy magic squares"
+msgstr ""
+
+msgid "Display marshaller"
+msgstr ""
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""

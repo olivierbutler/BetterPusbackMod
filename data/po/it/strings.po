@@ -992,3 +992,58 @@ msgstr "Inserire il freno di stazionamento"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "Dimensione dell'interfaccia operazioni a terra"
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Large"
+msgstr "Grande"
+
+msgid "Extra large"
+msgstr "Molto grande"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "Ridimensiona l'intera interfaccia delle operazioni a terra, inclusi testo, controlli, spaziatura e aree di interazione."
+
+msgid "Auto-expand for pilot actions"
+msgstr "Espandi automaticamente per le azioni del pilota"
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr ""
+"Espande il pannello compatto delle operazioni a terra quando è richiesta "
+"un'azione del pilota, quindi lo comprime poco dopo il completamento dell'azione."
+
+msgid "Pushback interface"
+msgstr "Interfaccia pushback"
+
+msgid "Ground Operations"
+msgstr "Operazioni di terra"
+
+msgid "Legacy magic squares"
+msgstr "Quadrati magici classici"
+
+msgid "Display marshaller"
+msgstr "Mostra il marshaller"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+"Mostra il marshaller durante le normali operazioni di pushback. Il traino "
+"di emergenza non mostra mai il marshaller."
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Seleziona un'interfaccia pushback globale. Operazioni di terra usa il nuovo "
+"pannello; Quadrati magici classici ripristina i pulsanti operativi originali. "
+"La selezione si applica immediatamente quando il sistema è inattivo. Salva "
+"le preferenze per mantenerla al prossimo avvio del simulatore."
