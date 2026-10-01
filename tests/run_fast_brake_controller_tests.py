@@ -33,7 +33,8 @@ def function_source(source, name):
 repo = Path(__file__).resolve().parent.parent
 source = (repo / "src/bp.c").read_text()
 upstream = subprocess.check_output(
-    ["git", "show", "v1.14:src/bp.c"], cwd=repo, text=True
+    ["git", "show", "377fddf968d0008cc9ef45b8e91e52bba2987369:src/bp.c"],
+    cwd=repo, text=True
 )
 for name in ("pbrake_is_set", "brakes_set"):
     current_lines = [line.rstrip() for line in function_source(source, name).splitlines()]
@@ -42,6 +43,7 @@ for name in ("pbrake_is_set", "brakes_set"):
 
 lowering = function_source(source, "pb_step_lowering")
 assert "pb_enter_ungrabbing(B_TRUE);" in lowering
+assert "bp_fast_brake_handoff_reset" not in function_source(source, "pb_enter_ungrabbing")
 assert source.count("pb_enter_ungrabbing(B_FALSE);") == 1
 assert re.search(
     r"if \(bp.awaiting_plan\) \{[^{}]*pb_enter_ungrabbing\(B_FALSE\);",
@@ -52,15 +54,27 @@ assert not re.search(r"bp\.step\s*=\s*PB_STEP_UNGRABBING", source.replace(
 ))
 
 functions = (
-    "pbrake_is_set", "brakes_set", "fast_brake_handoff_ready",
+    "pbrake_is_set", "brakes_set", "fast_brake_handoff_active",
+    "fast_brake_handoff_ready", "bp_complete",
     "pb_enter_ungrabbing", "pb_step_stopped", "pb_step_lowering",
     "pb_step_ungrabbing_grab", "pb_step_ungrabbing_winch",
     "pb_step_ungrabbing", "recon_handler"
 )
+reference_names = (
+    "pb_step_stopped", "pb_step_lowering", "pb_step_ungrabbing_grab",
+    "pb_step_ungrabbing_winch", "pb_step_ungrabbing"
+)
+reference_functions = []
+for name in reference_names:
+    body = function_source(upstream, name)
+    for original in reference_names:
+        body = re.sub(r"\b" + original + r"\b", "reference_" + original, body)
+    reference_functions.append(body)
 with tempfile.TemporaryDirectory(prefix="bpb-fast-brake-controller-") as temp:
     test_dir = Path(temp)
     (test_dir / "fast_brake_handoff_controller.inc").write_text(
-        "\n\n".join(function_source(source, name) for name in functions)
+        "\n\n".join([function_source(source, name) for name in functions]
+            + reference_functions)
     )
     binary = test_dir / "controller-test"
     subprocess.run([

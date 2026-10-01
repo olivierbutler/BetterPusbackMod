@@ -978,3 +978,54 @@ msgstr "设置停机刹车"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "地面操作界面大小"
+
+msgid "Standard"
+msgstr "标准"
+
+msgid "Large"
+msgstr "大"
+
+msgid "Extra large"
+msgstr "特大"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "缩放整个地面操作界面，包括文本、控件、间距和点击区域。"
+
+msgid "Auto-expand for pilot actions"
+msgstr "需要飛行員操作時自動展開"
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr ""
+"需要飛行員操作時展開精簡的地面操作面板，"
+"操作完成後不久自動收合。"
+
+msgid "Pushback interface"
+msgstr "推出界面"
+
+msgid "Ground Operations"
+msgstr "地面操作"
+
+msgid "Legacy magic squares"
+msgstr "傳統魔方按鈕"
+
+msgid "Display marshaller"
+msgstr "顯示引導員"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr "正常推出作業期間顯示引導員。緊急拖行不會顯示引導員。"
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"選擇一個全域推出界面。地面操作使用新面板；傳統魔方按鈕恢復原始操作按鈕。"
+"空閒時選擇會立即生效。儲存偏好設定後，下次啟動模擬器時仍會保留。"

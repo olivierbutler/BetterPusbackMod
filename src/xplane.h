@@ -30,6 +30,8 @@
 #include <acfutils/geom.h>
 #include <acfutils/list.h>
 
+#include "interface_mode.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -92,6 +94,12 @@ void bp_done_notify(void);
 const char *bp_get_lang(void);
 
 void bp_sched_reload(void);
+
+bp_interface_mode_t bp_get_interface_mode(void);
+
+bool_t bp_set_interface_mode(bp_interface_mode_t mode);
+
+void bp_request_legacy_magic_squares_reposition(void);
 
 bool_t get_pref_widget_status(void);
 

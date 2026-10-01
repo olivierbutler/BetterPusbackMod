@@ -366,6 +366,24 @@ msgstr  ""
 msgid   "Waiting for the parking brakes set"
 msgstr  ""
 
+msgid "Waiting for brake pedals to be released (or abort pushback)"
+msgstr ""
+
+msgid "Release brake pedals"
+msgstr ""
+
+msgid "Legacy route recall"
+msgstr ""
+
+msgid "Automatically recall and save routes using the original position and heading cache, without gate-slot selection or replacement dialogs. The newer saved gate slots remain unchanged."
+msgstr ""
+
+msgid "Fast Ground Handling"
+msgstr ""
+
+msgid "Skip artificial ground handling waits and animations, including disconnect after parking brake set. Brake checks, towing and tug travel keep normal behavior."
+msgstr ""
+
 #: src/bp.c:3433 src/bp.c:3437 src/bp.c:3454 src/bp.c:3456 src/bp.c:3457
 #: src/bp.c:3462 src/bp.c:3465 src/bp.c:3472
 msgid   "Push-back called"
@@ -577,3 +595,35 @@ msgstr  ""
 
 msgid   "Ground crew audio volume"
 msgstr  ""
+
+msgid "Auto-expand for pilot actions"
+msgstr ""
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr  ""
+
+msgid "Pushback interface"
+msgstr ""
+
+msgid "Ground Operations"
+msgstr ""
+
+msgid "Legacy magic squares"
+msgstr ""
+
+msgid "Display marshaller"
+msgstr ""
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""

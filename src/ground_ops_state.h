@@ -121,6 +121,7 @@ typedef struct {
     bool clear_signal_displayed;
     bool clear_signal_acknowledged;
     bool disconnect_approved;
+    bool fast_brake_pedals_wait;
     char airport_ident[8];
     char flight[GROUND_OPS_FLIGHT_LEN];
     char schedule[GROUND_OPS_SCHEDULE_LEN];

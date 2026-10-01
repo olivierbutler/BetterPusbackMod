@@ -63,12 +63,10 @@
 #include "ground_ops_ui.h"
 #include "handling_timing.h"
 #include "msg.h"
+#include "post_push_automation.h"
 #include "telemetry.h"
+#include "wing_walker_logic.h"
 #include "xplane.h"
-
-#ifndef BP_ENABLE_LEGACY_MAGIC_SQUARES
-#define BP_ENABLE_LEGACY_MAGIC_SQUARES 0
-#endif
 
 #define    MIN_XPLANE_VERSION    11550    /* X-Plane 11.55 */
 #define    MIN_XPLANE_VERSION_STR    "11.55"    /* X-Plane 11.55 */
@@ -202,6 +200,7 @@ bp_long_state_t bp_ls = {0};
 static bool_t inited = B_FALSE;
 static XPLMFlightLoopID bp_floop = NULL;
 
+static bool_t cfg_disco_when_done = B_FALSE;
 static bool_t cfg_ignore_park_break = B_FALSE;
 
 static struct {
@@ -317,13 +316,11 @@ static const char *const bp_step_names[] = {
 static XPLMCommandRef disco_cmd = NULL;
 static XPLMCommandRef clear_ack_cmd = NULL;
 static XPLMCommandRef recon_cmd = NULL;
-#if 0
 static button_t disco_buttons[] = {
         {.filename = "disconnect.png", .vk = -1, .tex = 0, .tex_data = NULL},
         {.filename = "reconnect.png", .vk = -1, .tex = 0, .tex_data = NULL},
         {.filename = NULL},
 };
-#endif
 
 static button_t magic_buttons[] = {
         {.filename = "planner.png", .vk = -1, .tex = 0, .tex_data = NULL, .wind_id = NULL},
@@ -935,25 +932,39 @@ brakes_set(bool_t flag) {
 }
 
 static bool_t
+fast_brake_handoff_active(void)
+{
+    return bp_fast_brake_handoff_enabled(&bp.fast_brake_handoff,
+        bp_fast_ground_handling() != B_FALSE, slave_mode != B_FALSE,
+        cfg_ignore_park_break != B_FALSE);
+}
+
+static bool_t
 fast_brake_handoff_ready(void)
 {
     bool_t parking_brake_set = pbrake_is_set();
+    double left = dr_getf(&drs.lbrake);
+    double right = dr_getf(&drs.rbrake);
+    bool_t pedals_released = isfinite(left) && isfinite(right) &&
+        left >= 0 && right >= 0 && left < BRAKE_PEDAL_THRESH &&
+        right < BRAKE_PEDAL_THRESH;
     bp_fast_brake_action_t action = bp_fast_brake_handoff_update(
-        &bp.fast_brake_handoff, bp.cur_t, parking_brake_set != B_FALSE);
+        &bp.fast_brake_handoff, parking_brake_set != B_FALSE,
+        pedals_released != B_FALSE);
 
     switch (action) {
     case BP_FAST_BRAKE_HOLD:
-        brakes_set(B_TRUE);
-        bp_hint_status_str = _("Waiting for the parking brakes set");
-        return (B_FALSE);
-    case BP_FAST_BRAKE_RELEASE:
-        brakes_set(B_FALSE);
-        return (B_FALSE);
-    case BP_FAST_BRAKE_VERIFY:
-        return (B_FALSE);
     case BP_FAST_BRAKE_RESTORE:
         brakes_set(B_TRUE);
+        bp.fast_brakes_relinquished = B_FALSE;
         bp_hint_status_str = _("Waiting for the parking brakes set");
+        return (B_FALSE);
+    case BP_FAST_BRAKE_WITHDRAW:
+        bp.fast_brakes_relinquished = B_TRUE;
+        bp_hint_status_str = _("Waiting for brake pedals to be released (or abort pushback)");
+        return (B_FALSE);
+    case BP_FAST_BRAKE_WAIT_PEDALS:
+        bp_hint_status_str = _("Waiting for brake pedals to be released (or abort pushback)");
         return (B_FALSE);
     case BP_FAST_BRAKE_COMPLETE:
         return (B_TRUE);
@@ -965,8 +976,7 @@ fast_brake_handoff_ready(void)
 static void
 pb_enter_ungrabbing(bool_t require_parking_brake)
 {
-    bp_fast_brake_handoff_reset(&bp.fast_brake_handoff,
-        require_parking_brake != B_FALSE);
+    bp.fast_brake_handoff.required = require_parking_brake != B_FALSE;
     bp.step = PB_STEP_UNGRABBING;
     bp.step_start_t = bp.cur_t;
 }
@@ -2016,10 +2026,17 @@ bp_init(void) {
 
     if (!bp_state_init())
         goto errout;
-    if (!audio_sys_init() || !load_buttons())
+    if (!audio_sys_init() || !load_buttons() ||
+        (bp_interface_mode_uses_legacy_magic_squares(
+            bp_get_interface_mode()) &&
+        (!load_icon(&disco_buttons[0]) ||
+        !load_icon(&disco_buttons[1]))))
         goto errout;
 
     XPLMGetNthAircraftModel(0, my_acf, my_path);
+
+    cfg_disco_when_done = B_FALSE;
+    (void)conf_get_b(bp_conf, "disco_when_done", &cfg_disco_when_done);
 
     cfg_ignore_park_break = B_FALSE;
     conf_get_b_per_acf("ignore_park_brake", &cfg_ignore_park_break);
@@ -2050,6 +2067,11 @@ bp_init(void) {
     XPLMUnregisterCommandHandler(clear_ack_cmd, clear_ack_handler, 1, NULL);
     XPLMUnregisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
     msg_fini();
+    if (bp_interface_mode_uses_legacy_magic_squares(
+        bp_get_interface_mode())) {
+        unload_icon(&disco_buttons[0]);
+        unload_icon(&disco_buttons[1]);
+    }
     unload_buttons();
     if (bp_ls.outline != NULL) {
         acf_outline_free(bp_ls.outline);
@@ -2190,7 +2212,7 @@ bp_start(void) {
         bp_floop = XPLMCreateFlightLoop(&floop);
     XPLMScheduleFlightLoop(bp_floop, -1, 1);
 
-    if (bp_classic_mode() && emergency_tow_allows_persistent_routes() &&
+    if (bp_legacy_routes() && emergency_tow_allows_persistent_routes() &&
         !slave_mode && !late_plan_requested && !push_manual.active &&
         list_head(&bp.segs) != NULL) {
         route_save_legacy(&bp.segs);
@@ -2270,6 +2292,11 @@ bp_fini(void) {
     list_destroy(&bp.segs);
 
     unload_buttons();
+    if (bp_interface_mode_uses_legacy_magic_squares(
+        bp_get_interface_mode())) {
+        unload_icon(&disco_buttons[0]);
+        unload_icon(&disco_buttons[1]);
+    }
 
     radio_volume_warn = B_FALSE;
 
@@ -2653,7 +2680,8 @@ bp_complete(void) {
 
     if (!slave_mode) {
         dr_seti(&drs.override_steer, 0);
-        brakes_set(B_FALSE);
+        if (!bp.fast_brakes_relinquished)
+            brakes_set(B_FALSE);
         dr_setvf(&drs.leg_len, &bp.acf.nw_len, bp.acf.nw_i, 1);
     }
 
@@ -2750,8 +2778,10 @@ pb_step_tug_load(void) {
         bp_ls.tug->info->max_tow_fwd_speed);
     bp.veh.max_rev_spd = MIN(bp.veh.max_rev_spd,
         bp_ls.tug->info->max_tow_rev_speed);
-    if (emergency_tow_allows_wing_walker() && !bp_classic_mode() &&
-        bp_ls.wing_walker == NULL) {
+    bool_t display_marshaller = B_TRUE;
+    (void)conf_get_b(bp_conf, "display_marshaller", &display_marshaller);
+    if (wing_walker_should_allocate(display_marshaller != B_FALSE,
+        emergency_tow_allows_wing_walker()) && bp_ls.wing_walker == NULL) {
         char *walker_path = mkpathname(bp_xpdir, bp_plugindir, "objects",
             "wing_walker", "wing_walker.obj", NULL);
 
@@ -2760,6 +2790,10 @@ pb_step_tug_load(void) {
     } else if (!emergency_tow_allows_wing_walker()) {
         ASSERT(bp_ls.wing_walker == NULL);
         logMsg(BP_INFO_LOG "Emergency Tow wing-walker guard active; no "
+            "wing-walker object will be loaded or rendered");
+    } else if (!display_marshaller) {
+        ASSERT(bp_ls.wing_walker == NULL);
+        logMsg(BP_INFO_LOG "Marshaller display disabled in Preferences; no "
             "wing-walker object will be loaded or rendered");
     }
     telemetry_start();
@@ -3061,7 +3095,7 @@ pb_step_lift(void) {
         if (!slave_mode) {
             plan_complete = B_TRUE; /* BP_DATAREF plan_complete */
             /* Late planning reaches the 1.13 save point after connection. */
-            if (bp_classic_mode() &&
+            if (bp_legacy_routes() &&
                 emergency_tow_allows_persistent_routes() &&
                 !push_manual.active && list_head(&bp.segs) != NULL) {
                 route_save_legacy(&bp.segs);
@@ -3313,6 +3347,7 @@ pb_step_stopping(void) {
         if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
             msg_play(MSG_OP_COMPLETE);
             bp.stop_from_pause_hold = B_FALSE;
+            bp_fast_brake_handoff_reset(&bp.fast_brake_handoff, B_TRUE);
             bp.step++;
             bp.step_start_t = bp.cur_t;
             bp.last_voice_t = bp.cur_t;
@@ -3325,9 +3360,11 @@ pb_step_stopped(void) {
     if (!slave_mode) {
         turn_nosewheel(0);
         push_at_speed(0, bp.veh.max_accel, B_FALSE, B_FALSE);
-        if (!cfg_ignore_park_break)
+        if (!cfg_ignore_park_break && !fast_brake_handoff_active())
             brakes_set(B_TRUE);
     }
+    if (fast_brake_handoff_active() && !fast_brake_handoff_ready())
+        return;
     if (!pbrake_is_set() && !cfg_ignore_park_break) {
         /*
          * Ignoring Brake status if ignore_park_break is set
@@ -3355,9 +3392,12 @@ pb_step_lowering(void) {
         d_t - artificial_delay(STATE_TRANS_DELAY), PB_CONN_LIFT_DURATION);
     double lift;
 
+    if (fast_brake_handoff_active() && !fast_brake_handoff_ready())
+        return;
+
     if (!slave_mode) {
         turn_nosewheel(0);
-        if (!cfg_ignore_park_break)
+        if (!cfg_ignore_park_break && !bp.fast_brakes_relinquished)
             brakes_set(B_TRUE);
     }
 
@@ -3432,6 +3472,9 @@ static void
 pb_step_ungrabbing(void) {
     bool_t complete;
 
+    if (fast_brake_handoff_active() && !fast_brake_handoff_ready())
+        return;
+
     if (bp_ls.tug->info->lift_type == LIFT_GRAB)
         complete = pb_step_ungrabbing_grab();
     else
@@ -3439,14 +3482,8 @@ pb_step_ungrabbing(void) {
 
     if (complete) {
         if (!slave_mode) {
-            if (bp_fast_brake_handoff_enabled(&bp.fast_brake_handoff,
-                bp_fast_ground_handling() != B_FALSE, slave_mode != B_FALSE,
-                cfg_ignore_park_break != B_FALSE)) {
-                if (!fast_brake_handoff_ready())
-                    return;
-            } else {
+            if (!bp.fast_brakes_relinquished)
                 brakes_set(B_FALSE);
-            }
         }
 
         tug_set_lift_in_transit(B_FALSE);
@@ -3504,12 +3541,7 @@ pb_step_closing_cradle(void) {
     }
 }
 
-/*
- * The original disconnect/reconnect windows are kept here for reference, but
- * the standard workflow below disconnects automatically and never creates
- * either window.
- */
-#if 0
+/* Original legacy disconnect/reconnect magic-square windows. */
 static void
 disco_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
     int w, h, mx, my;
@@ -3539,7 +3571,6 @@ disco_win_draw(XPLMWindowID inWindowID, void *inRefcon) {
                   B_FALSE, is_lit);
     }
 }
-#endif
 
 static int
 disco_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
@@ -3585,13 +3616,14 @@ recon_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
      */
     op_complete = B_FALSE;
     bp.reconnect = B_TRUE;
+    bp.fast_brakes_relinquished = B_FALSE;
+    bp_fast_brake_handoff_reset(&bp.fast_brake_handoff, B_TRUE);
     bp.step = PB_STEP_GRABBING;
     bp.step_start_t = bp.cur_t;
     bp_reconnect_notify();
     return (1);
 }
 
-#if 0
 static int
 disco_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
                 void *inRefcon) {
@@ -3608,7 +3640,6 @@ disco_win_click(XPLMWindowID inWindowID, int x, int y, XPLMMouseStatus inMouse,
 
     return (1);
 }
-#endif
 
 static XPLMCursorStatus
 nil_win_cursor(XPLMWindowID inWindowID, int x, int y, void *inRefcon) {
@@ -3631,7 +3662,6 @@ nil_win_wheel(XPLMWindowID inWindowID, int x, int y, int wheel, int clicks,
     return (1);
 }
 
-#if 0
 static void
 disco_intf_show(void) {
     XPLMCreateWindow_t disco_ops = {
@@ -3666,7 +3696,6 @@ disco_intf_show(void) {
     ASSERT(bp_ls.recon_win != NULL);
     XPLMBringWindowToFront(bp_ls.recon_win);
 }
-#endif
 
 static void
 disco_intf_hide(void) {
@@ -3941,6 +3970,45 @@ main_intf_hide(void) {
         magic_buttons[1].wind_id = NULL;
         bp_ls.conn_tug_first = NULL;
     }
+    hide_bp_status();
+}
+
+void
+main_intf_reposition(void)
+{
+    int top;
+
+    initMonitorOrigin();
+
+    if (bp_ls.planner_win != NULL) {
+        top = monitor_def.y_origin + monitor_def.magic_squares_height;
+        XPLMSetWindowGeometry(bp_ls.planner_win, monitor_def.x_origin, top,
+            monitor_def.x_origin + magic_buttons[0].w,
+            top - magic_buttons[0].h);
+    }
+    if (bp_ls.conn_tug_first != NULL) {
+        top = monitor_def.y_origin + monitor_def.magic_squares_height -
+            1.5 * magic_buttons[1].h;
+        XPLMSetWindowGeometry(bp_ls.conn_tug_first, monitor_def.x_origin, top,
+            monitor_def.x_origin + magic_buttons[1].w,
+            top - magic_buttons[1].h);
+    }
+    if (bp_ls.start_pb_win != NULL) {
+        top = monitor_def.y_origin + monitor_def.magic_squares_height -
+            3 * magic_buttons[2].h;
+        XPLMSetWindowGeometry(bp_ls.start_pb_win, monitor_def.x_origin, top,
+            monitor_def.x_origin + magic_buttons[2].w,
+            top - magic_buttons[2].h);
+    }
+    if (bp_ls.pb_status_win != NULL) {
+        top = monitor_def.y_origin + monitor_def.magic_squares_height -
+            4.5 * magic_buttons[3].h;
+        XPLMSetWindowGeometry(bp_ls.pb_status_win, monitor_def.x_origin, top,
+            monitor_def.x_origin + magic_buttons[3].w,
+            top - magic_buttons[3].h);
+    }
+
+    hide_bp_status();
 }
 
 void
@@ -3948,38 +4016,40 @@ main_intf(bool_t force_hide) {
     /*
      * Preserve the owner's legacy visibility gate for the replacement Ground
      * Operations panel: remain visible for an active operation, otherwise
-     * require an airliner on the ground moving at less than 1 m/s.
+     * require any aircraft to be on the ground moving at less than 1 m/s.
      */
     ground_ops_ui_set_legacy_visibility(bp_started ||
-        (acf_is_airliner() && acf_on_gnd_stopped(NULL)));
+        acf_on_gnd_stopped(NULL));
     main_intf_update_automation();
 
-    /*
-     * Our Ground Operations panel replaces only the original operational
-     * magic-squares display. The complete legacy implementation remains above
-     * for upstream review and can be restored at configure time with:
-     *   -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON
-     */
-    if (!BP_ENABLE_LEGACY_MAGIC_SQUARES && !bp_classic_mode()) {
+    if (!bp_interface_mode_uses_legacy_magic_squares(
+        bp_get_interface_mode())) {
         main_intf_hide();
-        hide_bp_status();
         return;
     }
 
     if (get_pref_widget_status() // show also the magic button while in the pref window
-     || (( bp_started || (acf_is_airliner() && acf_on_gnd_stopped(NULL))) && !force_hide) ) {
+     || ((bp_started || acf_on_gnd_stopped(NULL)) && !force_hide)) {
         main_intf_show();
     } else {
         main_intf_hide();
-        hide_bp_status();
     }
 }
 
 static void
 pb_step_waiting4ok2disco(void) {
-    if (bp_classic_mode())
+    if (bp_post_push_should_auto_disconnect(cfg_disco_when_done != B_FALSE,
+        slave_mode != B_FALSE, bp.ok2disco != B_FALSE)) {
         bp.ok2disco = B_TRUE;
+        logMsg(BP_INFO_LOG "Automatic post-push tug disconnect approved");
+    }
+
     if (!bp.ok2disco) {
+        if (bp_interface_mode_uses_legacy_magic_squares(
+            bp_get_interface_mode()) && bp_ls.disco_win == NULL &&
+            !slave_mode) {
+            disco_intf_show();
+        }
         /* Start the post-approval delay only after the pilot chooses. */
         bp.step_start_t = bp.cur_t;
         return;
@@ -4071,9 +4141,18 @@ pb_step_clear_signal(void) {
     tug_set_clear_signal(B_TRUE, tug_clear_is_right());
     bp.clear_signal_gate.displayed = true;
 
-    if (bp_classic_mode())
+    if (bp_interface_mode_uses_legacy_magic_squares(
+        bp_get_interface_mode())) {
+        /* The original interface displayed the pin/clear signal for the
+         * minimum delay and then departed without a separate acknowledgement. */
         (void)bp_clear_signal_acknowledge(&bp.clear_signal_gate, true);
-    if ((bp_classic_mode() && bp_fast_ground_handling() && first_display) ||
+    } else if (bp_post_push_auto_acknowledge_clear(&bp.clear_signal_gate,
+        cfg_disco_when_done != B_FALSE, slave_mode != B_FALSE)) {
+        logMsg(BP_INFO_LOG "Automatic post-push pin and clear signal acknowledged");
+    }
+
+    /* Fast shortens display time, not the upstream acknowledgement policy. */
+    if ((bp_fast_ground_handling() && first_display) ||
         !bp_clear_signal_can_depart_after(&bp.clear_signal_gate,
         bp.cur_t - bp.step_start_t,
         bp_fast_ground_handling() ? 0 : BP_CLEAR_SIGNAL_MIN_SECONDS))
@@ -4295,6 +4374,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             if (ABS(bp.cur_pos.spd) < SPEED_COMPLETE_THRESH &&
                 pbrake_is_set()) {
                 bp.step = PB_STEP_STOPPED;
+                bp_fast_brake_handoff_reset(&bp.fast_brake_handoff, B_TRUE);
                 bp.stop_from_pause_hold = B_FALSE;
             } else {
                 bp.step = PB_STEP_STOPPING;

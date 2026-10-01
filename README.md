@@ -37,19 +37,46 @@ airport, gate or stand, and compatible aircraft profile. Each matching profile
 has two independent saved-route slots with explicit selection and replacement.
 Saved-situation, arbitrary-position, off-anchor, and Emergency Tow routes remain
 session-only and cannot load, replace, or save persistent routes.
+BetterPushback validates its derived airport database against the active scenery
+order and every contributing `apt.dat` file at startup. Adding, removing, or
+updating custom scenery automatically rebuilds that airport database without
+deleting the separately stored push-route slots.
 
 Ground Operations can be shown as a compact five-orb stage rail, expanded into
 the complete status and action panel, or popped out as a native X-Plane window
-and moved to another monitor. During an automatic push, **Pause/Resume** retains
+and moved to another monitor. It opens automatically when BetterPushback
+connects to the simulator, restoring the last visible compact or expanded
+presentation. A first-time install, or an older hidden state without visible
+presentation history, opens expanded. The pilot can then show or hide it
+normally. Outside an active operation it automatically hides while the aircraft
+is taxiing and returns when the aircraft stops on the ground. An explicit pilot
+Show command can keep it visible while moving. During an automatic push,
+**Pause/Resume** retains
 the accepted route and steering state, while **End operation** stops safely and
 continues through the normal disconnect sequence at the current position.
+The Preferences window offers Standard, Large, and Extra-large interface sizes;
+each selection scales the full layout and its controls together with the text.
+The global **Auto-expand for pilot actions** preference lets the pilot leave
+Ground Operations compact: a newly required action expands the panel, and an
+automatic one-second delay collapses only that automatically opened panel after
+the action is complete. While this preference is enabled, completing a pilot
+action collapses an expanded panel regardless of whether the plugin or the
+pilot expanded it. Hidden windows are not changed.
+The checkbox takes effect immediately; Save preferences keeps it for later
+simulator starts.
+The global **Auto disconnect when done** preference can complete the
+post-push disconnect and final clear-signal acknowledgement without another
+pilot input after the requested parking brake has been set. The normal tug
+lowering, separation, side-clear movement, audio, and signal timing are retained.
 
 After a completed normal operation, **Call tow back** starts a guarded one-time
 Emergency Tow. The tug returns and connects, the manual planner opens at the live aircraft
 position, and the plugin returns to its normal start state after towing and
 disconnect are complete. Emergency Tow does not use the saved-route cache or
 render the wing walker. Normal pushbacks retain the accepted STOP, STANDBY, and
-CLEAR wing-walker sequence.
+CLEAR wing-walker sequence when the global **Display marshaller** preference is
+enabled. The marshaller faces the aircraft and is anchored to his initial world
+position so early aircraft movement cannot make him follow the aircraft.
 
 ### About this Fork and Copyright
 
@@ -85,36 +112,44 @@ or later).
 
 For the Linux and Mac build pre-requisites, see ```build_xpl.sh```
 
-### Legacy operational UI compatibility
+### Operational interface selection
 
-Ground Operations is the default operational interface. In Preferences,
-**Classic Mode** switches to the original four "magic squares" shortcuts and
-automatically continues through disconnect and the final clear signal without
-the new wing walker. The planner automatically recalls routes from the 1.13
-position/heading cache and saves them when pushback starts (or when a late plan
-is accepted), without showing the 1.14 gate-slot selection or replacement
-dialogs. Existing in-session plans are retained; Emergency Tow never loads or
-saves routes. The 1.14 gate slots remain separate and unchanged.
-**Fast Ground Handling** independently skips artificial
-ground handling waits and animations, including the post-parking-brake lowering
-and disconnect sequence. Before releasing BPB's service brakes, Fast requires
-a stable parking-brake indication for 1.5 seconds, then verifies it for one
-second with BPB's brake request released. A failed check restores BPB's brakes
-and retries; reconnect starts a fresh check. Cancelling before the nose gear is
-lifted bypasses this extra check. Tug travel, towing direction changes, and
-aircraft checks retain their normal behavior.
-Both options default to off and take effect after saving preferences.
+The global **Pushback interface** preference selects either the Ground
+Operations panel or the original BetterPushback **Legacy magic squares**.
+The choice is remembered across simulator starts and the two interfaces are
+mutually exclusive. Both use the same planner, commands, tug controller,
+physics, route cache, and automatic-completion option.
+When legacy mode is selected, the original per-aircraft **Magic squares
+position** slider is available in Preferences and moves the complete stack
+vertically between 20% and 80% of the selected monitor.
 
-The legacy shortcut windows can also be enabled at build time with:
+Ground Operations presents disconnect/reconnect and clear-signal actions in
+the panel. Legacy mode restores the original shortcut windows and its original
+disconnect/reconnect buttons. Enabling the global **Auto disconnect when done**
+preference completes the post-push actions automatically in either mode.
 
-```
-cmake -DBP_ENABLE_LEGACY_MAGIC_SQUARES=ON ...
-```
+### Optional legacy routes and Fast Ground Handling
 
-This build switch only adds the four shortcut windows; unlike Classic Mode, it
-does not disable Ground Operations or change its disconnect and clear-signal
-confirmations. The original disconnect/reconnect window implementation remains
-dormant source.
+**Legacy route recall** is a separate, default-off preference for both
+interfaces. It recalls and saves routes using the original position/heading
+cache without the newer gate-slot dialogs. Existing in-session plans are
+retained when calling the tug. Emergency Tow remains session-only, and the
+newer gate-route slots are not changed by this option.
+
+**Fast Ground Handling** independently skips artificial waits and timed handling
+animations, not tug travel, towing or required pilot acknowledgements. Its
+parking-brake handoff stops BPB's own pedal-brake writes after confirmation,
+then waits for both pedal-request readbacks to fall below the existing threshold
+while the parking brake remains set. It never writes a synthetic release zero
+on the successful handoff path. After verification, renewed pedal presses do
+not block lowering or disconnect; losing the parking brake restores BPB's hold.
+While waiting, the status asks the pilot to release the pedals or abort.
+
+The old **Classic Mode** preset is retired. Existing enabled Classic settings
+are migrated once to Legacy magic squares, automatic completion, marshaller
+off and Legacy route recall on; existing explicit values of the new settings
+are retained. The Fast setting is retained independently. Settings are global
+and saved through Preferences.
 
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:

@@ -1117,3 +1117,58 @@ msgstr "Serrez le frein de parking"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "Taille de l’interface des opérations au sol"
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Large"
+msgstr "Grande"
+
+msgid "Extra large"
+msgstr "Très grande"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "Ajuste toute l’interface des opérations au sol, y compris le texte, les commandes, les espacements et les zones d’interaction."
+
+msgid "Auto-expand for pilot actions"
+msgstr "Développer automatiquement pour les actions du pilote"
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr ""
+"Développe le panneau compact des opérations au sol lorsqu'une action du "
+"pilote est requise, puis le réduit peu après la fin de l'action."
+
+msgid "Pushback interface"
+msgstr "Interface de repoussage"
+
+msgid "Ground Operations"
+msgstr "Opérations au sol"
+
+msgid "Legacy magic squares"
+msgstr "Carrés magiques classiques"
+
+msgid "Display marshaller"
+msgstr "Afficher le signaleur"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+"Afficher le signaleur pendant les opérations normales de repoussage. Le "
+"remorquage d'urgence n'affiche jamais le signaleur."
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Sélectionnez une interface globale de repoussage. Opérations au sol utilise "
+"le nouveau panneau ; Carrés magiques classiques restaure les boutons "
+"d'origine. La sélection s'applique immédiatement au repos. Enregistrez les "
+"préférences pour la conserver au prochain démarrage du simulateur."

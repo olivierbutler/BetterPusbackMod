@@ -4,12 +4,14 @@ set -eu
 test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 for runner in \
+    run_airport_cache_manifest_tests.sh \
     run_emergency_tow_tests.sh \
     run_gate_route_math_tests.sh \
     run_gate_route_slots_tests.sh \
     run_ground_ops_data_tests.sh \
     run_ground_ops_state_tests.sh \
     run_ground_ops_text_fit_tests.sh \
+    run_interface_mode_tests.sh \
     run_translation_catalog_tests.sh \
     run_ui_click_sound_tests.sh \
     run_ground_ops_window_state_tests.sh \
@@ -27,8 +29,11 @@ python3 "$test_dir/wing_walker_asset_test.py"
 printf 'Running Fast parking-brake controller integration tests\n'
 python3 "$test_dir/run_fast_brake_controller_tests.py"
 
-printf 'Running Classic route recall/save regression tests\n'
+printf 'Running optional legacy route recall/save regression tests\n'
 python3 "$test_dir/run_classic_route_tests.py"
+
+printf 'Running feature integration and preference migration tests\n'
+python3 "$test_dir/run_feature_integration_tests.py"
 
 printf 'Running runtime telemetry disabled test\n'
 repo_dir=$(CDPATH= cd -- "$test_dir/.." && pwd)

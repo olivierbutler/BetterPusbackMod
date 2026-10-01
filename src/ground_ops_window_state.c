@@ -14,6 +14,8 @@
 
 #include "ground_ops_window_state.h"
 
+static ground_ops_ui_size_t current_ui_size = GROUND_OPS_UI_SIZE_STANDARD;
+
 static int
 minimum(int first, int second)
 {
@@ -33,6 +35,21 @@ ground_ops_presentation_valid(int presentation)
         presentation <= GROUND_OPS_PRESENTATION_PANEL);
 }
 
+ground_ops_presentation_t
+ground_ops_startup_presentation(int saved_presentation,
+    int saved_last_visible)
+{
+    if (saved_presentation == GROUND_OPS_PRESENTATION_ORB ||
+        saved_presentation == GROUND_OPS_PRESENTATION_PANEL) {
+        return ((ground_ops_presentation_t)saved_presentation);
+    }
+    if (saved_last_visible == GROUND_OPS_PRESENTATION_ORB ||
+        saved_last_visible == GROUND_OPS_PRESENTATION_PANEL) {
+        return ((ground_ops_presentation_t)saved_last_visible);
+    }
+    return (GROUND_OPS_PRESENTATION_PANEL);
+}
+
 bool
 ground_ops_window_mode_valid(int mode)
 {
@@ -40,10 +57,54 @@ ground_ops_window_mode_valid(int mode)
         mode <= GROUND_OPS_WINDOW_POPOUT);
 }
 
+bool
+ground_ops_window_effectively_visible(bool window_exists,
+    bool planner_suspended, bool legacy_gate_hidden,
+    bool manual_visibility_override)
+{
+    return (window_exists && !planner_suspended &&
+        (manual_visibility_override || !legacy_gate_hidden));
+}
+
+bool
+ground_ops_ui_size_valid(int size)
+{
+    return (size >= GROUND_OPS_UI_SIZE_STANDARD &&
+        size <= GROUND_OPS_UI_SIZE_EXTRA_LARGE);
+}
+
+double
+ground_ops_ui_size_multiplier(ground_ops_ui_size_t size)
+{
+    switch (size) {
+    case GROUND_OPS_UI_SIZE_LARGE:
+        return (1.25);
+    case GROUND_OPS_UI_SIZE_EXTRA_LARGE:
+        return (1.5);
+    case GROUND_OPS_UI_SIZE_STANDARD:
+    default:
+        return (1.0);
+    }
+}
+
+ground_ops_ui_size_t
+ground_ops_ui_size_get(void)
+{
+    return (current_ui_size);
+}
+
+void
+ground_ops_ui_size_set(ground_ops_ui_size_t size)
+{
+    current_ui_size = ground_ops_ui_size_valid(size) ? size :
+        GROUND_OPS_UI_SIZE_STANDARD;
+}
+
 double
 ground_ops_ui_scale(void)
 {
-    return (GROUND_OPS_UI_SCALE);
+    return (GROUND_OPS_UI_SCALE *
+        ground_ops_ui_size_multiplier(current_ui_size));
 }
 
 int
@@ -222,6 +283,77 @@ ground_ops_dwell_update(ground_ops_dwell_t *state, bool eligible, double now)
         return true;
     }
     return false;
+}
+
+void
+ground_ops_auto_expand_reset(ground_ops_auto_expand_state_t *state)
+{
+    if (state != NULL)
+        *state = (ground_ops_auto_expand_state_t){0};
+}
+
+void
+ground_ops_auto_expand_note_manual(ground_ops_auto_expand_state_t *state,
+    bool action_required)
+{
+    if (state == NULL)
+        return;
+    state->action_active = action_required;
+    state->collapse_pending = false;
+    state->action_completed_at = 0;
+}
+
+ground_ops_auto_presentation_t
+ground_ops_auto_expand_update(ground_ops_auto_expand_state_t *state,
+    bool enabled, bool window_visible,
+    ground_ops_presentation_t presentation, bool action_required,
+    double now)
+{
+    bool continue_action_cycle;
+
+    if (state == NULL)
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    if (!enabled || !window_visible || !isfinite(now)) {
+        ground_ops_auto_expand_reset(state);
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    }
+
+    if (action_required) {
+        continue_action_cycle = state->collapse_pending;
+        state->collapse_pending = false;
+        if (!state->action_active) {
+            state->action_active = true;
+            if (continue_action_cycle)
+                return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+            if (presentation == GROUND_OPS_PRESENTATION_ORB)
+                return (GROUND_OPS_AUTO_PRESENTATION_EXPAND);
+        }
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    }
+
+    if (state->action_active) {
+        state->action_active = false;
+        if (presentation == GROUND_OPS_PRESENTATION_PANEL) {
+            state->collapse_pending = true;
+            state->action_completed_at = now;
+        } else {
+            state->collapse_pending = false;
+        }
+    }
+    if (!state->collapse_pending)
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    if (presentation != GROUND_OPS_PRESENTATION_PANEL ||
+        now < state->action_completed_at) {
+        state->collapse_pending = false;
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    }
+    if (now - state->action_completed_at <
+        GROUND_OPS_AUTO_COLLAPSE_DELAY_SECONDS) {
+        return (GROUND_OPS_AUTO_PRESENTATION_NONE);
+    }
+
+    state->collapse_pending = false;
+    return (GROUND_OPS_AUTO_PRESENTATION_COLLAPSE);
 }
 
 bool

@@ -971,3 +971,58 @@ msgstr "Aplique el freno de estacionamiento"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "Tamaño de la interfaz de operaciones en tierra"
+
+msgid "Standard"
+msgstr "Estándar"
+
+msgid "Large"
+msgstr "Grande"
+
+msgid "Extra large"
+msgstr "Muy grande"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "Escala toda la interfaz de operaciones en tierra, incluidos el texto, los controles, el espaciado y las zonas de interacción."
+
+msgid "Auto-expand for pilot actions"
+msgstr "Expandir automáticamente para acciones del piloto"
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr ""
+"Expande el panel compacto de Operaciones de Tierra cuando se requieran "
+"acciones del piloto y vuelve a contraerlo poco después de completar la acción."
+
+msgid "Pushback interface"
+msgstr "Interfaz de retroceso"
+
+msgid "Ground Operations"
+msgstr "Operaciones en tierra"
+
+msgid "Legacy magic squares"
+msgstr "Cuadrados mágicos clásicos"
+
+msgid "Display marshaller"
+msgstr "Mostrar señalero"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+"Muestra el señalero durante las operaciones normales de retroceso. El "
+"remolque de emergencia nunca muestra el señalero."
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Seleccione una interfaz global de retroceso. Operaciones en tierra usa el "
+"panel nuevo; Cuadrados mágicos clásicos restaura los botones operativos "
+"originales. La selección se aplica inmediatamente en reposo. Guarde las "
+"preferencias para conservarla en el próximo inicio del simulador."

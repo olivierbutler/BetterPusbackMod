@@ -29,7 +29,7 @@ static double loaded_heading;
 static int planner_running, bp_connected, replan_calls, emergency_notifications;
 static const char *bp_hint_status_str;
 
-static int bp_classic_mode(void) { return classic_enabled; }
+static int bp_legacy_routes(void) { return classic_enabled; }
 static int emergency_tow_allows_persistent_routes(void) {
     return persistent_allowed;
 }
@@ -53,6 +53,8 @@ static void tug_set_TE_override(void *tug, int value) {
 static int emergency_tow_is_active(void) { return !persistent_allowed; }
 static void bp_emergency_tow_planner_notify(void) { ++emergency_notifications; }
 static int bp_cam_is_running(void) { return planner_running; }
+static int bp_num_segs(void) { return bp.segs.count; }
+static int bp_cam_stop(void) { planner_running = 0; return 1; }
 static void enable_replanning(void) { ++replan_calls; }
 static void route_load_legacy(geo_pos2_t position, double heading, list_t *segments) {
     assert(segments->count == 0);
@@ -85,6 +87,17 @@ static void reset(void) {
 }
 
 int main(void) {
+    for (unsigned mask = 0; mask < 16; ++mask) {
+        reset();
+        classic_enabled = !!(mask & 1);
+        int emergency = !!(mask & 2);
+        planner_running = !!(mask & 4);
+        bp.segs.count = (mask & 8) ? 3 : 0;
+        int keep = classic_enabled && !emergency && !planner_running;
+        call_tug(emergency);
+        assert(bp.segs.count == (keep && (mask & 8) ? 3 : 0));
+        assert(late_plan_requested && !planner_running);
+    }
     reset();
     cached_route = 3;
     planner_open();
@@ -174,6 +187,6 @@ int main(void) {
     accept_late_plan();
     assert(save_calls == 0 && !late_plan_requested);
 
-    puts("Classic route recall/save regression tests passed.");
+    puts("Optional legacy route recall/save regression tests passed.");
     return 0;
 }

@@ -2485,16 +2485,16 @@ bp_cam_start(void)
         logMsg(BP_INFO_LOG "Emergency Tow planner opened at the live "
             "nosewheel; saved-route listing, loading, and saving are "
             "disabled");
-    } else if (bp_classic_mode()) {
+    } else if (bp_legacy_routes()) {
         memset(&planner_gate_context, 0, sizeof(planner_gate_context));
-        /* Classic recalls the 1.13 route without the gate-slot dialog. */
+        /* Recall the original route without the gate-slot dialog. */
         if (list_head(&bp.segs) == NULL) {
             route_load_legacy(GEO_POS2(dr_getf(&drs.lat), dr_getf(&drs.lon)),
                 dr_getf(&drs.hdg), &bp.segs);
         }
         planner_gate_routes.new_route = list_head(&bp.segs) == NULL;
         planner_gate_routes.suppress_save = B_TRUE;
-        logMsg(BP_INFO_LOG "Classic Mode planner opened with automatic "
+        logMsg(BP_INFO_LOG "Planner opened with automatic "
             "legacy route recall; gate-slot selection is disabled");
     } else {
         at_published_start = planner_prepare_gate_context(
@@ -2622,8 +2622,8 @@ bp_cam_stop(void)
             logMsg(BP_INFO_LOG "Emergency Tow route accepted for this "
                 "session only; hard persistence guard skipped every gate "
                 "route cache write");
-        } else if (bp_classic_mode()) {
-            logMsg(BP_INFO_LOG "Classic Mode route accepted; legacy route "
+        } else if (bp_legacy_routes()) {
+            logMsg(BP_INFO_LOG "Route accepted; legacy route "
                 "will be saved when pushback starts, without changing "
                 "saved gate slots");
         } else if (!planner_gate_context.recognized) {

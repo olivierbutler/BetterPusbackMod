@@ -15,8 +15,8 @@ package and its published compatibility notes.
 2. Back up the current `BetterPushback` plugin folder and any saved route data.
 3. Copy the complete release `BetterPushback` folder into
    `X-Plane/Resources/plugins`.
-4. Start X-Plane, load the aircraft at a stand, and use the X-Plane Plugins menu
-   or `BetterPushback/ground_ops_show_hide` command to show Ground Operations.
+4. Start X-Plane and load the aircraft at a stand. Ground Operations opens
+   automatically when BetterPushback connects to the simulator.
 
 Do not copy only the `.xpl` binary. Tug objects, sounds, configuration files,
 the wing walker, and supporting resources are part of the plugin.
@@ -52,26 +52,6 @@ happening.
 
 ## 3. Window modes
 
-Preferences also offers two independent options. **Classic Mode** replaces
-Ground Operations with the original four shortcut windows and automatically
-continues through tug disconnect and the final clear signal without displaying
-the new wing walker. Opening the planner automatically displays a saved 1.13
-route within 30 metres and 10 degrees of its start, unless a current plan
-already exists. Routes are saved when pushback starts, or when a late plan is
-accepted after connection. No gate-slot selection or replacement dialog is
-shown. Classic uses the legacy cache, not the separate 1.14 gate slots;
-Emergency Tow never loads or saves routes.
-**Fast Ground Handling** skips artificial ground handling
-waits and animations, including lowering and disconnect after the parking brake
-is set. A short parking-brake handoff remains: BPB holds its service brakes
-until the parking-brake indication has stayed set for 1.5 seconds, then releases
-its request and checks the indication for one second before continuing. If the
-indication drops, BPB restores its service brakes and retries automatically.
-Reconnect starts a fresh check. Cancelling before the nose gear is lifted
-bypasses this extra check. Tug travel, towing direction changes, and aircraft
-checks retain their normal behavior. Both options are off by default and apply
-after Save preferences.
-
 - **Compact rail:** Shows only the five stages. Click the rail to expand it.
   Dragging moves it without expanding. Compact mode intentionally has no
   tooltips.
@@ -82,16 +62,54 @@ after Save preferences.
 - **Pop-out:** Use the pop-out control to move Ground Operations into a native
   operating-system window, including another display.
 - **Hidden:** Use the X control or the show/hide command. Hiding the window does
-  not cancel the operation.
+  not cancel the operation. The window remains hidden for the current session
+  until the pilot shows it again, but opens automatically at the next simulator
+  start.
+
+At simulator start, Ground Operations is visible while the aircraft is stopped
+on the ground. Outside an active operation, it automatically hides once the
+aircraft begins taxiing and restores when the aircraft stops. This applies to GA
+aircraft and airliners. Using the show command while moving is a manual override
+that keeps the window visible until the pilot hides it again.
 
 Positions are remembered by window mode, monitor, and side. If a saved display
 is removed or resized, the window is recovered into a visible area.
+The last visible compact or expanded presentation is also remembered. A first
+install, or an older saved hidden state without that history, opens expanded.
+
+The Preferences window provides **Standard**, **Large**, and **Extra large**
+Ground Operations sizes. The selected size scales the complete compact rail or
+expanded panel, including its text, controls, spacing, and click targets, so
+larger text is not forced back into the original fixed-size layout.
+
+The global **Pushback interface** preference selects either **Ground
+Operations** or the original **Legacy magic squares**. The selection changes
+immediately while BetterPushback is idle and is retained after **Save
+preferences**. Only one operational interface runs at a time. Changing this
+preference does not change the planner, tug physics, route cache, or pushback
+controller. Ground Operations size and auto-expand settings are preserved while
+legacy mode is selected and return unchanged when Ground Operations is selected
+again.
+
+In Legacy magic squares mode, use **Magic squares position** in Preferences to
+move the complete stack vertically. This is the original legacy placement
+control; the squares themselves are buttons and are not dragged directly.
+
+The global **Auto-expand for pilot actions** preference is off by default. When
+enabled, a compact visible rail expands when a new pilot action is required and
+collapses one second after that action is completed. The completed action
+collapses the expanded panel whether it was opened automatically or manually.
+It never reopens a hidden window. A second required action during the delay
+keeps the panel expanded. With the preference disabled, expand and collapse are
+entirely manual. Toggling the option takes effect immediately; select **Save
+preferences** to retain it across simulator starts.
+
+The global **Auto disconnect when done** preference controls the final
+post-push interaction for every aircraft and is remembered across simulator
+starts. It is off by default, preserving the manual disconnect and clear-signal
+acknowledgements described below.
 
 ## 4. Normal pushback
-
-This section describes the default Ground Operations workflow. In Classic Mode,
-use the original shortcuts or commands; the extra disconnect and clear-signal
-confirmations are not required.
 
 ### Call the tug
 
@@ -135,17 +153,56 @@ The confirmation step prevents accidental activation.
 ### Disconnect and clear
 
 At the route end, set the parking brake when requested. The tug lowers and
-releases the nose gear. In Ground Operations mode, choose **Disconnect tug** at
-**Ready to disconnect**, or **Reconnect** if the connection must be restored.
-Classic Mode continues automatically after release.
+releases the nose gear. At **Ready to disconnect**, choose **Disconnect tug** to
+continue or **Reconnect** if the connection must be restored.
 
-The wing walker presents STOP, STANDBY, and CLEAR signals during a normal
-operation. In Ground Operations mode, **Acknowledge** the clear signal in the
-panel. Classic Mode requires no click. Fast Ground Handling removes the minimum
-signal-display delay, but does not remove Ground Operations' acknowledgement.
+The global **Display marshaller** preference controls whether the wing walker
+is used during normal operations and is enabled by default. When displayed, he
+appears at the established 30-yard nose clearance, faces the aircraft, and
+remains fixed at that original ground position even if the aircraft begins to
+taxi before he disappears. He presents STOP, STANDBY, and CLEAR signals. When
+the clear signal is visible, **Acknowledge** it in the panel.
+Acknowledgement does not shorten the established minimum signal-display time.
 After the tug departs, every stage is green and the operation is complete.
 
+With **Auto disconnect when done** enabled, the workflow is unchanged through
+the request to set the parking brake. After the brake is set, BetterPushback
+automatically approves **Disconnect tug** and acknowledges the final pin/clear
+signal. No further pilot action is required, but the tug still lowers, releases,
+moves to the selected side, presents its signals, and observes the same 15-second
+minimum clear-signal display before departure.
+
+### Fast Ground Handling
+
+The separate **Fast Ground Handling** preference removes artificial pauses,
+voice-message waits and timed handling animations, including lowering and
+disconnect after the parking-brake handoff. Tug travel and aircraft towing
+remain normal. Fast does not approve Disconnect or Acknowledge on the pilot's
+behalf; that remains the upstream interface/automatic-completion policy.
+
+If the pedals are still held when the parking brake is set, BPB stops writing
+its own pedal request and asks you to release the pedals. Lowering and
+disconnect remain paused until the pedal readbacks are below the existing
+threshold and the parking brake is still set. After successful handoff, pedal
+presses do not block progress, but parking-brake loss restores BPB's hold.
+There is no timeout-based disconnect; use **Abort pushback** if an input never
+returns below the threshold. Successful handoff and final cleanup do not write
+a synthetic zero over pilot brake input.
+
 ## 5. Saved routes
+
+The default-off **Legacy route recall** preference selects the original
+position/heading route cache in either interface. The empty planner recalls
+the nearest compatible route within 30 metres and 10 degrees automatically,
+without a gate-slot selection/replacement dialog. It does not replace an
+already prepared in-session plan. Routes are saved at pre-planned pushback
+start or once a late plan is accepted. Emergency Tow, slave and manual-push
+save exclusions remain. Calling the tug retains a completed pre-plan when
+this option is enabled. The original cache and the newer gate slots are
+separate: Legacy route recall never writes the newer slots.
+
+With Legacy route recall disabled, the upstream slot workflow below is
+unchanged.
 
 At a published airport start, BetterPushback can identify a gate or stand only
 when the live nosewheel position and heading uniquely match it within the
@@ -161,6 +218,13 @@ profile can have two independent route slots.
 If no unique published start is recognized, plan the route normally for the
 current operation. The panel and log explain why persistent saving is disabled.
 
+BetterPushback checks the active scenery order and the existence, size, and
+modification time of each active `apt.dat` when the plugin starts. If custom or
+global airport scenery has changed, its derived airport database is rebuilt
+automatically. Saved push-route slots are stored separately and are not removed
+by this rebuild. The first startup after a scenery change can therefore take
+longer than usual.
+
 ## 6. Emergency Tow
 
 After a completed normal operation, **Call tow back** starts a guarded one-time
@@ -173,6 +237,15 @@ departure, BetterPushback returns to its normal cold-start state.
 
 ## 7. Commands and recovery
 
+### Migration from Classic Mode
+
+The old Classic preset is replaced by independent preferences. An enabled
+old preset initializes missing settings to **Legacy magic squares**, **Auto
+disconnect when done** on, **Display marshaller** off and **Legacy route
+recall** on. Existing explicit new settings take precedence; **Fast Ground
+Handling** is retained separately. The old preset is then marked inactive so
+later preference changes are not overwritten on restart.
+
 The most useful assignable commands are:
 
 | Command | Purpose |
@@ -184,7 +257,7 @@ The most useful assignable commands are:
 | `BetterPushback/stop` | End pushback and disconnect |
 | `BetterPushback/start_planner` | Open the manual planner |
 | `BetterPushback/stop_planner` | Close the planner |
-| `BetterPushback/acknowledge_clear` | Acknowledge the final clear signal in Ground Operations mode |
+| `BetterPushback/acknowledge_clear` | Acknowledge the final clear signal |
 
 Classic menu commands remain available as a recovery path. If the Ground
 Operations window cannot initialize, the operational commands still remain
@@ -211,7 +284,8 @@ The current owner-review candidate includes:
 
 - compact and expanded Ground Operations presentations, including pop-out and
   remembered multi-monitor placement;
-- explicit Call tug, Plan push, brake, disconnect, and clear-signal gates;
+- explicit Call tug, Plan push, and brake gates, with manual disconnect and
+  clear-signal gates unless the global automatic option is enabled;
 - manual route planning with the legacy route-following behavior;
 - two guarded saved-route slots per matching gate/stand and aircraft profile;
 - Pause/Resume and safe End operation behavior;

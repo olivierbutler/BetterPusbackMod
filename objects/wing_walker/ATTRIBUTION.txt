@@ -16,5 +16,16 @@ Changes made for BetterPushback:
 - Repacked the diffuse texture into an X-Plane texture atlas and added a
   matching lit texture for the green final-clear wand.
 - Rotated the character to face the aircraft when instantiated by the plugin.
+- Airport employee revision: deleted the hard hat and brim, created a new
+  bare scalp with short hair, and added corded foam earplugs.
+- Replaced the construction uniform's appearance with a lime safety vest,
+  silver strips, ID badge, navy short-sleeved shirt and navy trousers.
+- Replaced the exposed arms and hands with new skinned arm/wrist meshes and
+  separate palms, four curled fingers and thumbs gripping black wand handles.
+- Set the standby wands to 45 degrees downward, separated the crossing stop
+  arms in depth, and added orange wand illumination to the lit atlas.
+- Indexed shared vertex records to reduce the runtime OBJ file size.
+- Added night illumination for the front/rear vest fabric and silver strips;
+  the raised clear wand remains green in both the OBJ and editable pose keys.
 
 The original creator does not endorse BetterPushback or these modifications.

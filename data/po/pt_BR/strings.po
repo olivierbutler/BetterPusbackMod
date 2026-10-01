@@ -929,3 +929,58 @@ msgstr "Acione o freio de estacionamento"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
+
+msgid "Ground Operations interface size"
+msgstr "Tamanho da interface de operações em solo"
+
+msgid "Standard"
+msgstr "Padrão"
+
+msgid "Large"
+msgstr "Grande"
+
+msgid "Extra large"
+msgstr "Muito grande"
+
+msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
+msgstr "Dimensiona toda a interface de operações em solo, incluindo texto, controles, espaçamento e áreas de interação."
+
+msgid "Auto-expand for pilot actions"
+msgstr "Expandir automaticamente para ações do piloto"
+
+msgid ""
+"Expand the compact Ground Operations panel for required pilot actions, "
+"then collapse it shortly after the action is completed."
+msgstr ""
+"Expande o painel compacto de Operações em Solo quando uma ação do piloto "
+"é necessária e o recolhe novamente pouco depois que a ação é concluída."
+
+msgid "Pushback interface"
+msgstr "Interface de pushback"
+
+msgid "Ground Operations"
+msgstr "Operações em solo"
+
+msgid "Legacy magic squares"
+msgstr "Quadrados mágicos clássicos"
+
+msgid "Display marshaller"
+msgstr "Exibir o balizador"
+
+msgid ""
+"Show the marshaller during normal pushback operations. Emergency Tow "
+"never displays the marshaller."
+msgstr ""
+"Exibe o balizador durante operações normais de pushback. O reboque de "
+"emergência nunca exibe o balizador."
+
+msgid ""
+"Select one global pushback interface. Ground Operations uses the new "
+"panel; Legacy magic squares restores the original operational buttons. "
+"The selection applies immediately while idle. Save preferences to keep "
+"it for the next simulator start."
+msgstr ""
+"Selecione uma interface global de pushback. Operações em solo usa o novo "
+"painel; Quadrados mágicos clássicos restaura os botões operacionais originais. "
+"A seleção é aplicada imediatamente quando o sistema está inativo. Salve as "
+"preferências para mantê-la na próxima inicialização do simulador."

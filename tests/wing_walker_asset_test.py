@@ -2,6 +2,7 @@
 
 import re
 import struct
+import math
 from pathlib import Path
 
 
@@ -36,10 +37,16 @@ def main():
 
     vertex_lines = [line for line in lines if line.startswith("VT\t")]
     assert len(vertex_lines) == vertex_count
+    vertices = [tuple(map(float,line.split()[1:])) for line in vertex_lines]
+    for vertex in vertices:
+        assert len(vertex) == 8 and all(math.isfinite(v) for v in vertex)
+        assert abs(sum(v*v for v in vertex[3:6])-1) < .001
+        assert all(0 <= v <= 1 for v in vertex[6:8])
 
     indices = []
     for line in lines:
         if line.startswith("IDX10\t") or line.startswith("IDX\t"):
+            assert len(line.split()) == (11 if line.startswith("IDX10") else 2)
             indices.extend(int(value) for value in line.split()[1:])
     assert len(indices) == index_count
     assert min(indices) == 0
@@ -65,7 +72,45 @@ def main():
             tris.append((start, count))
     assert show_ranges == EXPECTED_POSES
     assert hide_ranges == [(0.0, 3.0)] * 3
-    assert tris == [(0, 21216), (21216, 21216), (42432, 21216)]
+    assert len(tris) == 3
+    next_index = 0
+    for start, count in tris:
+        assert start == next_index
+        assert count // 3 <= 10000, "Keep each held pose within the low-poly budget"
+        points = [vertices[i] for i in indices[start:start+count]]
+        assert abs(min(p[1] for p in points)) < .001, "Feet must sit on the ground"
+        assert 1.8 < max(p[1] for p in points) < 2.6
+        next_index += count
+    assert next_index == index_count
+    assert vertex_count < index_count // 2, "Export should share identical vertex records"
+
+    # Standby wands must both slope down at 45 degrees. Fit their cylindrical
+    # tip/handle ends using the exported orange material and each side of X.
+    start,count = tris[1]
+    standby = [vertices[i] for i in set(indices[start:start+count])]
+    for side in (-1,1):
+        wand = [v for v in standby if v[0]*side > .3 and
+                abs(v[6]-.84375)<1e-6 and abs(v[7]-.75)<1e-6]
+        assert len(wand) >= 20
+        # The projected cylinder bounds expand equally for a 45 degree axis.
+        dx=max(v[0] for v in wand)-min(v[0] for v in wand)
+        dy=max(v[1] for v in wand)-min(v[1] for v in wand)
+        assert abs(dx-dy) < .002
+
+    # Only the clear signal has a green wand; its raised tube is vertical.
+    green_uv=(.90625,.75)
+    for pose_index,(start,count) in enumerate(tris):
+        points=[vertices[i] for i in set(indices[start:start+count])]
+        green=[v for v in points if abs(v[6]-green_uv[0])<1e-6 and
+               abs(v[7]-green_uv[1])<1e-6]
+        if pose_index != 2:
+            assert not green
+        else:
+            assert len(green) >= 20, "Clear signal needs a green wand"
+            assert min(v[1] for v in green) > 2.0
+            assert max(v[1] for v in green)-min(v[1] for v in green) > .28
+            assert max(v[0] for v in green)-min(v[0] for v in green) < .04
+            assert max(v[2] for v in green)-min(v[2] for v in green) < .04
 
     assert "TEXTURE\twing_walker.png" in lines
     assert "TEXTURE_LIT\twing_walker_lit.png" in lines

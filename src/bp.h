@@ -107,6 +107,7 @@ typedef struct {
     double step_start_t;    /* PB step start time */
     double last_voice_t;    /* last voice message start time */
     bp_fast_brake_handoff_t fast_brake_handoff;
+    bool_t fast_brakes_relinquished;
 
     double reverse_t;    /* when reversing direction */
 
@@ -209,6 +210,8 @@ bool_t audio_sys_init(void);
 void main_intf(bool_t);
 
 void main_intf_hide(void);
+
+void main_intf_reposition(void);
 
 void manual_bp_start(void);
 void manual_bp_request(bool_t);
