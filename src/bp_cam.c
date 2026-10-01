@@ -180,6 +180,7 @@ float loop_nightlamp(float elapsed, float elapsed2, int counter, void *refcon);
 
 static struct
 {
+    dr_t lat, lon;
     dr_t local_x, local_y, local_z;
     dr_t local_vx, local_vy, local_vz;
     dr_t cam_x, cam_y, cam_z;
@@ -2260,6 +2261,8 @@ key_sniffer(char inChar, XPLMKeyFlags inFlags, char inVirtualKey, void *refcon)
 static void
 find_drs(void)
 {
+    fdr_find(&drs.lat, "sim/flightmodel/position/latitude");
+    fdr_find(&drs.lon, "sim/flightmodel/position/longitude");
     fdr_find(&drs.local_vx, "sim/flightmodel/position/local_vx");
     fdr_find(&drs.local_vy, "sim/flightmodel/position/local_vy");
     fdr_find(&drs.local_vz, "sim/flightmodel/position/local_vz");
@@ -2482,6 +2485,17 @@ bp_cam_start(void)
         logMsg(BP_INFO_LOG "Emergency Tow planner opened at the live "
             "nosewheel; saved-route listing, loading, and saving are "
             "disabled");
+    } else if (bp_legacy_routes()) {
+        memset(&planner_gate_context, 0, sizeof(planner_gate_context));
+        /* Recall the original route without the gate-slot dialog. */
+        if (list_head(&bp.segs) == NULL) {
+            route_load_legacy(GEO_POS2(dr_getf(&drs.lat), dr_getf(&drs.lon)),
+                dr_getf(&drs.hdg), &bp.segs);
+        }
+        planner_gate_routes.new_route = list_head(&bp.segs) == NULL;
+        planner_gate_routes.suppress_save = B_TRUE;
+        logMsg(BP_INFO_LOG "Planner opened with automatic "
+            "legacy route recall; gate-slot selection is disabled");
     } else {
         at_published_start = planner_prepare_gate_context(
             &gate_match_distance, &gate_match_heading);
@@ -2608,6 +2622,10 @@ bp_cam_stop(void)
             logMsg(BP_INFO_LOG "Emergency Tow route accepted for this "
                 "session only; hard persistence guard skipped every gate "
                 "route cache write");
+        } else if (bp_legacy_routes()) {
+            logMsg(BP_INFO_LOG "Route accepted; legacy route "
+                "will be saved when pushback starts, without changing "
+                "saved gate slots");
         } else if (!planner_gate_context.recognized) {
             logMsg(BP_INFO_LOG "Route remains available for this pushback "
                 "session but was not saved: aircraft did not start at a "

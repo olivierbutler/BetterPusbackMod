@@ -4,6 +4,8 @@
 
 #include "ground_ops_state.h"
 #include "clear_signal_gate.h"
+#include "handling_timing.h"
+#include "fast_brake_handoff.h"
 #include "post_push_automation.h"
 #include "intl_test_stub.h"
 
@@ -266,6 +268,116 @@ test_waiting_state_has_no_timer_progress(void)
     before = state.snapshot;
     assert(!ground_ops_state_update(&state, &raw));
     assert(memcmp(&before, &state.snapshot, sizeof(before)) == 0);
+}
+
+static void
+test_fast_brake_handoff_holds_then_releases_and_verifies(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    bp_fast_brake_handoff_reset(&handoff, true);
+
+    assert(bp_fast_brake_handoff_update(&handoff, false, false) ==
+        BP_FAST_BRAKE_HOLD);
+    assert(bp_fast_brake_handoff_update(&handoff, true, false) ==
+        BP_FAST_BRAKE_WITHDRAW);
+    for (int frame = 0; frame < 1000; frame++)
+        assert(bp_fast_brake_handoff_update(&handoff, true, false) ==
+            BP_FAST_BRAKE_WAIT_PEDALS);
+    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+}
+
+static void
+test_fast_brake_handoff_retries_without_unset_reading(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    bp_fast_brake_handoff_reset(&handoff, true);
+
+    assert(bp_fast_brake_handoff_update(&handoff, true, false) ==
+        BP_FAST_BRAKE_WITHDRAW);
+    assert(bp_fast_brake_handoff_update(&handoff, false, true) ==
+        BP_FAST_BRAKE_RESTORE);
+    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+        BP_FAST_BRAKE_WITHDRAW);
+    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+    assert(bp_fast_brake_handoff_update(&handoff, false, true) ==
+        BP_FAST_BRAKE_RESTORE);
+}
+
+static void
+test_fast_brake_handoff_rejects_late_transient(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    bp_fast_brake_handoff_reset(&handoff, true);
+
+    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+        BP_FAST_BRAKE_WITHDRAW);
+    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+    assert(bp_fast_brake_handoff_update(&handoff, true, false) ==
+        BP_FAST_BRAKE_COMPLETE);
+    assert(bp_fast_brake_handoff_update(&handoff, false, false) ==
+        BP_FAST_BRAKE_RESTORE);
+}
+
+static void
+test_fast_brake_handoff_resets_for_each_disconnect(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    bp_fast_brake_handoff_reset(&handoff, true);
+    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+        BP_FAST_BRAKE_WITHDRAW);
+    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+
+    bp_fast_brake_handoff_reset(&handoff, true);
+    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+        BP_FAST_BRAKE_WITHDRAW);
+    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+        BP_FAST_BRAKE_COMPLETE);
+}
+
+static void
+test_fast_brake_handoff_mode_and_abort_exceptions(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    for (int required = 0; required <= 1; required++) {
+        bp_fast_brake_handoff_reset(&handoff, required != 0);
+        for (int fast = 0; fast <= 1; fast++) {
+            for (int slave = 0; slave <= 1; slave++) {
+                for (int ignore = 0; ignore <= 1; ignore++) {
+                    assert(bp_fast_brake_handoff_enabled(&handoff,
+                        fast != 0, slave != 0, ignore != 0) ==
+                        (required && fast && !slave && !ignore));
+                }
+            }
+        }
+    }
+}
+
+static void
+test_fast_pedal_wait_is_visible_in_ground_ops(void)
+{
+    const pushback_step_t steps[] = {PB_STEP_STOPPED, PB_STEP_LOWERING,
+        PB_STEP_UNGRABBING};
+    for (unsigned i = 0; i < sizeof(steps) / sizeof(steps[0]); i++) {
+        ground_ops_state_t state;
+        ground_ops_raw_state_t raw = idle_raw();
+        ground_ops_state_init(&state);
+        raw.operation_active = true;
+        raw.prep_state_active = false;
+        raw.step = steps[i];
+        raw.fast_brake_pedals_wait = true;
+        assert(ground_ops_state_update(&state, &raw));
+        assert(state.snapshot.action_required);
+        assert(strstr(state.snapshot.detail, "brake pedals") != NULL);
+        assert(strstr(state.snapshot.detail, "abort pushback") != NULL);
+        assert(strcmp(state.snapshot.current_task, "Release brake pedals") == 0);
+        raw.fast_brake_pedals_wait = false;
+        assert(ground_ops_state_update(&state, &raw));
+        assert(strstr(state.snapshot.detail, "abort pushback") == NULL);
+    }
 }
 
 static void
@@ -590,6 +702,20 @@ test_tug_return_is_an_informational_checklist_reminder(void)
 int
 main(void)
 {
+    assert(bp_handling_duration(10.0, false) == 10.0);
+    assert(bp_handling_duration(10.0, true) == 0.0);
+    assert(bp_handling_fraction(0.0, 10.0, false) == 0.0);
+    assert(bp_handling_fraction(5.0, 10.0, false) == 0.5);
+    assert(bp_handling_fraction(10.0, 10.0, false) == 1.0);
+    assert(bp_handling_fraction(12.0, 10.0, false) == 1.2);
+    assert(bp_handling_fraction(0.0, 10.0, true) == 1.0);
+    assert(bp_handling_duration(2.0, false) == 2.0);
+    assert(bp_handling_duration(12.0, false) == 12.0);
+    assert(bp_handling_duration(2.0, true) == 0.0);
+    assert(bp_handling_duration(12.0, true) == 0.0);
+    assert(bp_handling_fraction(0.0, 9.0, false) == 0.0);
+    assert(bp_handling_fraction(0.0, 9.0, true) == 1.0);
+
     bp_clear_signal_gate_t gate = {0};
     test_post_push_automation_policy();
     assert(!bp_clear_signal_acknowledge(&gate, false));
@@ -601,8 +727,10 @@ main(void)
     assert(!bp_clear_signal_acknowledge(&gate, true));
     assert(!bp_clear_signal_can_depart(&gate, 14.999));
     assert(bp_clear_signal_can_depart(&gate, 15.0));
+    assert(bp_clear_signal_can_depart_after(&gate, 0.0, 0.0));
     bp_clear_signal_reset(&gate);
     assert(!bp_clear_signal_can_depart(&gate, 3600.0));
+    assert(!bp_clear_signal_can_depart_after(&gate, 0.0, 0.0));
 
     ground_ops_state_t ack_state;
     ground_ops_raw_state_t ack_raw = idle_raw();
@@ -653,6 +781,12 @@ main(void)
     test_formatting_only_changes_for_display_values();
     test_captions_follow_message_state();
     test_waiting_state_has_no_timer_progress();
+    test_fast_brake_handoff_holds_then_releases_and_verifies();
+    test_fast_brake_handoff_retries_without_unset_reading();
+    test_fast_brake_handoff_rejects_late_transient();
+    test_fast_brake_handoff_resets_for_each_disconnect();
+    test_fast_brake_handoff_mode_and_abort_exceptions();
+    test_fast_pedal_wait_is_visible_in_ground_ops();
     test_stage_visuals_distinguish_blocking_from_automatic_progress();
     test_pre_lift_connection_hold_exposes_plan_action();
     test_pause_resume_actions_preserve_push_stage();

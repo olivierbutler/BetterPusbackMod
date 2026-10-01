@@ -28,6 +28,7 @@
 #include "acf_outline.h"
 #include "clear_signal_gate.h"
 #include "driving.h"
+#include "fast_brake_handoff.h"
 #include "pushback_step.h"
 #include "tug.h"
 #include "wing_walker.h"
@@ -105,6 +106,8 @@ typedef struct {
     pushback_step_t step;        /* current PB step */
     double step_start_t;    /* PB step start time */
     double last_voice_t;    /* last voice message start time */
+    bp_fast_brake_handoff_t fast_brake_handoff;
+    bool_t fast_brakes_relinquished;
 
     double reverse_t;    /* when reversing direction */
 

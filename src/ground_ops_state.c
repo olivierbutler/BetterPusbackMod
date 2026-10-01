@@ -119,6 +119,7 @@ raw_equal(const ground_ops_raw_state_t *left,
         left->clear_signal_displayed == right->clear_signal_displayed &&
         left->clear_signal_acknowledged == right->clear_signal_acknowledged &&
         left->disconnect_approved == right->disconnect_approved &&
+        left->fast_brake_pedals_wait == right->fast_brake_pedals_wait &&
         strcmp(left->airport_ident, right->airport_ident) == 0 &&
         strcmp(left->flight, right->flight) == 0 &&
         strcmp(left->schedule, right->schedule) == 0 &&
@@ -202,6 +203,7 @@ semantic_equal(const ground_ops_raw_state_t *left,
         left->clear_signal_displayed == right->clear_signal_displayed &&
         left->clear_signal_acknowledged == right->clear_signal_acknowledged &&
         left->disconnect_approved == right->disconnect_approved &&
+        left->fast_brake_pedals_wait == right->fast_brake_pedals_wait &&
         strcmp(left->airport_ident, right->airport_ident) == 0 &&
         left->captions_enabled == right->captions_enabled &&
         left->caption_active == right->caption_active &&
@@ -230,6 +232,8 @@ normalize_raw(const ground_ops_raw_state_t *input)
     }
     if (raw.step != PB_STEP_WAITING4OK2DISCO)
         raw.disconnect_approved = false;
+    if (raw.step < PB_STEP_STOPPED || raw.step > PB_STEP_UNGRABBING)
+        raw.fast_brake_pedals_wait = false;
     if (raw.prep_state < GROUND_OPS_PREP_AIRPORT_DATA ||
         raw.prep_state > GROUND_OPS_PREP_COMPLETE)
         raw.prep_state = GROUND_OPS_PREP_AIRPORT_DATA;
@@ -470,15 +474,32 @@ map_step(const ground_ops_raw_state_t *raw,
         break;
     case PB_STEP_STOPPED:
         set_view(snapshot, GROUND_OPS_STAGE_PUSH, "ACTION",
-            _("Aircraft stopped"), _("Parking brake confirmation is required"),
+            _("Aircraft stopped"), raw->fast_brake_pedals_wait ?
+            _("Waiting for brake pedals to be released (or abort pushback)") :
+            _("Parking brake confirmation is required"),
+            raw->fast_brake_pedals_wait ? _("Release brake pedals") :
             _("Set the parking brake"), true);
         break;
     case PB_STEP_LOWERING:
+        if (raw->fast_brake_pedals_wait) {
+            set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTION",
+                _("Lowering the nose gear"),
+                _("Waiting for brake pedals to be released (or abort pushback)"),
+                _("Release brake pedals"), true);
+            break;
+        }
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
             _("Lowering the nose gear"), _("Beginning tug disconnection"),
             _("Wait for nose-gear lowering"), false);
         break;
     case PB_STEP_UNGRABBING:
+        if (raw->fast_brake_pedals_wait) {
+            set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTION",
+                _("Releasing the nose gear"),
+                _("Waiting for brake pedals to be released (or abort pushback)"),
+                _("Release brake pedals"), true);
+            break;
+        }
         set_view(snapshot, GROUND_OPS_STAGE_CLEAR, "ACTIVE",
             _("Releasing the nose gear"), _("Connection equipment is opening"),
             _("Wait for nose-gear release"), false);

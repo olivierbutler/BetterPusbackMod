@@ -772,11 +772,13 @@ connect_first_begin(bool_t emergency)
             "and wing-walker rendering are disabled for this session");
     }
 
+    bool_t keep_legacy_plan = bp_legacy_routes() && !emergency &&
+        !bp_cam_is_running() && bp_num_segs() != 0;
     late_plan_requested = B_TRUE;
     (void)bp_cam_stop();
 
-    /* The connected workflow always begins with a fresh in-session route. */
-    if (bp_num_segs())
+    /* Retain a completed legacy pre-plan when its route policy is enabled. */
+    if (!keep_legacy_plan && bp_num_segs())
         bp_delete_all_segs();
 
     if (!bp_start()) {
@@ -1434,9 +1436,12 @@ bp_priv_enable(void)
             "falling back to the airport database's path-only cache check");
     } else if (!airport_cache_manifest_matches(cachedir,
         &scenery_before)) {
+        char input_count[32];
+        /* MinGW's log format checker differs from its C99 snprintf support. */
+        snprintf(input_count, sizeof(input_count), "%zu",
+            scenery_before.input_count);
         logMsg(BP_INFO_LOG "Installed airport scenery changed; rebuilding "
-            "the BetterPushback airport cache (%llu inputs)",
-            (unsigned long long)scenery_before.input_count);
+            "the BetterPushback airport cache (%s inputs)", input_count);
         if (!airport_cache_manifest_invalidate(cachedir)) {
             logMsg(BP_ERROR_LOG "Unable to invalidate the stale "
                 "BetterPushback airport cache");

@@ -348,6 +348,9 @@ collect_raw_state(void)
     raw.clear_signal_displayed = bp.clear_signal_gate.displayed;
     raw.clear_signal_acknowledged = bp.clear_signal_gate.acknowledged;
     raw.disconnect_approved = bp.ok2disco != B_FALSE;
+    raw.fast_brake_pedals_wait = raw.operation_active &&
+        bp.fast_brakes_relinquished &&
+        bp.fast_brake_handoff.phase == BP_FAST_BRAKE_WAITING_PEDALS;
     ground_ops_data_format(&data_context, context_now_s(), &data);
     (void)std::snprintf(raw.airport_ident, sizeof(raw.airport_ident), "%s",
         airport_ident);

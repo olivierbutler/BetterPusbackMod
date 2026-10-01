@@ -26,6 +26,15 @@ done
 printf 'Running wing_walker_asset_test.py\n'
 python3 "$test_dir/wing_walker_asset_test.py"
 
+printf 'Running Fast parking-brake controller integration tests\n'
+python3 "$test_dir/run_fast_brake_controller_tests.py"
+
+printf 'Running optional legacy route recall/save regression tests\n'
+python3 "$test_dir/run_classic_route_tests.py"
+
+printf 'Running feature integration and preference migration tests\n'
+python3 "$test_dir/run_feature_integration_tests.py"
+
 printf 'Running runtime telemetry disabled test\n'
 repo_dir=$(CDPATH= cd -- "$test_dir/.." && pwd)
 telemetry_test_dir=$(mktemp -d)
