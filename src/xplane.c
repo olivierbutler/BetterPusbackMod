@@ -1434,9 +1434,9 @@ bp_priv_enable(void)
             "falling back to the airport database's path-only cache check");
     } else if (!airport_cache_manifest_matches(cachedir,
         &scenery_before)) {
-        logMsg(BP_INFO_LOG "Installed airport scenery changed; rebuilding "
+        /*logMsg(BP_INFO_LOG "Installed airport scenery changed; rebuilding "
             "the BetterPushback airport cache (%llu inputs)",
-            (unsigned long long)scenery_before.input_count);
+            (unsigned long long)scenery_before.input_count);*/
         if (!airport_cache_manifest_invalidate(cachedir)) {
             logMsg(BP_ERROR_LOG "Unable to invalidate the stale "
                 "BetterPushback airport cache");
