@@ -5,9 +5,22 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN rm -rf /usr/share/man/* \
  && echo 'path-exclude /usr/share/man/*' > /etc/dpkg/dpkg.cfg.d/exclude_manpages
- 
+
+# Debian 11 (bullseye) left security support in August 2026. Its live mirrors
+# now list bullseye-security packages whose files have been removed, so
+# "apt-get install" fails with 404 errors. Read bullseye from
+# snapshot.debian.org at a fixed date instead: a consistent archive that keeps
+# every file, and a reproducible build. To use another date:
+#   docker build --build-arg DEBIAN_SNAPSHOT=20260801T000000Z ...
+ARG DEBIAN_SNAPSHOT=20260901T000000Z
+RUN printf 'deb http://snapshot.debian.org/archive/debian/%s bullseye main\n\
+deb http://snapshot.debian.org/archive/debian/%s bullseye-updates main\n\
+deb http://snapshot.debian.org/archive/debian-security/%s bullseye-security main\n' \
+    "$DEBIAN_SNAPSHOT" "$DEBIAN_SNAPSHOT" "$DEBIAN_SNAPSHOT" > /etc/apt/sources.list
+
 # Install base system and cross-compilation dependencies
-RUN apt-get update && apt-get install -y \
+# (snapshot Release files are past their Valid-Until date, hence the option)
+RUN apt-get -o Acquire::Check-Valid-Until=false update && apt-get install -y \
     build-essential \
     cmake \
     zip \
