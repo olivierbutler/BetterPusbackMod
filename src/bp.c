@@ -178,7 +178,10 @@ static struct {
 	int		    nb_doors;
 	char	    dr[MAX_DOOR][64];
 	bool_t	    dr_neg[MAX_DOOR];
+	int		    first_open;	/* index of the first item still open, -1 */
 } doors_info = {0};
+
+static bp_blocker_t bp_blocker = BP_BLOCKER_NONE;
 
 bp_state_t bp = {0};
 bp_long_state_t bp_ls = {0};
@@ -1131,6 +1134,7 @@ acf_doors_closed(bool_t with_cfg_flag) {
     if  (!doors_info.info_initialised) {
         doors_refs_init();
     }
+    doors_info.first_open = -1;
 
     if (with_cfg_flag) {
         int doors_check = DOOR_CHECK_ActiveWithMessage;
@@ -1140,7 +1144,7 @@ acf_doors_closed(bool_t with_cfg_flag) {
         }
     }
 
-    
+
     for (int i = 0 ; i< doors_info.nb_doors ; i++) {
         if (doors_info.dr[i][0] == '@') {
             result = dr_door_check_vf32(doors_info.dr[i]+1);
@@ -1148,11 +1152,38 @@ acf_doors_closed(bool_t with_cfg_flag) {
             result = dr_door_check(doors_info.dr[i]);
         }
         result = doors_info.dr_neg[i] ? !result : result;
-        if (!result) 
+        if (!result) {
+            doors_info.first_open = i;
             break;
+        }
     }
 
     return result;
+}
+
+bp_blocker_t
+bp_current_blocker(void)
+{
+    return (bp_started ? bp_blocker : BP_BLOCKER_NONE);
+}
+
+const char *
+bp_blocker_item(void)
+{
+    int i = doors_info.first_open;
+
+    if (bp_current_blocker() != BP_BLOCKER_AIRCRAFT_NOT_READY ||
+        i < 0 || i >= doors_info.nb_doors)
+        return ("");
+    return (doors_info.dr[i][0] == '@' ? doors_info.dr[i] + 1 :
+        doors_info.dr[i]);
+}
+
+const char *
+bp_status_text(void)
+{
+    return ((bp_started && bp_hint_status_str != NULL) ?
+        bp_hint_status_str : "");
 }
 
 bool_t
@@ -3012,6 +3043,7 @@ pb_step_lift(void) {
             bp_hint_status_str = emergency_tow_is_active() ?
                 _("Tug connected, waiting for emergency tow plan") :
                 _("Tug connected, waiting for pushback plan");
+            bp_blocker = BP_BLOCKER_PLAN_REQUIRED;
             enable_replanning();
             return;
         }
@@ -3078,6 +3110,7 @@ pb_step_connected(void) {
         seg = list_head(&bp.segs);
         if  ( seg == NULL ) {
             bp_hint_status_str = _("Waiting for planning the pushback");
+            bp_blocker = BP_BLOCKER_PLAN_REQUIRED;
             return;
         }
     }
@@ -3094,6 +3127,8 @@ pb_step_connected(void) {
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes release");
+        if (parking_brake_set)
+            bp_blocker = BP_BLOCKER_RELEASE_PARKING_BRAKE;
     } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
         if (!slave_mode) {
             bool_t backward = true; 
@@ -3289,6 +3324,7 @@ pb_step_stopped(void) {
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes set");
+        bp_blocker = BP_BLOCKER_SET_PARKING_BRAKE;
     } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY &&
                bp.cur_t - bp.last_voice_t >= msg_dur(MSG_OP_COMPLETE) +
                                              STATE_TRANS_DELAY) {
@@ -4314,6 +4350,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
     }
 
     bp_hint_status_str = NULL ;
+    bp_blocker = BP_BLOCKER_NONE;
 
     switch (bp.step) {
         case PB_STEP_OFF:
@@ -4369,6 +4406,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                 }
             }
             else {
+                bp_blocker = BP_BLOCKER_AIRCRAFT_NOT_READY;
                 enable_replanning();
             }
             break;
@@ -4377,6 +4415,8 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             bp_hint_status_str = late_plan_requested ?
                 _("Ground crew securing the aircraft") :
                 _("Waiting for the parking brakes set");
+            if (!late_plan_requested && !pbrake_is_set())
+                bp_blocker = BP_BLOCKER_SET_PARKING_BRAKE;
             pb_step_waiting_for_pbrake();
             break;
         case PB_STEP_DRIVING_UP_CONNECT:
@@ -4391,6 +4431,8 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             bp_hint_status_str = bp.awaiting_plan ?
                 _("Tug connected, waiting for pushback plan") :
                 _("Lifting the aircraft");
+            if (bp.awaiting_plan)
+                bp_blocker = BP_BLOCKER_PLAN_REQUIRED;
             pb_step_lift();
             break;
         case PB_STEP_CONNECTED:

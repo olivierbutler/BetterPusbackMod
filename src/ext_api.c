@@ -60,6 +60,11 @@ static dr_t stage_name_dr;
 static dr_t action_dr;
 static dr_t action_name_dr;
 static dr_t paused_dr;
+static dr_t blocker_dr;
+static dr_t blocker_name_dr;
+static dr_t blocker_item_dr;
+static dr_t blocker_item_kind_dr;
+static dr_t status_text_dr;
 static dr_t msg_seq_dr;
 static dr_t msg_dr;
 static dr_t msg_key_dr;
@@ -107,18 +112,40 @@ refresh_line(void)
     line.duration = mgs_initiated() ? (float)msg_dur(state.message) : 0.0f;
 }
 
+static int
+blocker_public(bp_blocker_t blocker)
+{
+    switch (blocker) {
+    case BP_BLOCKER_AIRCRAFT_NOT_READY:
+        return (BP_EXT_BLOCKER_AIRCRAFT_NOT_READY);
+    case BP_BLOCKER_SET_PARKING_BRAKE:
+        return (BP_EXT_BLOCKER_SET_PARKING_BRAKE);
+    case BP_BLOCKER_RELEASE_PARKING_BRAKE:
+        return (BP_EXT_BLOCKER_RELEASE_PARKING_BRAKE);
+    case BP_BLOCKER_PLAN_REQUIRED:
+        return (BP_EXT_BLOCKER_PLAN_REQUIRED);
+    case BP_BLOCKER_NONE:
+    default:
+        return (BP_EXT_BLOCKER_NONE);
+    }
+}
+
 static void
 refresh(void)
 {
     ground_ops_raw_state_t raw;
     bp_ext_state_t next;
+    bp_ext_blocker_in_t blocker;
 
     if (!ground_ops_ui_collect_state(&raw)) {
         memset(&raw, 0, sizeof (raw));
         raw.step = PB_STEP_OFF;
     }
     (void)ground_ops_state_update(&snapshot_cache, &raw);
-    bp_ext_state_from(&raw, ground_ops_state_get(&snapshot_cache),
+    blocker.blocker = blocker_public(bp_current_blocker());
+    blocker.item = bp_blocker_item();
+    blocker.status = bp_status_text();
+    bp_ext_state_from(&raw, ground_ops_state_get(&snapshot_cache), &blocker,
         &published, &next);
     published = next;
     refresh_line();
@@ -185,6 +212,16 @@ ext_api_init(void)
     dr_create_b(&action_name_dr, published.action_name,
         sizeof (published.action_name), B_FALSE, "bp/action_name");
     dr_create_i(&paused_dr, &published.paused, B_FALSE, "bp/paused");
+    dr_create_i(&blocker_dr, &published.blocker, B_FALSE, "bp/blocker");
+    dr_create_b(&blocker_name_dr, published.blocker_name,
+        sizeof (published.blocker_name), B_FALSE, "bp/blocker_name");
+    dr_create_b(&blocker_item_dr, published.blocker_item,
+        sizeof (published.blocker_item), B_FALSE, "bp/blocker_item");
+    dr_create_b(&blocker_item_kind_dr, published.blocker_item_kind,
+        sizeof (published.blocker_item_kind), B_FALSE,
+        "bp/blocker_item_kind");
+    dr_create_b(&status_text_dr, published.status, sizeof (published.status),
+        B_FALSE, "bp/status_text");
 
     dr_create_i(&msg_seq_dr, &line.seq, B_FALSE, "bp/msg_seq");
     dr_create_i(&msg_dr, &line.msg, B_FALSE, "bp/msg");
@@ -233,6 +270,11 @@ ext_api_fini(void)
     dr_delete(&action_dr);
     dr_delete(&action_name_dr);
     dr_delete(&paused_dr);
+    dr_delete(&blocker_dr);
+    dr_delete(&blocker_name_dr);
+    dr_delete(&blocker_item_dr);
+    dr_delete(&blocker_item_kind_dr);
+    dr_delete(&status_text_dr);
     dr_delete(&msg_seq_dr);
     dr_delete(&msg_dr);
     dr_delete(&msg_key_dr);

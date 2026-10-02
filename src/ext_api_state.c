@@ -4,6 +4,7 @@
  * dependencies, so it is unit tested on its own (tests/ext_api_state_test.c).
  */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -121,18 +122,76 @@ bp_ext_stage_name(int stage)
     return (stage_names[stage]);
 }
 
+/* Indexed by the public blocker number. */
+static const char *const blocker_names[] = {
+    "none", "aircraft_not_ready", "set_parking_brake",
+    "release_parking_brake", "plan_required"
+};
+
+const char *
+bp_ext_blocker_name(int public_blocker)
+{
+    if (public_blocker < 0 ||
+        public_blocker >= (int)ARRAY_LEN(blocker_names))
+        return ("unknown");
+    return (blocker_names[public_blocker]);
+}
+
+/* Does `text` start with `prefix` (lower case), ignoring case? */
+static bool
+starts_with_nocase(const char *text, const char *prefix)
+{
+    for (; *prefix != '\0'; text++, prefix++) {
+        if (tolower((unsigned char)*text) != *prefix)
+            return (false);
+    }
+    return (true);
+}
+
+/* Does `dataref` hold a word (letters and digits) that starts with `word`? */
+static bool
+has_word(const char *dataref, const char *word)
+{
+    for (const char *p = dataref; *p != '\0'; p++) {
+        bool starts = (p == dataref || !isalnum((unsigned char)p[-1]));
+        if (starts && starts_with_nocase(p, word))
+            return (true);
+    }
+    return (false);
+}
+
+const char *
+bp_ext_item_kind(const char *dataref)
+{
+    if (dataref == NULL || *dataref == '\0')
+        return ("");
+    if (has_word(dataref, "gpu"))
+        return ("gpu");
+    if (has_word(dataref, "asu") || has_word(dataref, "airstart") ||
+        has_word(dataref, "air_start"))
+        return ("asu");
+    if (has_word(dataref, "cargo"))
+        return ("cargo_door");
+    if (has_word(dataref, "door") || has_word(dataref, "hatch"))
+        return ("door");
+    return ("other");
+}
+
 static bool
 same_state(const bp_ext_state_t *a, const bp_ext_state_t *b)
 {
     return (a->active == b->active && a->emergency_tow == b->emergency_tow &&
         a->step == b->step && a->stage == b->stage &&
-        a->action == b->action && a->paused == b->paused);
+        a->action == b->action && a->paused == b->paused &&
+        a->blocker == b->blocker &&
+        strcmp(a->blocker_item, b->blocker_item) == 0 &&
+        strcmp(a->status, b->status) == 0);
 }
 
 void
 bp_ext_state_from(const ground_ops_raw_state_t *raw,
-    const ground_ops_snapshot_t *snapshot, const bp_ext_state_t *previous,
-    bp_ext_state_t *out)
+    const ground_ops_snapshot_t *snapshot, const bp_ext_blocker_in_t *blocker,
+    const bp_ext_state_t *previous, bp_ext_state_t *out)
 {
     bp_ext_state_t state;
 
@@ -152,6 +211,25 @@ bp_ext_state_from(const ground_ops_raw_state_t *raw,
         bp_ext_stage_name(state.stage));
     (void)snprintf(state.action_name, sizeof (state.action_name), "%s",
         bp_ext_action_name(state.action));
+
+    if (state.active && blocker != NULL) {
+        state.blocker = (blocker->blocker > BP_EXT_BLOCKER_NONE &&
+            blocker->blocker < (int)ARRAY_LEN(blocker_names)) ?
+            blocker->blocker : BP_EXT_BLOCKER_NONE;
+        if (state.blocker == BP_EXT_BLOCKER_AIRCRAFT_NOT_READY &&
+            blocker->item != NULL) {
+            (void)snprintf(state.blocker_item, sizeof (state.blocker_item),
+                "%s", blocker->item);
+        }
+        if (blocker->status != NULL) {
+            (void)snprintf(state.status, sizeof (state.status), "%s",
+                blocker->status);
+        }
+    }
+    (void)snprintf(state.blocker_name, sizeof (state.blocker_name), "%s",
+        bp_ext_blocker_name(state.blocker));
+    (void)snprintf(state.blocker_item_kind, sizeof (state.blocker_item_kind),
+        "%s", bp_ext_item_kind(state.blocker_item));
 
     if (previous == NULL)
         state.state_seq = 1;

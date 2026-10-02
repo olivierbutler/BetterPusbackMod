@@ -33,7 +33,7 @@ a pilot who uses it on its own.
 
 | Dataref | Type | Meaning |
 | --- | --- | --- |
-| `bp/api_version` | int | Interface version (this document: 2) |
+| `bp/api_version` | int | Interface version (this document: 3) |
 | `bp/state_seq` | int | Changes whenever a value below changes |
 | `bp/started` | int | An operation is running (existing dataref) |
 | `bp/emergency_tow` | int | The running operation is the Emergency Tow |
@@ -174,20 +174,43 @@ report how long it speaks).
 | 17 | `lights_warning` | "Hey! Quit blinding me with your landing lights! Turn them off!" (or taxi lights), during the push |
 | 18 | `system` | A failure or warning about BetterPushback itself, e.g. "Pushback failure: no suitable tug for your aircraft." |
 
+## Version 3: blockers
+
+Why a running operation is waiting, so another plugin can say so ("we can't
+connect, the GPU is still on") instead of the pilot guessing. These values are
+part of the operation state: `bp/state_seq` moves when they change.
+
+| Dataref | Type | Meaning |
+| --- | --- | --- |
+| `bp/blocker` | int | What the operation waits for, see below; 0 when nothing |
+| `bp/blocker_name` | byte[32] | Its machine name |
+| `bp/blocker_item` | byte[64] | For `aircraft_not_ready`: the door-check dataref still open, from `BetterPushback_doors.cfg` (e.g. `laminar/B738/gpu_available`); empty otherwise |
+| `bp/blocker_item_kind` | byte[32] | What that dataref stands for, from its name: `door`, `cargo_door`, `gpu`, `asu` or `other` |
+| `bp/status_text` | byte[96] | BetterPushback's status line for the current step, in its language (e.g. "Waiting for the parking brakes release") |
+
+| Value | Name | The operation waits until |
+| --- | --- | --- |
+| 0 | `none` | Nothing is blocking |
+| 1 | `aircraft_not_ready` | Every configured door is closed and the GPU/ASU are disconnected |
+| 2 | `set_parking_brake` | The parking brake is set (before connecting, or after the push) |
+| 3 | `release_parking_brake` | The parking brake is released (connected, ready to push) |
+| 4 | `plan_required` | A push route is planned |
+
+The item kind is a best guess from the dataref's name; aircraft without a
+`BetterPushback_doors.cfg` entry report no item.
+
 ## Roadmap
 
 Later parts of the interface, each a separate change and each raising
 `bp/api_version`:
 
-1. **Blockers** - why the operation is waiting (a door open, a GPU
-   connected, the parking brake), as text and a number.
-2. **External voice** - a mode in which BetterPushback stays silent and another
+1. **External voice** - a mode in which BetterPushback stays silent and another
    plugin speaks the crew lines, with a handshake so the operation waits for
    that plugin's line to finish (time-limited, never blocking a stop).
-3. **External routes** - another plugin supplies the push route as positions
+2. **External routes** - another plugin supplies the push route as positions
    and headings; BetterPushback fits it to the aircraft, accepts or rejects it
    with a reason, and publishes the active route in the same format.
-4. **Saved routes** - commands to save the active route to a stand's slot, and
+3. **Saved routes** - commands to save the active route to a stand's slot, and
    to load or clear one.
 
 ## Testing
@@ -197,7 +220,8 @@ Both run as part of `tests/run_all_tests.sh`:
 - `tests/run_ext_api_state_tests.sh` checks that every controller step and
   Ground Operations action has a unique, fixed public number and name, and
   that the published state follows the controller through idle, pushing,
-  pause and the Emergency Tow.
+  pause and the Emergency Tow, and that blockers are published with the open
+  item and its kind only while an operation runs.
 - `tests/run_ext_api_msgs_tests.sh` checks that every crew line has a unique,
   fixed number, key, text and caption, and that the brake-set and
   no-engine-start variants leave out the part that does not apply, and that

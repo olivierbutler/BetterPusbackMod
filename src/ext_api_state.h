@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 /* Raised whenever the published interface gains something (never lowered). */
-#define BP_EXT_API_VERSION 2
+#define BP_EXT_API_VERSION 3
 
 #define BP_EXT_NAME_LEN 32
 
@@ -69,6 +69,25 @@ typedef enum {
     BP_EXT_ACTION_ACKNOWLEDGE_CLEAR = 10
 } bp_ext_action_t;
 
+/* Public blocker numbers: what the operation waits for (0 = nothing). */
+typedef enum {
+    BP_EXT_BLOCKER_NONE = 0,
+    BP_EXT_BLOCKER_AIRCRAFT_NOT_READY = 1,      /* door open, GPU/ASU on */
+    BP_EXT_BLOCKER_SET_PARKING_BRAKE = 2,
+    BP_EXT_BLOCKER_RELEASE_PARKING_BRAKE = 3,
+    BP_EXT_BLOCKER_PLAN_REQUIRED = 4
+} bp_ext_blocker_t;
+
+#define BP_EXT_ITEM_LEN 64
+#define BP_EXT_STATUS_LEN 96
+
+/* The controller's blocker, as the glue code reads it from bp.c. */
+typedef struct {
+    int blocker;                    /* bp_ext_blocker_t */
+    const char *item;               /* the dataref still open, or NULL */
+    const char *status;             /* the status line, or NULL */
+} bp_ext_blocker_in_t;
+
 /* Everything published by this part of the interface. */
 typedef struct {
     int active;                     /* an operation is running */
@@ -80,6 +99,11 @@ typedef struct {
     int action;                     /* bp_ext_action_t */
     char action_name[BP_EXT_NAME_LEN];
     int paused;                     /* a pause is requested or held */
+    int blocker;                    /* bp_ext_blocker_t */
+    char blocker_name[BP_EXT_NAME_LEN];
+    char blocker_item[BP_EXT_ITEM_LEN];
+    char blocker_item_kind[BP_EXT_NAME_LEN];
+    char status[BP_EXT_STATUS_LEN];
     int state_seq;                  /* changes whenever any field above does */
 } bp_ext_state_t;
 
@@ -88,15 +112,22 @@ const char *bp_ext_step_name(int public_step);
 int bp_ext_action_public(ground_ops_action_t action);
 const char *bp_ext_action_name(int public_action);
 const char *bp_ext_stage_name(int stage);
+const char *bp_ext_blocker_name(int public_blocker);
+/*
+ * What a door-check dataref stands for, from its name: "gpu", "asu",
+ * "cargo_door", "door", or "other" ("" for none).
+ */
+const char *bp_ext_item_kind(const char *dataref);
 
 /*
- * Fills `out` from the controller's raw state and the Ground Operations
- * snapshot made from it. `previous` is the state published before (or NULL):
- * state_seq is carried over, plus one when anything changed.
+ * Fills `out` from the controller's raw state, the Ground Operations snapshot
+ * made from it, and its blocker (NULL: none). `previous` is the state
+ * published before (or NULL): state_seq is carried over, plus one when
+ * anything changed.
  */
 void bp_ext_state_from(const ground_ops_raw_state_t *raw,
-    const ground_ops_snapshot_t *snapshot, const bp_ext_state_t *previous,
-    bp_ext_state_t *out);
+    const ground_ops_snapshot_t *snapshot, const bp_ext_blocker_in_t *blocker,
+    const bp_ext_state_t *previous, bp_ext_state_t *out);
 
 #ifdef __cplusplus
 }

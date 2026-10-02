@@ -194,6 +194,25 @@ bool_t acf_is_compatible(void);
 
 bool_t acf_doors_closed(bool_t);
 
+/*
+ * What the running operation is waiting for from the pilot or the aircraft
+ * (published by the external interface). NONE when nothing is blocking or no
+ * operation is running.
+ */
+typedef enum {
+    BP_BLOCKER_NONE,
+    BP_BLOCKER_AIRCRAFT_NOT_READY,      /* a door open, GPU or ASU connected */
+    BP_BLOCKER_SET_PARKING_BRAKE,
+    BP_BLOCKER_RELEASE_PARKING_BRAKE,
+    BP_BLOCKER_PLAN_REQUIRED
+} bp_blocker_t;
+
+bp_blocker_t bp_current_blocker(void);
+/* For AIRCRAFT_NOT_READY: the configured dataref still open ("" if unknown). */
+const char *bp_blocker_item(void);
+/* The controller's status line (translated), "" when there is none. */
+const char *bp_status_text(void);
+
 bool_t acf_is_airliner(void);
 
 void read_acf_airline(char airline[1024]);
