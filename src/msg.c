@@ -65,6 +65,10 @@ static uint64_t message_sequence = 0;
 static uint64_t caption_started_us = 0;
 static bool_t caption_issued = B_FALSE;
 static alc_t *alc = NULL;
+static char voice_pack[64] = "";
+static bool_t last_spoken = B_FALSE;        /* the last line was msg_speak's */
+static msg_spoken_t spoken_kind = MSG_SPOKEN_SYSTEM;
+static char spoken_text[256] = "";
 
 /*
  * This examines an optional "cc_aliases.cfg" file in our messages directory.
@@ -268,6 +272,7 @@ msg_init(const char *my_lang, const char *icao, lang_pref_t lang_pref) {
         free(path);
     }
 
+    strlcpy(voice_pack, msg_dir_name, sizeof (voice_pack));
     free(msg_dir_name);
     fdr_find(&sound_on, "sim/operation/sound/sound_on");
 
@@ -305,6 +310,13 @@ msg_fini(void) {
     }
     inited = B_FALSE;
     caption_issued = B_FALSE;
+    voice_pack[0] = '\0';
+}
+
+const char *
+msg_voice_pack(void)
+{
+    return (inited ? voice_pack : "");
 }
 
 void
@@ -312,6 +324,7 @@ msg_play(message_t msg) {
     VERIFY3U(msg, <, MSG_NUM_MSGS);
     ASSERT(inited);
     last_msg = msg;
+    last_spoken = B_FALSE;
     message_sequence++;
     caption_started_us = microclock();
     caption_issued = B_TRUE;
@@ -346,6 +359,9 @@ msg_get_caption_state(msg_caption_state_t *state)
     state->active = B_FALSE;
     state->message = last_msg;
     state->sequence = message_sequence;
+    state->spoken = last_spoken;
+    state->spoken_kind = spoken_kind;
+    state->spoken_text = spoken_text;
     if (!inited || !caption_issued)
         return;
 
@@ -354,4 +370,18 @@ msg_get_caption_state(msg_caption_state_t *state)
         state->active = B_TRUE;
     else
         caption_issued = B_FALSE;
+}
+
+void
+msg_speak(msg_spoken_t kind, const char *text)
+{
+    if (text == NULL)
+        return;
+    strlcpy(spoken_text, text, sizeof (spoken_text));
+    spoken_kind = kind;
+    last_spoken = B_TRUE;
+    message_sequence++;
+    /* The panel's caption shows recordings only; it must not repeat the last. */
+    caption_issued = B_FALSE;
+    XPLMSpeakString(text);
 }

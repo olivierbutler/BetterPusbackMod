@@ -840,7 +840,7 @@ cab_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
 
     if (!cab_view_start())
     {
-        XPLMSpeakString(_("ERROR: Unable to select pushback tug view at this time."));
+        msg_speak(MSG_SPOKEN_SYSTEM, _("ERROR: Unable to select pushback tug view at this time."));
         return (0);
     }
 
@@ -1083,7 +1083,7 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     {
         if (bp_started)
         {
-            XPLMSpeakString(_("Pushback failure: smartcopilot "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: smartcopilot "
                               "attempted to switch master/slave or network "
                               "connection lost. Stopping operation."));
         }
@@ -1101,7 +1101,7 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     {
         if (bp_started)
         {
-            XPLMSpeakString(_("Pushback failure: Shared Flight "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: Shared Flight "
                               "attempted to switch pilot flying or network "
                               "connection lost. Stopping operation."));
         }
@@ -1115,7 +1115,7 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     {
         if (bp_started)
         {
-            XPLMSpeakString(_("Pushback failure: smartcopilot "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: smartcopilot "
                               "attempted to switch master/slave or network "
                               "connection lost. Stopping operation."));
         }
@@ -1129,7 +1129,7 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     {
         if (bp_started)
         {
-            XPLMSpeakString(_("Pushback failure: Shared Flight "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: Shared Flight "
                               "attempted to switch pilot flying or network "
                               "connection lost. Stopping operation."));
         }

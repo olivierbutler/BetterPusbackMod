@@ -52,10 +52,21 @@ typedef enum {
     MSG_NUM_MSGS
 } message_t;
 
+/* What a line spoken through X-Plane's speech (msg_speak) is about. */
+typedef enum {
+    MSG_SPOKEN_DOORS_GPU,       /* a door open, the GPU or ASU connected */
+    MSG_SPOKEN_LIGHTS,          /* landing or taxi lights on during the push */
+    MSG_SPOKEN_SYSTEM           /* a failure or warning about the plugin itself */
+} msg_spoken_t;
+
 typedef struct {
     bool_t active;
     message_t message;
     uint64_t sequence;
+    /* The last line was spoken text (msg_speak), not a recording: */
+    bool_t spoken;
+    msg_spoken_t spoken_kind;
+    const char *spoken_text;
 } msg_caption_state_t;
 
 bool_t msg_init(const char *my_lang, const char *icao, lang_pref_t lang_pref);
@@ -70,7 +81,16 @@ bool_t mgs_initiated(void);
 
 double msg_dur(message_t msg);
 
+/* The voice pack chosen by msg_init (e.g. "en_GB"), "" when not initialized. */
+const char *msg_voice_pack(void);
+
 void msg_get_caption_state(msg_caption_state_t *state);
+
+/*
+ * Says `text` through X-Plane's speech and publishes it as a line like the
+ * recordings (README-EXTERNAL-API.md, "Crew lines"). Works before msg_init.
+ */
+void msg_speak(msg_spoken_t kind, const char *text);
 
 #ifdef    __cplusplus
 }

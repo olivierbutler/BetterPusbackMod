@@ -10,20 +10,37 @@
 #include <XPLMProcessing.h>
 
 #include <acfutils/dr.h>
+#include <acfutils/helpers.h>
 #include <acfutils/log.h>
 
 #include "bp.h"
 #include "ext_api.h"
+#include "ext_api_msgs.h"
 #include "ext_api_state.h"
 #include "ground_ops_ui.h"
+#include "msg.h"
 #include "xplane.h"
 
 #define EXT_API_INTERVAL 0.1f      /* seconds between refreshes */
+
+/* The crew line last started (README-EXTERNAL-API.md, "Crew lines"). */
+typedef struct {
+    int seq;
+    int msg;
+    char key[BP_EXT_MSG_KEY_LEN];
+    char text[BP_EXT_MSG_TEXT_LEN];
+    char caption[BP_EXT_MSG_CAPTION_LEN];
+    char voice[BP_EXT_MSG_VOICE_LEN];
+    float duration;
+    int playing;
+} ext_line_t;
 
 static bool_t inited = B_FALSE;
 static XPLMFlightLoopID refresh_loop = NULL;
 static ground_ops_state_t snapshot_cache;
 static bp_ext_state_t published;
+static ext_line_t line;
+static uint64_t line_source_seq = 0;
 
 static int api_version = BP_EXT_API_VERSION;
 static char plugin_version[32] = BP_PLUGIN_VERSION;
@@ -43,6 +60,52 @@ static dr_t stage_name_dr;
 static dr_t action_dr;
 static dr_t action_name_dr;
 static dr_t paused_dr;
+static dr_t msg_seq_dr;
+static dr_t msg_dr;
+static dr_t msg_key_dr;
+static dr_t msg_text_dr;
+static dr_t msg_caption_dr;
+static dr_t msg_voice_dr;
+static dr_t msg_duration_dr;
+static dr_t msg_playing_dr;
+
+/*
+ * Publishes the crew line msg.c last started. bp/msg_seq is msg.c's own line
+ * counter, which moves whenever a line starts (even with the simulator's
+ * sound off): a reader sees it jump by two if two lines start within one
+ * refresh interval, and later parts of the interface refer to lines by it.
+ */
+static void
+refresh_line(void)
+{
+    msg_caption_state_t state;
+
+    msg_get_caption_state(&state);
+    line.playing = state.active ? 1 : 0;
+    if (state.sequence == line_source_seq)
+        return;
+    line_source_seq = state.sequence;
+    line.seq = (int)state.sequence;
+    if (state.spoken) {
+        /* Said by X-Plane's speech: the text as spoken, no recording. */
+        line.msg = bp_ext_msg_spoken_public(state.spoken_kind);
+        strlcpy(line.key, bp_ext_msg_key(line.msg), sizeof (line.key));
+        strlcpy(line.text, state.spoken_text, sizeof (line.text));
+        strlcpy(line.caption, state.spoken_text, sizeof (line.caption));
+        strlcpy(line.voice, "xplane", sizeof (line.voice));
+        /* About 15 characters a second; X-Plane does not say how long. */
+        line.duration = (float)strlen(state.spoken_text) / 15.0f;
+        return;
+    }
+    line.msg = bp_ext_msg_public(state.message);
+    strlcpy(line.key, bp_ext_msg_key(line.msg), sizeof (line.key));
+    strlcpy(line.text, bp_ext_msg_text(line.msg), sizeof (line.text));
+    strlcpy(line.caption,
+        ground_ops_caption_text(bp_ext_msg_caption(line.msg)),
+        sizeof (line.caption));
+    strlcpy(line.voice, msg_voice_pack(), sizeof (line.voice));
+    line.duration = mgs_initiated() ? (float)msg_dur(state.message) : 0.0f;
+}
 
 static void
 refresh(void)
@@ -58,6 +121,7 @@ refresh(void)
     bp_ext_state_from(&raw, ground_ops_state_get(&snapshot_cache),
         &published, &next);
     published = next;
+    refresh_line();
 }
 
 /* The tug's speed and the push distance left: the figures the panel shows. */
@@ -97,6 +161,8 @@ ext_api_init(void)
         return;
     ground_ops_state_init(&snapshot_cache);
     memset(&published, 0, sizeof (published));
+    memset(&line, 0, sizeof (line));
+    line_source_seq = 0;
     refresh();
 
     dr_create_i(&api_version_dr, &api_version, B_FALSE, "bp/api_version");
@@ -119,6 +185,20 @@ ext_api_init(void)
     dr_create_b(&action_name_dr, published.action_name,
         sizeof (published.action_name), B_FALSE, "bp/action_name");
     dr_create_i(&paused_dr, &published.paused, B_FALSE, "bp/paused");
+
+    dr_create_i(&msg_seq_dr, &line.seq, B_FALSE, "bp/msg_seq");
+    dr_create_i(&msg_dr, &line.msg, B_FALSE, "bp/msg");
+    dr_create_b(&msg_key_dr, line.key, sizeof (line.key), B_FALSE,
+        "bp/msg_key");
+    dr_create_b(&msg_text_dr, line.text, sizeof (line.text), B_FALSE,
+        "bp/msg_text");
+    dr_create_b(&msg_caption_dr, line.caption, sizeof (line.caption),
+        B_FALSE, "bp/msg_caption");
+    dr_create_b(&msg_voice_dr, line.voice, sizeof (line.voice), B_FALSE,
+        "bp/msg_voice");
+    dr_create_f(&msg_duration_dr, &line.duration, B_FALSE,
+        "bp/msg_duration");
+    dr_create_i(&msg_playing_dr, &line.playing, B_FALSE, "bp/msg_playing");
 
     refresh_loop = XPLMCreateFlightLoop(&loop);
     if (refresh_loop != NULL)
@@ -153,5 +233,13 @@ ext_api_fini(void)
     dr_delete(&action_dr);
     dr_delete(&action_name_dr);
     dr_delete(&paused_dr);
+    dr_delete(&msg_seq_dr);
+    dr_delete(&msg_dr);
+    dr_delete(&msg_key_dr);
+    dr_delete(&msg_text_dr);
+    dr_delete(&msg_caption_dr);
+    dr_delete(&msg_voice_dr);
+    dr_delete(&msg_duration_dr);
+    dr_delete(&msg_playing_dr);
     inited = B_FALSE;
 }

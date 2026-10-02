@@ -2393,7 +2393,7 @@ bp_cam_start(void)
 
     if (!acf_is_compatible())
     {
-        XPLMSpeakString(_("Pushback failure: aircraft is incompatible "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: aircraft is incompatible "
                           "with BetterPushback."));
         return (B_FALSE);
     }
@@ -2405,7 +2405,7 @@ bp_cam_start(void)
     if (!tug_available(dr_getf(&drs.mtow), bp.acf.nw_len, bp.acf.tirrad,
                        bp.acf.nw_type, strcmp(icao, "") != 0 ? icao : NULL, airline))
     {
-        XPLMSpeakString(_("Pushback failure: no suitable tug for your "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: no suitable tug for your "
                           "aircraft."));
         return (B_FALSE);
     }
@@ -2414,13 +2414,13 @@ bp_cam_start(void)
     if (vect3_abs(VECT3(dr_getf(&drs.local_vx), dr_getf(&drs.local_vy),
                         dr_getf(&drs.local_vz))) > 0.1)
     {
-        XPLMSpeakString(_("Can't start planner: aircraft not "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Can't start planner: aircraft not "
                           "stationary."));
         return (B_FALSE);
     }
     if (bp_started && !late_plan_requested)
     {
-        XPLMSpeakString(_("Can't start planner: pushback already in "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Can't start planner: pushback already in "
                           "progress. Please stop the pushback operation first."));
         return (B_FALSE);
     }

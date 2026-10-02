@@ -33,7 +33,7 @@ a pilot who uses it on its own.
 
 | Dataref | Type | Meaning |
 | --- | --- | --- |
-| `bp/api_version` | int | Interface version (this document: 1) |
+| `bp/api_version` | int | Interface version (this document: 2) |
 | `bp/state_seq` | int | Changes whenever a value below changes |
 | `bp/started` | int | An operation is running (existing dataref) |
 | `bp/emergency_tow` | int | The running operation is the Emergency Tow |
@@ -123,28 +123,82 @@ void poll(void) {                       /* from a flight loop */
 }
 ```
 
+## Version 2: crew lines
+
+Every ground-crew line BetterPushback starts is published as text, so another
+plugin can show it, log it or (with a later part of the interface) speak it.
+
+| Dataref | Type | Meaning |
+| --- | --- | --- |
+| `bp/msg_seq` | int | BetterPushback's line counter: goes up by one each time a line starts (a reader polling slowly may see it jump by two); 0 before the first |
+| `bp/msg` | int | The line last started, see below; 0 before the first |
+| `bp/msg_key` | byte[32] | Its key, e.g. `driving_up` (the voice file's name) |
+| `bp/msg_text` | byte[192] | The nominal English sentence, e.g. "Ground to cockpit. Tow is driving up." |
+| `bp/msg_caption` | byte[96] | The Ground Operations caption, in BetterPushback's language, e.g. "Ground crew: Tug approaching." |
+| `bp/msg_voice` | byte[64] | The voice pack speaking, e.g. `en_GB` or `de`; its language is the part before `_`, `-` or `(` |
+| `bp/msg_duration` | float | Length of the line's recording, seconds |
+| `bp/msg_playing` | int | The line is being spoken now |
+
+A line is published when it starts, even with the simulator's sound off.
+`bp/msg_seq` moves once per line; read the other values when it changes. The
+text is the nominal wording: the recorded voices, especially the other
+languages, may say it slightly differently.
+
+| Value | Key | Text |
+| --- | --- | --- |
+| 1 | `plan_start` | Ground to cockpit. Please show me where you want to go. |
+| 2 | `plan_end` | Ground to cockpit. Plan acknowledged, call me through the menu when you are ready. |
+| 3 | `driving_up` | Ground to cockpit. Tow is driving up. |
+| 4 | `ready2conn` | Ok, all doors and hatches are closed, ready to connect. Set parking brake. |
+| 5 | `ready2conn_nopark` | Ok, all doors and hatches are closed, ready to connect. (the brake is already set) |
+| 6 | `winch` | Winching strap and adapter in position. Release parking brake when ready to start pushback. |
+| 7 | `connected` | Tow connected and bypass pin inserted. Release parking brake. |
+| 8 | `start_pb` | Starting pushback and you may start engines. |
+| 9 | `start_tow` | Starting tow and you may start engines. |
+| 10 | `start_pb_nostart` | Starting pushback. (engines cannot or should not be started now) |
+| 11 | `start_tow_nostart` | Starting tow. (likewise) |
+| 12 | `op_complete` | Operation complete, set parking brake. |
+| 13 | `disco` | Disconnecting tow. Stand by. |
+| 14 | `done_right` | Tow is disconnected and bypass pin has been removed, hand signal on the right, we'll see you next time and have a safe flight. |
+| 15 | `done_left` | The same, hand signal on the left. |
+
+Some messages are not recordings: BetterPushback says them through X-Plane's
+speech. They are published the same way, with `bp/msg_text` and
+`bp/msg_caption` holding the text as spoken (in BetterPushback's language),
+`bp/msg_voice` = `xplane`, and `bp/msg_duration` an estimate (X-Plane does not
+report how long it speaks).
+
+| Value | Key | What |
+| --- | --- | --- |
+| 16 | `doors_gpu_open` | "Some doors are still opened or the GPU or the ASU are still connected. I'm waiting for all of them closed and disconnected then I will proceed." |
+| 17 | `lights_warning` | "Hey! Quit blinding me with your landing lights! Turn them off!" (or taxi lights), during the push |
+| 18 | `system` | A failure or warning about BetterPushback itself, e.g. "Pushback failure: no suitable tug for your aircraft." |
+
 ## Roadmap
 
 Later parts of the interface, each a separate change and each raising
 `bp/api_version`:
 
-1. **Crew lines** - the text of every ground-crew line as it is spoken (full
-   sentence and translated caption), with a sequence number, so another plugin
-   can show or log it.
-2. **Blockers** - why the operation is waiting (a door open, a GPU
+1. **Blockers** - why the operation is waiting (a door open, a GPU
    connected, the parking brake), as text and a number.
-3. **External voice** - a mode in which BetterPushback stays silent and another
+2. **External voice** - a mode in which BetterPushback stays silent and another
    plugin speaks the crew lines, with a handshake so the operation waits for
    that plugin's line to finish (time-limited, never blocking a stop).
-4. **External routes** - another plugin supplies the push route as positions
+3. **External routes** - another plugin supplies the push route as positions
    and headings; BetterPushback fits it to the aircraft, accepts or rejects it
    with a reason, and publishes the active route in the same format.
-5. **Saved routes** - commands to save the active route to a stand's slot, and
+4. **Saved routes** - commands to save the active route to a stand's slot, and
    to load or clear one.
 
 ## Testing
 
-`tests/run_ext_api_state_tests.sh` (part of `tests/run_all_tests.sh`) checks
-that every controller step and Ground Operations action has a unique, fixed
-public number and name, and that the published state follows the controller
-through idle, pushing, pause and the Emergency Tow.
+Both run as part of `tests/run_all_tests.sh`:
+
+- `tests/run_ext_api_state_tests.sh` checks that every controller step and
+  Ground Operations action has a unique, fixed public number and name, and
+  that the published state follows the controller through idle, pushing,
+  pause and the Emergency Tow.
+- `tests/run_ext_api_msgs_tests.sh` checks that every crew line has a unique,
+  fixed number, key, text and caption, and that the brake-set and
+  no-engine-start variants leave out the part that does not apply, and that
+  the X-Plane speech lines (16 to 18) follow the recordings.

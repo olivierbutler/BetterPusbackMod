@@ -1645,14 +1645,14 @@ bp_state_init(void) {
         snprintf(msg, sizeof(msg), _("Pushback failure: X-Plane "
                                      "version too old. This plugin requires at least X-Plane "
                                      "%s to operate."), MIN_XPLANE_VERSION_STR);
-        XPLMSpeakString(msg);
+        msg_speak(MSG_SPOKEN_SYSTEM, msg);
         logMsg(BP_FATAL_LOG "x-plane version %d to old. Minimal version supported is X-Plane %s", bp_xp_ver,
                MIN_XPLANE_VERSION_STR);
         return (B_FALSE);
     }
 
     if (!read_acf_file_info()) {
-        XPLMSpeakString(_("Pushback failure: error reading aircraft "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: error reading aircraft "
                           "files from disk."));
         logMsg(BP_ERROR_LOG "Error reading aircraft files from disk.");
         return (B_FALSE);
@@ -1719,7 +1719,7 @@ audio_sys_init(void) {
         (void) conf_get_i(bp_conf, "lang_pref", (int *) &lang_pref);
         msg_fini();
         if (!msg_init(bp_get_lang(), icao, lang_pref)) {
-            XPLMSpeakString(_("Pushback failure: error initialising audio "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: error initialising audio "
                             "messages. Please reinstall BetterPushback."));
             logMsg(BP_FATAL_LOG "Error initialising audio");
             return (B_FALSE);
@@ -2125,7 +2125,7 @@ bp_start(void) {
     if (bp_started)
         return (B_TRUE);
     if (!bp_can_start(&reason)) {
-        XPLMSpeakString(reason);
+        msg_speak(MSG_SPOKEN_SYSTEM, reason);
         return (B_FALSE);
     }
 
@@ -2698,7 +2698,7 @@ pb_step_tug_load(void) {
                                          "in our in our library. Please sync your tug "
                                          "libraries before trying again."), tug_name);
             logMsg(BP_ERROR_LOG "%s", msg);
-            XPLMSpeakString(msg);
+            msg_speak(MSG_SPOKEN_SYSTEM, msg);
             bp_complete();
             return (B_FALSE);
         }
@@ -2843,7 +2843,7 @@ pb_step_waiting_for_pbrake(void) {
         if (zibo_chocks.writable) {
             dr_seti(&zibo_chocks, 0);
         } else {
-            XPLMSpeakString(_("Pushback warning: unable to remove "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback warning: unable to remove "
                               "your chocks. Remove them yourself, or else I "
                               "won't be able to push your aircraft."));
             logMsg(BP_WARN_LOG "unable to remove your chocks.");
@@ -3131,7 +3131,7 @@ pb_step_waiting_for_doors(void) {
         int doors_check = DOOR_CHECK_ActiveWithMessage;
         conf_get_i_per_acf((char *)"doors_check", &doors_check);
         if (doors_check == DOOR_CHECK_ActiveWithMessage) {
-            XPLMSpeakString(_(MSG_DOORS_GPU));
+            msg_speak(MSG_SPOKEN_DOORS_GPU, _(MSG_DOORS_GPU));
         }
     } 
     bp.step++;
@@ -3175,10 +3175,10 @@ pb_step_pushing(void) {
             push_at_speed(0, bp.veh.max_accel, B_TRUE, B_TRUE);
         if (!bp.light_warn) {
             if (dr_geti(&drs.landing_lights_on) != 0) {
-                XPLMSpeakString(_("Hey! Quit blinding me with "
+                msg_speak(MSG_SPOKEN_LIGHTS, _("Hey! Quit blinding me with "
                                   "your landing lights! Turn them off!"));
             } else {
-                XPLMSpeakString(_("Hey! Quit blinding me with "
+                msg_speak(MSG_SPOKEN_LIGHTS, _("Hey! Quit blinding me with "
                                   "your taxi light! Turn it off!"));
             }
         }
@@ -4226,7 +4226,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
          * Stop the operation, somebody is trying to mess with us.
          */
         if (bp.step > PB_STEP_START && dr_geti(&drs.nw_steer_on) != 1) {
-            XPLMSpeakString(_("Pushback failure: your flight "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: your flight "
                               "controls are preventing me from steering the "
                               "aircraft. Unbind any buttons you have set to "
                               "\"toggle nosewheel steering\"."));

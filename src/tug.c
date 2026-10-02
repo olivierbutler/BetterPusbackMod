@@ -38,6 +38,7 @@
 
 #include "cfg.h"
 #include "driving.h"
+#include "msg.h"
 #include "tug.h"
 #include "xplane.h"
 
@@ -1237,7 +1238,7 @@ tug_alloc_common(tug_info_t *ti, double tirrad) {
     tug->objpath = tug_liv_apply(tug->info);
     if (tug->objpath == NULL) {
         logMsg(BP_ERROR_LOG "Error preparing tug object %s", tug->info->tug);
-        XPLMSpeakString("Pushback failure: error preparing "
+        msg_speak(MSG_SPOKEN_SYSTEM, "Pushback failure: error preparing "
                         "tug objects.");
         goto errout;
     }
@@ -1250,7 +1251,7 @@ tug_alloc_common(tug_info_t *ti, double tirrad) {
         if (tug->sound == NULL) { \
             logMsg(BP_ERROR_LOG "Error loading tug sound %s", \
                 tug->info->sound); \
-            XPLMSpeakString("Pushback failure: error loading " \
+            msg_speak(MSG_SPOKEN_SYSTEM, "Pushback failure: error loading " \
                     "tug sounds."); \
             goto errout; \
         } \
@@ -1349,7 +1350,7 @@ tug_alloc_auto(double mtow, double ng_len, double tirrad, unsigned gear_type,
                                      airline, &reason);
     if (ti == NULL) {
         logMsg(BP_ERROR_LOG "Failed to find a tug for you, reason:\n%s", reason);
-        XPLMSpeakString("Pushback failure: no suitable tug for "
+        msg_speak(MSG_SPOKEN_SYSTEM, "Pushback failure: no suitable tug for "
                         "your aircraft.");
         free(reason);
         return (NULL);
