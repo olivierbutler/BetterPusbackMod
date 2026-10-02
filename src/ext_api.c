@@ -73,6 +73,11 @@ static dr_t msg_caption_dr;
 static dr_t msg_voice_dr;
 static dr_t msg_duration_dr;
 static dr_t msg_playing_dr;
+static dr_t voice_mode_dr;
+static dr_t voice_done_seq_dr;
+static dr_t voice_heartbeat_dr;
+static dr_t voice_external_dr;
+static int voice_external = 0;
 
 /*
  * Publishes the crew line msg.c last started. bp/msg_seq is msg.c's own line
@@ -148,6 +153,8 @@ refresh(void)
     bp_ext_state_from(&raw, ground_ops_state_get(&snapshot_cache), &blocker,
         &published, &next);
     published = next;
+    msg_ext_voice_poll();
+    voice_external = msg_ext_voice_active() ? 1 : 0;
     refresh_line();
 }
 
@@ -237,6 +244,15 @@ ext_api_init(void)
         "bp/msg_duration");
     dr_create_i(&msg_playing_dr, &line.playing, B_FALSE, "bp/msg_playing");
 
+    dr_create_i(&voice_mode_dr, &msg_ext_voice_mode, B_TRUE,
+        "bp/voice_mode");
+    dr_create_i(&voice_done_seq_dr, &msg_ext_voice_done_seq, B_TRUE,
+        "bp/voice_done_seq");
+    dr_create_i(&voice_heartbeat_dr, &msg_ext_voice_heartbeat, B_TRUE,
+        "bp/voice_heartbeat");
+    dr_create_i(&voice_external_dr, &voice_external, B_FALSE,
+        "bp/voice_external");
+
     refresh_loop = XPLMCreateFlightLoop(&loop);
     if (refresh_loop != NULL)
         XPLMScheduleFlightLoop(refresh_loop, EXT_API_INTERVAL, 1);
@@ -283,5 +299,9 @@ ext_api_fini(void)
     dr_delete(&msg_voice_dr);
     dr_delete(&msg_duration_dr);
     dr_delete(&msg_playing_dr);
+    dr_delete(&voice_mode_dr);
+    dr_delete(&voice_done_seq_dr);
+    dr_delete(&voice_heartbeat_dr);
+    dr_delete(&voice_external_dr);
     inited = B_FALSE;
 }

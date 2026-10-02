@@ -33,7 +33,7 @@ a pilot who uses it on its own.
 
 | Dataref | Type | Meaning |
 | --- | --- | --- |
-| `bp/api_version` | int | Interface version (this document: 3) |
+| `bp/api_version` | int | Interface version (this document: 4) |
 | `bp/state_seq` | int | Changes whenever a value below changes |
 | `bp/started` | int | An operation is running (existing dataref) |
 | `bp/emergency_tow` | int | The running operation is the Emergency Tow |
@@ -199,23 +199,70 @@ part of the operation state: `bp/state_seq` moves when they change.
 The item kind is a best guess from the dataref's name; aircraft without a
 `BetterPushback_doors.cfg` entry report no item.
 
+## Version 4: external voice
+
+Another plugin can speak the ground-crew lines itself (its own voices, the
+pilot's language, its own audio routing) while BetterPushback stays silent.
+The operation still waits for each line to be spoken before moving on, as it
+does with its own recordings, through a small handshake.
+
+| Dataref | Type | Written by | Meaning |
+| --- | --- | --- | --- |
+| `bp/voice_mode` | int | the other plugin | 0: BetterPushback speaks (default); 1: the other plugin speaks |
+| `bp/voice_heartbeat` | int | the other plugin | Count it up at least once a second while you are ready to speak |
+| `bp/voice_done_seq` | int | the other plugin | After you finish speaking a line, write its `bp/msg_seq` here |
+| `bp/voice_external` | int | BetterPushback | 1 while lines are being handed to the other plugin |
+
+How it works:
+
+- Lines are handed over while `bp/voice_mode` is 1 **and** the heartbeat has
+  moved in the last 3 seconds (`bp/voice_external` says which). A line handed
+  over is not played by BetterPushback; it is published as usual
+  (`bp/msg_seq`, `bp/msg_text`, ...) for the other plugin to speak. The same
+  goes for the messages BetterPushback would say through X-Plane's speech
+  (lines 16 to 18): published, not spoken. The operation never waits for
+  those, so reporting them in `bp/voice_done_seq` is optional.
+- Where the operation waits for a line to finish (before connecting, before
+  starting the push after "Release parking brake", before the tug lowers and
+  before it drives clear), it waits until `bp/voice_done_seq` reaches that
+  line's `bp/msg_seq`: the line lasts as long as the other plugin takes to say
+  it, longer or shorter than the recording.
+- Safeguards: a line is never waited for longer than its recording plus 8
+  seconds. If the heartbeat stops, BetterPushback stops waiting (back to the
+  recording's length), speaks the following lines itself and logs the change.
+  The handshake only delays the next step of the normal sequence; Stop, Pause
+  and End act at once, as before.
+- `bp/msg_playing` follows the other plugin's speech for lines it speaks.
+- `bp/ground_crew_audio_volume` still sets the volume of BetterPushback's own
+  recordings.
+
+```c
+/* In a flight loop, while voice_mode is 1: */
+XPLMSetDatai(heartbeat_dr, ++heartbeat);
+int seq = XPLMGetDatai(msg_seq_dr);
+if (seq != last_seq && XPLMGetDatai(voice_external_dr)) {
+    last_seq = seq;
+    XPLMGetDatab(msg_text_dr, text, 0, sizeof (text) - 1);
+    start_speaking(text, seq);          /* your TTS or recordings */
+}
+/* ... and when the line for `finished_seq` has been spoken: */
+XPLMSetDatai(voice_done_seq_dr, finished_seq);
+```
+
 ## Roadmap
 
 Later parts of the interface, each a separate change and each raising
 `bp/api_version`:
 
-1. **External voice** - a mode in which BetterPushback stays silent and another
-   plugin speaks the crew lines, with a handshake so the operation waits for
-   that plugin's line to finish (time-limited, never blocking a stop).
-2. **External routes** - another plugin supplies the push route as positions
+1. **External routes** - another plugin supplies the push route as positions
    and headings; BetterPushback fits it to the aircraft, accepts or rejects it
    with a reason, and publishes the active route in the same format.
-3. **Saved routes** - commands to save the active route to a stand's slot, and
+2. **Saved routes** - commands to save the active route to a stand's slot, and
    to load or clear one.
 
 ## Testing
 
-Both run as part of `tests/run_all_tests.sh`:
+All run as part of `tests/run_all_tests.sh`:
 
 - `tests/run_ext_api_state_tests.sh` checks that every controller step and
   Ground Operations action has a unique, fixed public number and name, and
@@ -226,3 +273,7 @@ Both run as part of `tests/run_all_tests.sh`:
   fixed number, key, text and caption, and that the brake-set and
   no-engine-start variants leave out the part that does not apply, and that
   the X-Plane speech lines (16 to 18) follow the recordings.
+- `tests/run_ext_api_voice_tests.sh` checks the external-voice timing: an
+  external line lasts until it is reported finished, never longer than its
+  recording plus the grace, and falls back to the recording when the
+  heartbeat stops.

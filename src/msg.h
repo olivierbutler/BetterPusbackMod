@@ -89,8 +89,28 @@ void msg_get_caption_state(msg_caption_state_t *state);
 /*
  * Says `text` through X-Plane's speech and publishes it as a line like the
  * recordings (README-EXTERNAL-API.md, "Crew lines"). Works before msg_init.
+ * With the external voice active it is only published, not spoken.
  */
 void msg_speak(msg_spoken_t kind, const char *text);
+
+/*
+ * External voice (README-EXTERNAL-API.md): another plugin speaks the lines
+ * instead of BetterPushback. It writes these through the bp/voice_* datarefs.
+ */
+extern int msg_ext_voice_mode;        /* 1: the external voice speaks */
+extern int msg_ext_voice_done_seq;    /* the last line it finished (msg_seq) */
+extern int msg_ext_voice_heartbeat;   /* it counts this up while alive */
+
+/* Notices heartbeats and finished lines; called about ten times a second. */
+void msg_ext_voice_poll(void);
+/* The external voice is enabled and its heartbeat is current. */
+bool_t msg_ext_voice_active(void);
+/*
+ * How long to treat `msg` as lasting: its recording, or for a line the
+ * external voice is speaking, until that voice reports it finished (bounded).
+ * The controller waits on this wherever it waits for a line to be spoken.
+ */
+double msg_dur_effective(message_t msg);
 
 #ifdef    __cplusplus
 }

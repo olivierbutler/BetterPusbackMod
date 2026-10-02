@@ -2856,7 +2856,7 @@ pb_step_waiting_for_pbrake(void) {
             brakes_set(B_TRUE);
     } else if ((!pbrake_is_set() && !cfg_ignore_park_break) ||
         /* wait until the rdy2conn message has stopped playing */
-        bp.cur_t - bp.last_voice_t < msg_dur(MSG_RDY2CONN)) {
+        bp.cur_t - bp.last_voice_t < msg_dur_effective(MSG_RDY2CONN)) {
         /* keep resetting the start time to enforce a delay */
         bp.step_start_t = bp.cur_t;
         return;
@@ -3120,7 +3120,7 @@ pb_step_connected(void) {
         disable_replanning();
 
     if (parking_brake_set ||
-        bp.cur_t - bp.last_voice_t < msg_dur(MSG_CONNECTED)) {
+        bp.cur_t - bp.last_voice_t < msg_dur_effective(MSG_CONNECTED)) {
         /*
          * Keep resetting the start time to enforce the state delay
          * after the message is done and the parking brake is released.
@@ -3326,7 +3326,7 @@ pb_step_stopped(void) {
         bp_hint_status_str = _("Waiting for the parking brakes set");
         bp_blocker = BP_BLOCKER_SET_PARKING_BRAKE;
     } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY &&
-               bp.cur_t - bp.last_voice_t >= msg_dur(MSG_OP_COMPLETE) +
+               bp.cur_t - bp.last_voice_t >= msg_dur_effective(MSG_OP_COMPLETE) +
                                              STATE_TRANS_DELAY) {
         msg_play(MSG_DISCO);
         bp.step++;
@@ -3348,7 +3348,7 @@ pb_step_lowering(void) {
             brakes_set(B_TRUE);
     }
 
-    if (bp.cur_t - bp.last_voice_t < msg_dur(MSG_OP_COMPLETE)) {
+    if (bp.cur_t - bp.last_voice_t < msg_dur_effective(MSG_OP_COMPLETE)) {
         /*
          * Keep resetting step_start_t to properly calculate
          * lift_fract relative to our step_start_t.
@@ -4017,8 +4017,8 @@ pb_step_starting2clear(void) {
     double turn_hdg, back_hdg, square_side;
 
     /* Let the message play out before starting to move */
-    if (bp.cur_t - bp.step_start_t < MAX(msg_dur(MSG_DONE_RIGHT),
-                                         msg_dur(MSG_DONE_LEFT)) + STATE_TRANS_DELAY)
+    if (bp.cur_t - bp.step_start_t < MAX(msg_dur_effective(MSG_DONE_RIGHT),
+                                         msg_dur_effective(MSG_DONE_LEFT)) + STATE_TRANS_DELAY)
         return;
 
     right = tug_clear_is_right();
