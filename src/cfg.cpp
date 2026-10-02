@@ -58,7 +58,7 @@ static bool_t inited = B_FALSE;
 bool_t setup_view_callback_is_alive = B_FALSE;
 
 #define MAIN_WINDOW_W 800
-#define MAIN_WINDOW_H 750
+#define MAIN_WINDOW_H 900
 
 #define ROUNDED 8.0f
 #define TOOLTIP_BG_COLOR ImVec4(0.2f, 0.3f, 0.8f, 1.0f)
@@ -173,6 +173,9 @@ const char *ignore_park_brake_tooltip =
 const char *hide_xp11_tug_tooltip =
     "Hides default X-Plane 11 pushback tug.\n"
     "Restart X-Plane for this change to take effect.";
+const char *hide_magic_squares_tooltip =
+    "Hides the shortcut buttons on the left side of the screen.\n"
+    "The first button starts the planner and the second starts the push-back.";
 const char *doors_check_tooltip =
     "Select the action after the doors/GPU/ASU status check is done before starting the push-back.\n"
     "Active with ground crew message: The ground crew will tell you if the doors are not closed.\n"
@@ -280,6 +283,10 @@ comboList_t plg_acf_list = {plg_list_acf_, 0, "##plg_acf_list", 0};
 comboList_t_ *doors_check_list_ = nullptr;
 comboList_t doors_check_list = {doors_check_list_, 0, "##doors_check", 0};
 
+comboList_t_ *hide_magic_squares_global_list_ = nullptr;
+comboList_t hide_magic_squares_global_list = {hide_magic_squares_global_list_, 0, "##hide_magic_global", 0};
+
+
 class SettingsWindow : public XPImgWindow {
 public:
   SettingsWindow(WndMode _mode = WND_MODE_FLOAT_CENTERED);
@@ -295,6 +302,7 @@ public:
     comboList_free(&plg_list);
     comboList_free(&plg_acf_list);
     comboList_free(&doors_check_list);
+    comboList_free(&hide_magic_squares_global_list);
   }
 
   bool_t getIsDestroy(void) { return is_destroy; }
@@ -307,6 +315,7 @@ private:
   bool_t display_marshaller;
   bool_t auto_expand_actions;
   bool_t ignore_park_brake;
+  bool_t hide_magic_squares;
   bool_t dont_hide;
   bool_t always_connect_tug_first;
   bool_t per_aircraft_is_global;
@@ -320,11 +329,13 @@ private:
   int monitor_id;
   int for_credit;
   int doors_check;
+  int hide_magic_squares_global;
   const char *radio_dev, *sound_dev, *plg_to_exclude, *plg_acf_to_exclude;
   void LoadConfig(void);
   void sound_comboList_init(comboList_t *list);
   void plugin_comboList_init(comboList_t *list, bool_t only_aircraft);
   void doorscheck_comboList_init(comboList_t *list);
+  void hide_magic_squares_global_comboList_init(comboList_t *list);
   void comboList_free(comboList_t *list);
   void initPerAircraftSettings(void);
 
@@ -344,11 +355,17 @@ SettingsWindow::SettingsWindow(WndMode _mode)
 }
 
 void SettingsWindow::initPerAircraftSettings(void) {
+  disco_when_done = B_FALSE;
+  (void)conf_get_b_per_acf((char *)"disco_when_done", &disco_when_done);
+
   ignore_park_brake = B_FALSE;
   (void)conf_get_b_per_acf((char *)"ignore_park_brake", &ignore_park_brake);
 
   doors_check = DOOR_CHECK_ActiveWithMessage;
   (void)conf_get_i_per_acf((char *)"doors_check", &doors_check);
+
+  hide_magic_squares = B_FALSE;
+  (void)conf_get_b_per_acf((char *)"hide_magic_squares", &hide_magic_squares);
 
   magic_squares_height = 50;
   (void)conf_get_i_per_acf((char *)"magic_squares_height",
@@ -389,8 +406,6 @@ void SettingsWindow::LoadConfig(void) {
   (void)conf_get_b(bp_conf, "ground_ops_auto_expand_actions",
                    &auto_expand_actions);
 
-  disco_when_done = B_FALSE;
-  (void)conf_get_b(bp_conf, "disco_when_done", &disco_when_done);
 
   display_marshaller = B_TRUE;
   (void)conf_get_b(bp_conf, "display_marshaller", &display_marshaller);
@@ -481,6 +496,11 @@ void SettingsWindow::LoadConfig(void) {
 
   doorscheck_comboList_init(&doors_check_list);
   doors_check_list.selected = doors_check;
+
+  hide_magic_squares_global_comboList_init(&hide_magic_squares_global_list);
+  hide_magic_squares_global = HIDE_M_SQUARE_USE_ACF_SETTING;
+  (void)conf_get_i( bp_conf,"hide_magic_squares_global", &hide_magic_squares_global);
+  hide_magic_squares_global_list.selected = hide_magic_squares_global;
 }
 
 void SettingsWindow::plugin_comboList_init(comboList_t *list,  bool_t only_aircraft) {
@@ -559,6 +579,25 @@ void SettingsWindow::doorscheck_comboList_init(comboList_t *list) {
     list->combo_list[i].value = strdup("");
   }
 }
+
+void SettingsWindow::hide_magic_squares_global_comboList_init(comboList_t *list) {
+  list->combo_list = (comboList_t_ *)safe_calloc(3, sizeof(comboList_t_));
+  list->list_size = 3;
+
+  // These should follow the order of the DoorCheck enum
+  static const char* hide_square_strings[] = {
+    _("Use Aircraft setting"),
+    _("Yes"),
+    _("No")
+  };
+
+  for (int i = 0; i < 3; ++i) {
+    list->combo_list[i].string = strdup(hide_square_strings[i]);
+    list->combo_list[i].use_chinese = B_FALSE;
+    list->combo_list[i].value = strdup("");
+  }
+}
+
 
 void SettingsWindow::comboList_free(comboList_t *list) {
   for (size_t i = 0; i < list->list_size; i++) {
@@ -693,51 +732,6 @@ void SettingsWindow::buildInterface() {
       }
     }
 
-    if (bp_interface_mode_uses_legacy_magic_squares(
-            static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
-      ImGui::TableNextRow();
-
-      ImGui::TableNextColumn();
-      ImGui::Text("%s", _("Magic squares position"));
-      Tooltip(_(magic_squares_height_tooltip));
-
-      ImGui::TableNextColumn();
-      ImGui::SetNextItemWidth(combowithWidth);
-      if (ImGui::SliderInt("##magic_position", &magic_squares_height, 20, 80,
-                           "%d %%", ImGuiSliderFlags_AlwaysClamp)) {
-        conf_set_i_per_acf((char *)"magic_squares_height",
-                           magic_squares_height);
-        bp_request_legacy_magic_squares_reposition();
-      }
-    } else {
-      ImGui::TableNextRow();
-
-      ImGui::TableNextColumn();
-      ImGui::Text("%s", _("Ground Operations interface size"));
-      Tooltip(_(ground_ops_ui_size_tooltip));
-
-      ImGui::TableNextColumn();
-      ImGui::SetNextItemWidth(combowithWidth);
-      if (comboList(&ground_ops_ui_size_list)) {
-        ground_ops_ui_size = ground_ops_ui_size_list.selected;
-        conf_set_i(bp_conf, "ground_ops_ui_size", ground_ops_ui_size);
-        ground_ops_ui_set_size(
-            static_cast<ground_ops_ui_size_t>(ground_ops_ui_size));
-      }
-
-      ImGui::TableNextRow();
-      ImGui::TableNextColumn();
-      ImGui::Text("%s", _("Auto-expand for pilot actions"));
-      Tooltip(_(ground_ops_auto_expand_tooltip));
-
-      ImGui::TableNextColumn();
-      if (ImGui::Checkbox("##ground_ops_auto_expand_actions",
-                          (bool *)&auto_expand_actions)) {
-        (void)conf_set_b(bp_conf, "ground_ops_auto_expand_actions",
-                         auto_expand_actions);
-        ground_ops_ui_set_auto_expand_actions(auto_expand_actions);
-      }
-    }
 
     ImGui::TableNextRow();
 
@@ -767,7 +761,81 @@ void SettingsWindow::buildInterface() {
     }
 
 
+    if (monitor_list.list_size) {
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", _("User interface on monitor #"));
+      Tooltip(_(monitor_tooltip));
+
+      ImGui::TableNextColumn();
+      ImGui::SetNextItemWidth(combowithWidth);
+      if (comboList(&monitor_list)) {
+        conf_set_i(bp_conf, "monitor_id", monitor_list.selected - 1);
+      }
+    }
+
+
     ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text(" ");
+    ImGui::TableNextRow();
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImVec2 rowMin = ImGui::GetItemRectMin();
+    ImGui::Text("%s", _("Ground Operations interface"));
+    ImGui::TableNextColumn();
+    ImGui::Text(" ");
+    // Draw bottom border for the first row
+    // ImVec2 rowMin = ImGui::GetItemRectMin();
+    ImVec2 rowMax = ImGui::GetItemRectMax();
+    ImVec2 rowBottomStart = ImVec2(
+        rowMin.x, rowMax.y); // Start point of the border (bottom of the row)
+    ImVec2 rowBottomEnd = ImVec2(rowMax.x, rowMax.y); // End point of the border
+
+    ImGui::GetWindowDrawList()->AddLine(
+        rowBottomStart, rowBottomEnd, LINE_COLOR,
+        LINE_THICKNESS); // White line, 1.0f thickness
+
+
+    if (bp_interface_mode_uses_legacy_magic_squares(
+            static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
+      ImGui::BeginDisabled();
+      ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
+            ImGui::GetStyle().Alpha *
+            BUTTON_DISABLED); // Reduce button opacity
+    }    
+
+    ImGui::TableNextRow();
+
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Ground Operations interface size"));
+    Tooltip(_(ground_ops_ui_size_tooltip));
+
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(combowithWidth);
+    if (comboList(&ground_ops_ui_size_list)) {
+      ground_ops_ui_size = ground_ops_ui_size_list.selected;
+      conf_set_i(bp_conf, "ground_ops_ui_size", ground_ops_ui_size);
+      ground_ops_ui_set_size(
+          static_cast<ground_ops_ui_size_t>(ground_ops_ui_size));
+    }
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Auto-expand for pilot actions"));
+    Tooltip(_(ground_ops_auto_expand_tooltip));
+
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##ground_ops_auto_expand_actions",
+                        (bool *)&auto_expand_actions)) {
+      (void)conf_set_b(bp_conf, "ground_ops_auto_expand_actions",
+                        auto_expand_actions);
+      ground_ops_ui_set_auto_expand_actions(auto_expand_actions);
+    }
+
+
+  ImGui::TableNextRow();
     ImGui::TableNextColumn();
     ImGui::Text("%s", _("Button click volume"));
     Tooltip(_("Ground Operations button clicks only. 0% mutes clicks.\n"
@@ -784,36 +852,46 @@ void SettingsWindow::buildInterface() {
     }
     if (ImGui::IsItemDeactivatedAfterEdit())
       bp_ui_click_play();
+  
+    if (bp_interface_mode_uses_legacy_magic_squares(
+            static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
+    ImGui::PopStyleVar();
+    ImGui::EndDisabled();
+  }
 
-    if (monitor_list.list_size) {
-      ImGui::TableNextRow();
-      ImGui::TableNextColumn();
-      ImGui::Text("%s", _("User interface on monitor #"));
-      Tooltip(_(monitor_tooltip));
-
-      ImGui::TableNextColumn();
-      ImGui::SetNextItemWidth(combowithWidth);
-      if (comboList(&monitor_list)) {
-        conf_set_i(bp_conf, "monitor_id", monitor_list.selected - 1);
-      }
-    }
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    ImVec2 rowMin = ImGui::GetItemRectMin();
+    ImGui::Text(" ");
+    ImGui::TableNextRow();
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    rowMin = ImGui::GetItemRectMin();
     ImGui::Text("%s", _("Settings related to the current aircraft"));
     ImGui::TableNextColumn();
     ImGui::Text(" ");
     // Draw bottom border for the first row
     // ImVec2 rowMin = ImGui::GetItemRectMin();
-    ImVec2 rowMax = ImGui::GetItemRectMax();
-    ImVec2 rowBottomStart = ImVec2(
+    rowMax = ImGui::GetItemRectMax();
+    rowBottomStart = ImVec2(
         rowMin.x, rowMax.y); // Start point of the border (bottom of the row)
-    ImVec2 rowBottomEnd = ImVec2(rowMax.x, rowMax.y); // End point of the border
+    rowBottomEnd = ImVec2(rowMax.x, rowMax.y); // End point of the border
 
     ImGui::GetWindowDrawList()->AddLine(
         rowBottomStart, rowBottomEnd, LINE_COLOR,
         LINE_THICKNESS); // White line, 1.0f thickness
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Auto disconnect when done"));
+    Tooltip(_(disco_when_done_tooltip));
+
+    ImGui::TableNextColumn();
+    if (ImGui::Checkbox("##disco_when_done_cbox", (bool *)&disco_when_done)) {
+      conf_set_b_per_acf((char *)"disco_when_done", disco_when_done);
+    }
+
 
     /*  Disabling for now, feature not enough mature  
     ImGui::TableNextRow();
@@ -848,6 +926,41 @@ void SettingsWindow::buildInterface() {
       conf_set_i_per_acf((char *)"doors_check", doors_check_list.selected);
     }
 
+    if (!bp_interface_mode_uses_legacy_magic_squares(
+            static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
+      ImGui::BeginDisabled();
+      ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
+            ImGui::GetStyle().Alpha *
+            BUTTON_DISABLED); // Reduce button opacity
+    }    
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::Text("%s", _("Hide the magic squares"));
+        Tooltip(_(hide_magic_squares_tooltip));
+
+        ImGui::TableNextColumn();
+        if (ImGui::Checkbox("##hide_magic_squares_cbox",
+                            (bool *)&hide_magic_squares)) {
+          conf_set_b_per_acf((char *)"hide_magic_squares", hide_magic_squares);
+        }
+
+        ImGui::TableNextColumn();
+        ImGui::Text("%s", _("Magic squares position"));
+        Tooltip(_(magic_squares_height_tooltip));
+
+        ImGui::TableNextColumn();
+        ImGui::SetNextItemWidth(combowithWidth);
+        if (ImGui::SliderInt("##magic_position", &magic_squares_height, 20, 80,
+                            "%d %%", ImGuiSliderFlags_AlwaysClamp)) {
+          conf_set_i_per_acf((char *)"magic_squares_height",
+                            magic_squares_height);
+          bp_request_legacy_magic_squares_reposition();
+        }
+    if (!bp_interface_mode_uses_legacy_magic_squares(
+            static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
+    ImGui::PopStyleVar();
+    ImGui::EndDisabled();
+  }
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     ImGui::Text("%s", _("ACF Plugin Exclusion (Experimental)"));
@@ -863,6 +976,11 @@ void SettingsWindow::buildInterface() {
             (char *)plg_acf_list.combo_list[plg_acf_list.selected].value);
       }
     }
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text(" ");
+    ImGui::TableNextRow();
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
@@ -882,6 +1000,29 @@ void SettingsWindow::buildInterface() {
     ImGui::GetWindowDrawList()->AddLine(rowBottomStart, rowBottomEnd,
                                         LINE_COLOR, LINE_THICKNESS);
 
+    if (!bp_interface_mode_uses_legacy_magic_squares(
+            static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
+      ImGui::BeginDisabled();
+      ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
+            ImGui::GetStyle().Alpha *
+            BUTTON_DISABLED); // Reduce button opacity
+    }                                       
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", _("Hide the magic squares"));
+      Tooltip(_(hide_magic_squares_tooltip));
+
+      ImGui::TableNextColumn();
+      ImGui::SetNextItemWidth(combowithWidth);
+      if (comboList(&hide_magic_squares_global_list)) {
+        (void)conf_set_i(bp_conf,"hide_magic_squares_global", hide_magic_squares_global_list.selected);
+      }
+    if (!bp_interface_mode_uses_legacy_magic_squares(
+            static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
+    ImGui::PopStyleVar();
+    ImGui::EndDisabled();
+  }
+
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     ImGui::Text("%s", _("Display marshaller"));
@@ -893,16 +1034,6 @@ void SettingsWindow::buildInterface() {
       (void)conf_set_b(bp_conf, "display_marshaller", display_marshaller);
     }
 
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    ImGui::Text("%s", _("Auto disconnect when done"));
-    Tooltip(_(disco_when_done_tooltip));
-
-    ImGui::TableNextColumn();
-    if (ImGui::Checkbox("##disco_when_done_cbox",
-                        (bool *)&disco_when_done)) {
-      (void)conf_set_b(bp_conf, "disco_when_done", disco_when_done);
-    }
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
@@ -1069,8 +1200,8 @@ void SettingsWindow::buildInterface() {
     }
   }
 
-  CenterText("");
-  CenterText(_(TOOLTIP_HINT));
+  //CenterText("");
+  //CenterText(_(TOOLTIP_HINT));
 
   ImGui::PopStyleVar();
 
