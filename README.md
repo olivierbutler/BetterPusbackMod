@@ -171,6 +171,10 @@ See [USER_GUIDE.md](USER_GUIDE.md) for installation, the Ground Operations
 color language, the normal pushback workflow, saved routes, Pause/Resume,
 Emergency Tow, recovery controls, and the current/future roadmap.
 
+Plugins that follow or drive a pushback (ATC, crew voice, copilot add-ons) use
+the external interface described in
+[README-EXTERNAL-API.md](README-EXTERNAL-API.md).
+
 ## Commands
 
 BetterPushback registers these X-Plane commands:

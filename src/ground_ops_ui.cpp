@@ -1922,6 +1922,15 @@ queue_action(UiAction action)
 } /* namespace */
 
 extern "C" bool_t
+ground_ops_ui_collect_state(ground_ops_raw_state_t *raw)
+{
+    if (!initialized || raw == nullptr)
+        return (B_FALSE);
+    *raw = collect_raw_state();
+    return (B_TRUE);
+}
+
+extern "C" bool_t
 ground_ops_ui_init(void)
 {
     if (initialized)

@@ -45,6 +45,7 @@
 #include "cab_view.h"
 #include "cfg.h"
 #include "emergency_tow.h"
+#include "ext_api.h"
 #include "ff_a320_intf.h"
 #include "ground_ops_ui.h"
 #include "msg.h"
@@ -1319,12 +1320,15 @@ XPluginStart(char *name, char *sig, char *desc)
 
     reload_floop_ID = XPLMCreateFlightLoop(&reload_floop);
 
+    ext_api_init();
+
     return (1);
 }
 
 PLUGIN_API void
 XPluginStop(void)
 {
+    ext_api_fini();
     ground_ops_ui_fini();
     cfg_cleanup();
     bp_conf_fini();
