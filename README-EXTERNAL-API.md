@@ -33,7 +33,7 @@ a pilot who uses it on its own.
 
 | Dataref | Type | Meaning |
 | --- | --- | --- |
-| `bp/api_version` | int | Interface version (this document: 4) |
+| `bp/api_version` | int | Interface version (this document: 5) |
 | `bp/state_seq` | int | Changes whenever a value below changes |
 | `bp/started` | int | An operation is running (existing dataref) |
 | `bp/emergency_tow` | int | The running operation is the Emergency Tow |
@@ -249,16 +249,85 @@ if (seq != last_seq && XPLMGetDatai(voice_external_dr)) {
 XPLMSetDatai(voice_done_seq_dr, finished_seq);
 ```
 
+## Version 5: external routes
+
+In real operations the push is planned on the ground: each stand has its push
+procedure, and the ground controller may name the direction ("push-back
+approved, facing west"). Another plugin that knows these (an ATC add-on, a
+ground-handling add-on) can supply the route, and BetterPushback does what it
+is good at: it fits the legs to the aircraft and drives them.
+
+A route is text: a header, then one line per position the aircraft should
+reach, in order.
+
+```
+BPROUTE 1
+# push back onto taxiway B facing west
+P 47.79312345 12.99751234 180.0
+P 47.79240000 12.99690000 270.0
+```
+
+- Each `P` line is `latitude longitude heading`: the aircraft's reference
+  point (the position X-Plane reports for the aircraft) and its true heading
+  there. Up to 16 positions; lines starting with `#` are comments.
+- BetterPushback fits each leg from the previous position (the first from
+  where the aircraft stands) within the aircraft's turning limits: a position
+  behind the aircraft is reached by pushing, one ahead by towing.
+
+| Dataref / command | Type | Meaning |
+| --- | --- | --- |
+| `bp/route_in` | byte[2048], writable | Write the route text here, zero-terminated |
+| `BetterPushback/load_route` | command | Load `bp/route_in` as the current route |
+| `BetterPushback/check_route` | command | Check whether `bp/route_in` fits, changing nothing (see below) |
+| `BetterPushback/clear_route` | command | Remove the current route |
+| `bp/route_seq` | int | Goes up by one with every load, check or clear, accepted or not |
+| `bp/route_status` | int | Answer to the last load, check or clear: 1 accepted (fits), 2 rejected (0 before any) |
+| `bp/route_reason` | byte[128] | Why it was rejected, e.g. "position 2 cannot be reached from the one before it within this aircraft's turning limits" |
+| `bp/route_current` | byte[2048] | The current route, in the same text form (empty when there is none) |
+| `bp/route_source` | int | Where the current route came from: 0 none, 1 planner (drawn, changed or accepted there), 2 saved slot (taken unchanged), 3 external (`load_route`) |
+| `bp/route_source_name` | byte[16] | `none`, `planner`, `saved` or `external` |
+
+When a route is accepted:
+
+- A route can be loaded or cleared **before the tug is called** (the classic
+  plan-first flow), **while the connected tug waits for a plan**
+  (`bp/blocker` = `plan_required`), and **during the connected hold** with the
+  parking brake set (as *Change plan* in the panel). It is refused while the
+  planner is open, during a manual push, in shared-cockpit slave mode, and
+  once the tug is connecting or the push is under way.
+- *Call tug* (`BetterPushback/connect_first`) starts every operation with an
+  empty route, so in that workflow load the route once `bp/blocker` reads
+  `plan_required`: the operation continues on its own, as when the pilot
+  accepts a plan in the planner.
+- A rejected route leaves the current route unchanged.
+- `BetterPushback/check_route` fits the route exactly as `load_route` would,
+  from where the aircraft stands now, and answers the same way (1 fits, 2 does
+  not, with the reason), but changes nothing and works at any time. An ATC
+  plugin can so check that a push direction suits the aircraft before it
+  approves it, and before the tug is called.
+
+`bp/route_current` lists each leg's end: the positions given to `load_route`,
+or the points clicked in the planner, with `push` or `tow` after each. It can
+be fed back to `load_route` unchanged. `bp/route_source` tells a plugin
+whether the route is still the one it loaded: it changes to `planner` or
+`saved` as soon as the pilot replaces or edits it, and to `none` when it is
+cleared.
+
+```c
+XPLMSetDatab(route_in_dr, (void *)text, 0, (int)strlen(text) + 1);
+int before = XPLMGetDatai(route_seq_dr);
+XPLMCommandOnce(XPLMFindCommand("BetterPushback/load_route"));
+/* The answer is ready when the command returns: */
+if (XPLMGetDatai(route_seq_dr) != before && XPLMGetDatai(route_status_dr) == 2)
+    XPLMGetDatab(route_reason_dr, reason, 0, sizeof (reason) - 1);
+```
+
 ## Roadmap
 
-Later parts of the interface, each a separate change and each raising
-`bp/api_version`:
+The next part of the interface, a separate change raising `bp/api_version`:
 
-1. **External routes** - another plugin supplies the push route as positions
-   and headings; BetterPushback fits it to the aircraft, accepts or rejects it
-   with a reason, and publishes the active route in the same format.
-2. **Saved routes** - commands to save the active route to a stand's slot, and
-   to load or clear one.
+1. **Saved routes** - commands to save the current route to a stand's slot,
+   and to load or clear one.
 
 ## Testing
 
@@ -277,3 +346,9 @@ All run as part of `tests/run_all_tests.sh`:
   external line lasts until it is reported finished, never longer than its
   recording plus the grace, and falls back to the recording when the
   heartbeat stops.
+- `tests/run_ext_api_route_tests.sh` checks reading and writing route text:
+  comments, line endings, every kind of bad input refused with a reason that
+  names the line, the position limit, and that a written route reads back;
+  and the rule for when a route may change (before an operation, while the
+  tug waits for a plan, during the connected hold; never with the planner
+  open, during a manual push or in slave mode).

@@ -2604,6 +2604,10 @@ bp_cam_stop(void)
         (unsigned long long)planner_cursor_solve_count,
         (unsigned long long)planner_cursor_reuse_count);*/
     if (!slave_mode && list_head(&bp.segs) != NULL) {
+        /* A saved slot taken unchanged, else the pilot's own route. */
+        bp_route_set_source(planner_gate_routes.loaded_slot >= 0 &&
+            !planner_gate_routes.dirty ? BP_ROUTE_SOURCE_SAVED :
+            BP_ROUTE_SOURCE_PLANNER);
         if (!emergency_tow_allows_persistent_routes()) {
             logMsg(BP_INFO_LOG "Emergency Tow route accepted for this "
                 "session only; hard persistence guard skipped every gate "

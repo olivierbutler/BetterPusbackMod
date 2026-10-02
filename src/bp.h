@@ -28,6 +28,7 @@
 #include "acf_outline.h"
 #include "clear_signal_gate.h"
 #include "driving.h"
+#include "ext_api_route.h"
 #include "pushback_step.h"
 #include "tug.h"
 #include "wing_walker.h"
@@ -212,6 +213,36 @@ bp_blocker_t bp_current_blocker(void);
 const char *bp_blocker_item(void);
 /* The controller's status line (translated), "" when there is none. */
 const char *bp_status_text(void);
+
+/*
+ * External routes (README-EXTERNAL-API.md). Loading replaces the current
+ * route with legs fitted from the aircraft's position through `poses`; it is
+ * accepted only when a route may be changed (before calling the tug, while
+ * the connected tug waits for a plan, or during the connected hold). On
+ * failure the current route is unchanged and `reason` says why.
+ */
+bool_t bp_route_load_external(const bp_ext_pose_t *poses, int n,
+    char *reason, size_t reason_len);
+/* Fits the route as loading would, from where the aircraft stands now, but
+ * changes nothing; allowed at any time. */
+bool_t bp_route_check_external(const bp_ext_pose_t *poses, int n,
+    char *reason, size_t reason_len);
+bool_t bp_route_clear_external(char *reason, size_t reason_len);
+/* The current route's target poses (each leg's end); returns the count. */
+int bp_route_export(bp_ext_pose_t *poses, int max);
+/* Changes whenever the current route does. */
+uint64_t bp_route_signature(void);
+
+/* Where the current route came from (published as bp/route_source). */
+typedef enum {
+    BP_ROUTE_SOURCE_NONE,           /* there is no route */
+    BP_ROUTE_SOURCE_PLANNER,        /* drawn, changed or accepted in the planner */
+    BP_ROUTE_SOURCE_SAVED,          /* a saved slot, taken unchanged */
+    BP_ROUTE_SOURCE_EXTERNAL        /* loaded by another plugin */
+} bp_route_source_t;
+
+void bp_route_set_source(bp_route_source_t source);
+bp_route_source_t bp_route_source(void);
 
 bool_t acf_is_airliner(void);
 

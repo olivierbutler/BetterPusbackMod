@@ -17,6 +17,11 @@ void ext_api_init(void);
 /* Stops publishing and removes the datarefs; called from XPluginStop. */
 void ext_api_fini(void);
 
+/* External routes (ext_route.c), driven by ext_api_init/fini and its refresh. */
+void ext_route_init(void);
+void ext_route_fini(void);
+void ext_route_refresh(void);
+
 #ifdef __cplusplus
 }
 #endif

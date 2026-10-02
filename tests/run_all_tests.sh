@@ -7,6 +7,7 @@ for runner in \
     run_airport_cache_manifest_tests.sh \
     run_emergency_tow_tests.sh \
     run_ext_api_msgs_tests.sh \
+    run_ext_api_route_tests.sh \
     run_ext_api_state_tests.sh \
     run_ext_api_voice_tests.sh \
     run_gate_route_math_tests.sh \

@@ -156,6 +156,7 @@ refresh(void)
     msg_ext_voice_poll();
     voice_external = msg_ext_voice_active() ? 1 : 0;
     refresh_line();
+    ext_route_refresh();
 }
 
 /* The tug's speed and the push distance left: the figures the panel shows. */
@@ -197,6 +198,7 @@ ext_api_init(void)
     memset(&published, 0, sizeof (published));
     memset(&line, 0, sizeof (line));
     line_source_seq = 0;
+    ext_route_init();
     refresh();
 
     dr_create_i(&api_version_dr, &api_version, B_FALSE, "bp/api_version");
@@ -273,6 +275,7 @@ ext_api_fini(void)
         XPLMDestroyFlightLoop(refresh_loop);
         refresh_loop = NULL;
     }
+    ext_route_fini();
     dr_delete(&api_version_dr);
     dr_delete(&plugin_version_dr);
     dr_delete(&push_speed_dr);

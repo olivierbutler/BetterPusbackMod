@@ -4588,6 +4588,220 @@ bp_num_segs(void) {
     return (list_count(&bp.segs));
 }
 
+/*
+ * May another plugin replace the route now? NULL when it may, else why not.
+ * A route can change before the tug is called, while the connected tug waits
+ * for a plan, and during the connected hold - never once the push moves.
+ */
+static const char *
+route_change_refused(void)
+{
+    bp_ext_route_gate_t gate;
+
+    gate.ready = (bp_init() != B_FALSE);
+    gate.slave_mode = gate.ready && slave_mode;
+    gate.planner_open = gate.ready && bp_cam_is_running();
+    gate.manual_push = gate.ready && push_manual.active;
+    gate.started = gate.ready && bp_started;
+    gate.awaiting_plan = gate.started && bp.awaiting_plan;
+    gate.can_replan = gate.started && bp_can_replan();
+    return (bp_ext_route_change_refused(&gate));
+}
+
+static void
+free_seg_list(list_t *segs)
+{
+    seg_t *seg;
+
+    while ((seg = list_remove_head(segs)) != NULL)
+        free(seg);
+    list_destroy(segs);
+}
+
+/*
+ * Fits legs from the aircraft's position through `poses` into `segs` (a list
+ * created here). On failure the list is freed and `reason` says why.
+ */
+static bool_t
+fit_route(const bp_ext_pose_t *poses, int n, list_t *segs, char *reason,
+    size_t reason_len)
+{
+    vect2_t pos;
+    double hdg;
+    seg_t *seg;
+
+    if (n < 1) {
+        (void)snprintf(reason, reason_len, "the route has no positions");
+        return (B_FALSE);
+    }
+    list_create(segs, sizeof (seg_t), offsetof(seg_t, node));
+    pos = VECT2(dr_getf(&drs.local_x), -dr_getf(&drs.local_z));
+    hdg = normalize_hdg(dr_getf(&drs.hdg));
+    for (int i = 0; i < n; i++) {
+        double x, y, z;
+        int added;
+
+        XPLMWorldToLocal(poses[i].lat, poses[i].lon, 0, &x, &y, &z);
+        /* X-Plane's Z axis is flipped to ours */
+        added = compute_segs(&bp.veh, pos, hdg, VECT2(x, -z),
+            normalize_hdg(poses[i].hdg), segs);
+        if (added < 0) {
+            (void)snprintf(reason, reason_len, "position %d cannot be "
+                "reached from the one before it within this aircraft's "
+                "turning limits", i + 1);
+            free_seg_list(segs);
+            return (B_FALSE);
+        }
+        if (added > 0) {
+            /* Each position ends a leg, as a click in the planner does. */
+            seg = list_tail(segs);
+            seg->user_placed = B_TRUE;
+            pos = seg->end_pos;
+            hdg = seg->end_hdg;
+        }
+    }
+    if (list_head(segs) == NULL) {
+        (void)snprintf(reason, reason_len,
+            "the route does not move the aircraft");
+        list_destroy(segs);
+        return (B_FALSE);
+    }
+    return (B_TRUE);
+}
+
+bool_t
+bp_route_check_external(const bp_ext_pose_t *poses, int n, char *reason,
+    size_t reason_len)
+{
+    list_t segs;
+
+    if (!bp_init()) {
+        (void)snprintf(reason, reason_len,
+            "BetterPushback cannot work with this aircraft");
+        return (B_FALSE);
+    }
+    if (!fit_route(poses, n, &segs, reason, reason_len))
+        return (B_FALSE);
+    free_seg_list(&segs);
+    return (B_TRUE);
+}
+
+bool_t
+bp_route_load_external(const bp_ext_pose_t *poses, int n, char *reason,
+    size_t reason_len)
+{
+    const char *refused = route_change_refused();
+    list_t segs;
+    seg_t *seg;
+
+    if (refused != NULL) {
+        (void)snprintf(reason, reason_len, "%s", refused);
+        return (B_FALSE);
+    }
+    if (!fit_route(poses, n, &segs, reason, reason_len))
+        return (B_FALSE);
+
+    bp_delete_all_segs();
+    while ((seg = list_remove_head(&segs)) != NULL) {
+        seg->have_local_coords = B_TRUE;
+        seg_local2world(seg);
+        list_insert_tail(&bp.segs, seg);
+    }
+    list_destroy(&segs);
+    bp_route_set_source(BP_ROUTE_SOURCE_EXTERNAL);
+    logMsg(BP_INFO_LOG "External route loaded: %d position(s), %u "
+        "segment(s)", n, (unsigned)list_count(&bp.segs));
+    return (B_TRUE);
+}
+
+static bp_route_source_t route_source = BP_ROUTE_SOURCE_NONE;
+
+void
+bp_route_set_source(bp_route_source_t source)
+{
+    route_source = source;
+}
+
+bp_route_source_t
+bp_route_source(void)
+{
+    if (!inited || list_head(&bp.segs) == NULL)
+        return (BP_ROUTE_SOURCE_NONE);
+    return (route_source);
+}
+
+bool_t
+bp_route_clear_external(char *reason, size_t reason_len)
+{
+    const char *refused = route_change_refused();
+
+    if (refused != NULL) {
+        (void)snprintf(reason, reason_len, "%s", refused);
+        return (B_FALSE);
+    }
+    bp_delete_all_segs();
+    logMsg(BP_INFO_LOG "Route cleared by another plugin");
+    return (B_TRUE);
+}
+
+/* A segment's end in geographic coordinates. */
+static geo_pos2_t
+seg_end_geo(const seg_t *seg)
+{
+    double lat, lon, alt;
+
+    if (seg->have_world_coords)
+        return (seg->end_pos_geo);
+    /* X-Plane's Z axis is flipped to ours */
+    XPLMLocalToWorld(seg->end_pos.x, 0, -seg->end_pos.y, &lat, &lon, &alt);
+    return (GEO_POS2(lat, lon));
+}
+
+int
+bp_route_export(bp_ext_pose_t *poses, int max)
+{
+    int n = 0;
+
+    if (!inited)
+        return (0);
+    for (const seg_t *seg = list_head(&bp.segs); seg != NULL && n < max;
+        seg = list_next(&bp.segs, seg)) {
+        geo_pos2_t end;
+
+        /* Leg ends: the user-placed segments and the last segment. */
+        if (!seg->user_placed && list_next(&bp.segs, seg) != NULL)
+            continue;
+        end = seg_end_geo(seg);
+        poses[n].lat = end.lat;
+        poses[n].lon = end.lon;
+        poses[n].hdg = normalize_hdg(seg->end_hdg);
+        poses[n].backward = (seg->backward != B_FALSE);
+        n++;
+    }
+    return (n);
+}
+
+uint64_t
+bp_route_signature(void)
+{
+    uint64_t h = 1469598103934665603ULL;     /* FNV-1a */
+
+    if (!inited)
+        return (0);
+    for (const seg_t *seg = list_head(&bp.segs); seg != NULL;
+        seg = list_next(&bp.segs, seg)) {
+        double v[4] = { seg->end_pos.x, seg->end_pos.y, seg->end_hdg,
+            (double)seg->backward + 2.0 * (double)seg->user_placed };
+        const unsigned char *b = (const unsigned char *)v;
+
+        for (size_t i = 0; i < sizeof (v); i++) {
+            h ^= b[i];
+            h *= 1099511628211ULL;
+        }
+    }
+    return (h);
+}
+
 
 
 void acf_plg_debut(void)
