@@ -4593,8 +4593,8 @@ bp_num_segs(void) {
  * A route can change before the tug is called, while the connected tug waits
  * for a plan, and during the connected hold - never once the push moves.
  */
-static const char *
-route_change_refused(void)
+const char *
+bp_route_change_refused(void)
 {
     bp_ext_route_gate_t gate;
 
@@ -4615,6 +4615,20 @@ free_seg_list(list_t *segs)
 
     while ((seg = list_remove_head(segs)) != NULL)
         free(seg);
+    list_destroy(segs);
+}
+
+void
+bp_route_replace(list_t *segs)
+{
+    seg_t *seg;
+
+    bp_delete_all_segs();
+    while ((seg = list_remove_head(segs)) != NULL) {
+        seg->have_local_coords = B_TRUE;
+        seg_local2world(seg);
+        list_insert_tail(&bp.segs, seg);
+    }
     list_destroy(segs);
 }
 
@@ -4690,9 +4704,8 @@ bool_t
 bp_route_load_external(const bp_ext_pose_t *poses, int n, char *reason,
     size_t reason_len)
 {
-    const char *refused = route_change_refused();
+    const char *refused = bp_route_change_refused();
     list_t segs;
-    seg_t *seg;
 
     if (refused != NULL) {
         (void)snprintf(reason, reason_len, "%s", refused);
@@ -4701,13 +4714,7 @@ bp_route_load_external(const bp_ext_pose_t *poses, int n, char *reason,
     if (!fit_route(poses, n, &segs, reason, reason_len))
         return (B_FALSE);
 
-    bp_delete_all_segs();
-    while ((seg = list_remove_head(&segs)) != NULL) {
-        seg->have_local_coords = B_TRUE;
-        seg_local2world(seg);
-        list_insert_tail(&bp.segs, seg);
-    }
-    list_destroy(&segs);
+    bp_route_replace(&segs);
     bp_route_set_source(BP_ROUTE_SOURCE_EXTERNAL);
     logMsg(BP_INFO_LOG "External route loaded: %d position(s), %u "
         "segment(s)", n, (unsigned)list_count(&bp.segs));
@@ -4733,7 +4740,7 @@ bp_route_source(void)
 bool_t
 bp_route_clear_external(char *reason, size_t reason_len)
 {
-    const char *refused = route_change_refused();
+    const char *refused = bp_route_change_refused();
 
     if (refused != NULL) {
         (void)snprintf(reason, reason_len, "%s", refused);
@@ -4779,6 +4786,12 @@ bp_route_export(bp_ext_pose_t *poses, int max)
         n++;
     }
     return (n);
+}
+
+bool_t
+bp_is_inited(void)
+{
+    return (inited);
 }
 
 uint64_t

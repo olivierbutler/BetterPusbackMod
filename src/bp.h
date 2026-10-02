@@ -227,11 +227,17 @@ bool_t bp_route_load_external(const bp_ext_pose_t *poses, int n,
  * changes nothing; allowed at any time. */
 bool_t bp_route_check_external(const bp_ext_pose_t *poses, int n,
     char *reason, size_t reason_len);
+/* Why the route may not change now, or NULL when it may. */
+const char *bp_route_change_refused(void);
+/* Makes `segs` (local coordinates) the current route; empties the list. */
+void bp_route_replace(list_t *segs);
 bool_t bp_route_clear_external(char *reason, size_t reason_len);
 /* The current route's target poses (each leg's end); returns the count. */
 int bp_route_export(bp_ext_pose_t *poses, int max);
 /* Changes whenever the current route does. */
 uint64_t bp_route_signature(void);
+/* bp_init() has succeeded for the loaded aircraft (never tries it). */
+bool_t bp_is_inited(void);
 
 /* Where the current route came from (published as bp/route_source). */
 typedef enum {

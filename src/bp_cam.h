@@ -63,6 +63,19 @@ bool_t bp_cam_stop(void);
 
 bool_t bp_cam_is_running(void);
 
+/*
+ * Saved routes for the published stand the aircraft stands on, the same two
+ * slots the planner offers (external interface, README-EXTERNAL-API.md).
+ * Slots are numbered from 0. Each returns B_FALSE with `reason` when it
+ * cannot: not at a published stand, an empty slot, no route to save, ...
+ */
+bool_t bp_cam_stand_routes(char *stand, size_t stand_len, bool_t saved[2],
+    char *reason, size_t reason_len);
+bool_t bp_cam_route_slot_save(unsigned slot, char *reason,
+    size_t reason_len);
+bool_t bp_cam_route_slot_load(unsigned slot, char *reason,
+    size_t reason_len);
+
 void draw_icon(button_t *btn, int x, int y, double scale,
                bool_t is_clicked, bool_t is_lit);
 

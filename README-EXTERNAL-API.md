@@ -33,7 +33,7 @@ a pilot who uses it on its own.
 
 | Dataref | Type | Meaning |
 | --- | --- | --- |
-| `bp/api_version` | int | Interface version (this document: 5) |
+| `bp/api_version` | int | Interface version (this document: 6) |
 | `bp/state_seq` | int | Changes whenever a value below changes |
 | `bp/started` | int | An operation is running (existing dataref) |
 | `bp/emergency_tow` | int | The running operation is the Emergency Tow |
@@ -322,14 +322,41 @@ if (XPLMGetDatai(route_seq_dr) != before && XPLMGetDatai(route_status_dr) == 2)
     XPLMGetDatab(route_reason_dr, reason, 0, sizeof (reason) - 1);
 ```
 
-## Roadmap
+## Version 6: saved routes
 
-The next part of the interface, a separate change raising `bp/api_version`:
+The planner keeps two saved routes per published stand and aircraft profile
+(see USER_GUIDE.md, "Saved routes"). Another plugin can use the same slots:
+save a route it supplied so BetterPushback offers it next time, even without
+that plugin, or load one the pilot saved.
 
-1. **Saved routes** - commands to save the current route to a stand's slot,
-   and to load or clear one.
+| Dataref / command | Type | Meaning |
+| --- | --- | --- |
+| `bp/route_slot` | int, writable | The slot the commands below use: 1 or 2 |
+| `BetterPushback/save_route_slot` | command | Save the current route to that slot for this stand |
+| `BetterPushback/load_route_slot` | command | Make that slot's route the current route |
+| `bp/route_stand` | byte[48] | The published stand the aircraft stands on, e.g. `LOWS W1`; empty when it is not on one |
+| `bp/route_slot1`, `bp/route_slot2` | int | 1 when the slot holds a route for this stand and aircraft, 0 when empty, -1 when not on a published stand |
+
+- Both commands answer through `bp/route_seq`, `bp/route_status` and
+  `bp/route_reason`, as `load_route` does. A route loaded from a slot has
+  `bp/route_source` = 2 (`saved`).
+- The stand is recognised as the planner does: the aircraft must stand on an
+  apt.dat start position. The slot information is refreshed every few seconds
+  while the route may change, and right after either command.
+- BetterPushback starts only when it is used, and loading a flight or an
+  aircraft resets it. Until it is used again the stand is empty and the slots
+  read -1, unless a plugin reads `bp/route_slot1` or `bp/route_slot2`: then
+  the stand is worked out within a few seconds of the aircraft standing still
+  on the ground. A plugin that wants the stand should therefore read a slot.
+- Loading follows the rules for changing a route (see version 5). Saving needs
+  a current route that starts at this stand. Neither works during an
+  Emergency Tow, whose routes are never saved.
+- Saving overwrites the slot. A plugin should save only when its user asks
+  for it.
 
 ## Testing
+
+### Unit tests
 
 All run as part of `tests/run_all_tests.sh`:
 
@@ -352,3 +379,43 @@ All run as part of `tests/run_all_tests.sh`:
   and the rule for when a route may change (before an operation, while the
   tug waits for a plan, during the connected hold; never with the planner
   open, during a manual push or in slave mode).
+
+### In the simulator: the example client
+
+`tools/ext_api_demo` is a small separate plugin that uses the interface as
+another plugin would. It shows the published state in a window, writes every
+change (state, crew lines, route answers) to X-Plane's `Log.txt` with the
+prefix `BPDemo:`, and adds commands to bind to keys:
+
+| Command | Does |
+| --- | --- |
+| `BPDemo/toggle_window` | Show or hide the window |
+| `BPDemo/load_straight_back` | Load a 40 m straight push |
+| `BPDemo/load_push_turn_left` | Load a push ending 90 degrees left (tail right) |
+| `BPDemo/load_tight_turn` | Load a push too tight to fit, to see the refusal |
+| `BPDemo/check_push_turn_left`, `BPDemo/check_tight_turn` | The same with `check_route` |
+| `BPDemo/clear_route` | Clear the route |
+| `BPDemo/save_slot1`, `BPDemo/load_slot1` | Use saved slot 1 |
+| `BPDemo/voice_toggle` | Be the external voice: count the heartbeat and report each line finished after 1.5 times its recording |
+| `BPDemo/voice_stall` | Stop or restart the heartbeat, to see BetterPushback take its voice back |
+
+Build it with `tools/ext_api_demo/build_demo.sh` in the build container (see
+the script), and copy `tools/ext_api_demo/BPExtDemo` to
+`X-Plane/Resources/plugins`.
+
+A test run, at a published stand:
+
+1. Before calling the tug: the window shows interface 6, step `off`, the
+   stand's name.
+2. *Call tug*: the step and stage follow the panel's rail; each crew line
+   appears. With a door open, the blocker is `aircraft_not_ready` and names
+   it.
+3. When the tug waits for a plan (blocker `plan_required`):
+   `BPDemo/check_tight_turn` (rejected, with a reason; nothing changes), then
+   `BPDemo/load_push_turn_left` (accepted; the operation continues; the route
+   source is `external`).
+4. `BPDemo/voice_toggle` before a push: the recordings stop and the
+   operation holds after each line until the demo reports it finished.
+   `BPDemo/voice_stall`: the recordings come back.
+5. Still on the stand with a route loaded: `BPDemo/save_slot1`, then slot 1
+   shows 1, and on the next visit to this stand the planner offers the route.
