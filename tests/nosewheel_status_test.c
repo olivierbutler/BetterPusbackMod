@@ -173,7 +173,10 @@ static void reset(int kind, bool quick)
     memset(&bp, 0, sizeof(bp));
     memset(&drs, 0, sizeof(drs));
     info = (test_tug_info_t){ .lift_type = kind, .lift_wall_loc = LIFT_WALL_CENTER,
-        .lift_height = 0.3, .lift_wall_z = 2, .plat_z = 0, .plat_h = 0.2 };
+        .lift_height = 0.3, .lift_wall_z = kind == LIFT_GRAB ? NAN : 2,
+        .plat_z = kind == LIFT_GRAB ? NAN : 0,
+        .plat_h = kind == LIFT_GRAB ? NAN : 0.2 };
+    /* GRAB configs omit these fields; the real parser defaults them to NaN. */
     tug = (test_tug_t){ .info = &info, .tirrad = 0.3,
         .veh_slow.max_fwd_spd = 0.1 };
     bp_ls.tug = &tug;
@@ -215,6 +218,14 @@ static void grab(bool quick)
     expect(NW_HOLD, NW_CAPTURED_PRE_LIFT,
         NW_READY | NW_MASTER | NW_CUSTODY, BP_NW_NONE);
     late_plan_requested = false;
+    if (!quick) {
+        bp.cur_t = 24;
+        nw_observe_step();
+        pb_step_lift();
+        expect(NW_HOLD, NW_LIFTING,
+            NW_READY | NW_MASTER | NW_CUSTODY, BP_NW_NONE);
+        assert(!nw_status.fully_lifted);
+    }
     bp.cur_t = 50;
     nw_observe_step();
     pb_step_lift();
@@ -376,6 +387,66 @@ static void exceptional_paths(void)
     expect(NW_INVALID, NW_INVALID_STATE, NW_READY | NW_MASTER, BP_NW_DEBUG_MODE);
 }
 
+static void geometry_validation(void)
+{
+    const double invalid_platform_heights[] = { NAN, INFINITY, -0.1 };
+    const double invalid_lift_heights[] = { NAN, INFINITY, 0, -0.1 };
+
+    for (unsigned i = 0; i < sizeof(invalid_platform_heights) /
+        sizeof(invalid_platform_heights[0]); i++) {
+        reset(LIFT_WINCH, false);
+        info.plat_h = invalid_platform_heights[i];
+        assert(!nw_tug_basis());
+        expect(NW_INVALID, NW_INVALID_STATE, NW_READY | NW_MASTER,
+            BP_NW_INVALID_GEOMETRY);
+        assert(!nw_status.custody && !nw_status.rate_window);
+    }
+    reset(LIFT_WINCH, false);
+    info.plat_h = 0;
+    assert(nw_tug_basis()); /* Zero remains a valid WINCH platform height. */
+    for (int kind = LIFT_GRAB; kind <= LIFT_WINCH; kind++) {
+        for (unsigned i = 0; i < sizeof(invalid_lift_heights) /
+            sizeof(invalid_lift_heights[0]); i++) {
+            reset(kind, false);
+            info.lift_height = invalid_lift_heights[i];
+            assert(!nw_tug_basis());
+            expect(NW_INVALID, NW_INVALID_STATE, NW_READY | NW_MASTER,
+                BP_NW_INVALID_GEOMETRY);
+        }
+        reset(kind, false);
+        bp.acf.tirrad = 0;
+        nw_basis_ready();
+        assert(!nw_tug_basis());
+        expect(NW_INVALID, NW_INVALID_STATE, NW_MASTER,
+            BP_NW_INVALID_GEOMETRY);
+    }
+    reset(LIFT_GRAB, false);
+    info.lift_type = -1;
+    assert(!nw_tug_basis());
+    expect(NW_INVALID, NW_INVALID_STATE, NW_READY | NW_MASTER,
+        BP_NW_INVALID_GEOMETRY);
+    reset(LIFT_WINCH, false);
+    info.plat_z = NAN;
+    assert(!nw_tug_basis());
+    expect(NW_INVALID, NW_INVALID_STATE, NW_READY | NW_MASTER,
+        BP_NW_INVALID_GEOMETRY);
+    reset(LIFT_WINCH, false);
+    info.lift_wall_z = info.plat_z;
+    assert(!nw_tug_basis());
+    expect(NW_INVALID, NW_INVALID_STATE, NW_READY | NW_MASTER,
+        BP_NW_INVALID_GEOMETRY);
+    reset(LIFT_WINCH, false);
+    info.lift_wall_loc = -1;
+    assert(!nw_tug_basis());
+    expect(NW_INVALID, NW_INVALID_STATE, NW_READY | NW_MASTER,
+        BP_NW_INVALID_GEOMETRY);
+    reset(LIFT_WINCH, false);
+    tug.tirrad = NAN;
+    assert(!nw_tug_basis());
+    expect(NW_INVALID, NW_INVALID_STATE, NW_READY | NW_MASTER,
+        BP_NW_INVALID_GEOMETRY);
+}
+
 static void lifecycle(void)
 {
     const bp_nosewheel_status_reason_t reasons[] = {
@@ -435,7 +506,7 @@ int main(void)
 {
     grab(false); grab(true);
     winch(false); winch(true);
-    exceptional_paths(); lifecycle();
+    exceptional_paths(); geometry_validation(); lifecycle();
     printf("Nosewheel status: GRAB/WINCH, normal/Fast, gates, rates, reconnect, lifecycle passed.\n");
     return 0;
 }

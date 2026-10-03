@@ -532,15 +532,15 @@ nw_tug_basis(void)
     }
     ti = bp_ls.tug->info;
     if ((ti->lift_type != LIFT_GRAB && ti->lift_type != LIFT_WINCH) ||
-        !isfinite(ti->lift_height) || ti->lift_height <= 0 ||
-        !isfinite(ti->plat_h) || ti->plat_h < 0) {
+        !isfinite(ti->lift_height) || ti->lift_height <= 0) {
         nw_fault(BP_NW_INVALID_GEOMETRY);
         return (B_FALSE);
     }
     nw_status.lift_kind = ti->lift_type == LIFT_GRAB ? 0 : 1;
     if (ti->lift_type == LIFT_WINCH) {
         platform = ti->lift_wall_z - ti->plat_z;
-        if (!isfinite(platform) || platform <= 0 ||
+        if (!isfinite(ti->plat_h) || ti->plat_h < 0 ||
+            !isfinite(platform) || platform <= 0 ||
             !isfinite(bp_ls.tug->tirrad) || bp_ls.tug->tirrad <= 0 ||
             (ti->lift_wall_loc != LIFT_WALL_FRONT &&
             ti->lift_wall_loc != LIFT_WALL_CENTER &&
