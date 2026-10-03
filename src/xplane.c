@@ -1381,6 +1381,7 @@ XPluginReceiveMessage(XPLMPluginID from, int msg, void *param)
     {
     case XPLM_MSG_AIRPORT_LOADED:
     case XPLM_MSG_PLANE_LOADED:
+        bp_nosewheel_status_invalidate(BP_NW_AIRCRAFT_RESET);
         /* Force a reinit to re-read aircraft size params */
         smartcopilot_present = dr_find(&smartcopilot_state, "scp/api/ismaster");
         stop_cam_handler(NULL, xplm_CommandEnd, NULL);
@@ -1397,8 +1398,10 @@ XPluginReceiveMessage(XPLMPluginID from, int msg, void *param)
 
     if (msg == XPLM_MSG_PLANE_LOADED)
         (void)ff_a320_intf_init();
-    else if (msg == XPLM_MSG_PLANE_UNLOADED)
+    else if (msg == XPLM_MSG_PLANE_UNLOADED) {
+        bp_nosewheel_status_invalidate(BP_NW_AIRCRAFT_RESET);
         ff_a320_intf_fini();
+    }
 }
 
 static bool_t
@@ -1420,8 +1423,10 @@ bp_priv_enable(void)
     acfutils_xlate_fini();
     xlate_init();
     bp_conf_fini();
-    if (!bp_conf_init())
+    if (!bp_conf_init()) {
+        bp_nosewheel_status_invalidate(BP_NW_INITIALIZATION_FAILED);
         return (0);
+    }
     (void)conf_get_i(bp_conf, BP_INTERFACE_MODE_CONFIG_KEY,
         &saved_interface_mode);
     interface_mode = bp_interface_mode_normalize(saved_interface_mode);
@@ -1560,12 +1565,14 @@ bp_priv_enable(void)
         set_xp11_tug_hidden(B_TRUE);
 
     inited = B_TRUE;
+    bp_nosewheel_status_enable();
 
     free(cachedir);
 
     return (1);
 
 errout:
+    bp_nosewheel_status_invalidate(BP_NW_INITIALIZATION_FAILED);
     if (cachedir != NULL)
         free(cachedir);
     if (airportdb != NULL)
@@ -1582,6 +1589,7 @@ errout:
 static void
 bp_priv_disable(void)
 {
+    bp_nosewheel_status_invalidate(BP_NW_PROVIDER_DISABLED);
     if (!inited)
         return;
 
@@ -1653,6 +1661,7 @@ bp_do_reload(float u1, float u2, int u3, void *u4)
     }
     if (reload_rqst)
     {
+        bp_nosewheel_status_invalidate(BP_NW_CORE_RELOAD);
         bp_priv_disable();
         VERIFY(bp_priv_enable());
         reload_rqst = B_FALSE;
@@ -1675,6 +1684,7 @@ abort_push_handler(XPLMCommandRef cmd, XPLMCommandPhase phase,
     UNUSED(refcon);
     if (phase != xplm_CommandEnd)
         return (0);
+    bp_nosewheel_status_invalidate(BP_NW_HARD_ABORT);
     bp_fini();
     logMsg(BP_INFO_LOG "bp_fini called from abort_push_handler, bp_started = %d", bp_started);
     slave_mode = B_FALSE;

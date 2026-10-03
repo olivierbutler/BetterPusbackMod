@@ -106,6 +106,15 @@ static void bp_done_notify(void) { done_notifications++; }
 static bool_t bp_state_init(void) { memset(&bp, 0, sizeof(bp)); return true; }
 static void bp_emergency_tow_session_end_notify(bool value) { UNUSED(value); }
 
+/* Observational hooks are exercised by the separate nosewheel contract test. */
+#define NW_UNGRABBING 10
+static void nw_phase(int phase) { UNUSED(phase); }
+static void nw_completed(void) {}
+static void nw_support_written(double lift, double fraction, bool_t lowering)
+{ UNUSED(lift); UNUSED(fraction); UNUSED(lowering); }
+static void nw_released(void) {}
+static void nw_new_operation(bool_t reconnect) { UNUSED(reconnect); }
+
 /* Compile the actual controller and completion functions, not copies. */
 #include "fast_brake_handoff_controller.inc"
 

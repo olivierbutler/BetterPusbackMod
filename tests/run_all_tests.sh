@@ -29,6 +29,9 @@ python3 "$test_dir/wing_walker_asset_test.py"
 printf 'Running Fast parking-brake controller integration tests\n'
 python3 "$test_dir/run_fast_brake_controller_tests.py"
 
+printf 'Running nosewheel animation producer contract tests\n'
+python3 "$test_dir/run_nosewheel_status_tests.py"
+
 printf 'Running optional legacy route recall/save regression tests\n'
 python3 "$test_dir/run_classic_route_tests.py"
 
