@@ -7,7 +7,7 @@
 msgid   ""
 msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Report-Msgid-Bugs-To: \n"
-        "POT-Creation-Date: 2026-05-24 23:34+0300\n"
+        "POT-Creation-Date: 2026-10-01 08:20+0300\n"
         "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
         "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
         "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,38 +16,38 @@ msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Content-Type: text/plain; charset=UTF-8\n"
         "Content-Transfer-Encoding: 8bit\n"
 
-#: src/bp.c:1122 src/bp.c:1133 src/bp.c:1134
+#: src/bp.c:1122 src/bp.c:1133 src/bp.c:1134 src/bp.c:1645
 #, c-format
 msgid   "Pushback failure: X-Plane version too old. This plugin requires at "
         "least X-Plane %s to operate."
 msgstr  ""
 
-#: src/bp.c:1132 src/bp.c:1143 src/bp.c:1144
+#: src/bp.c:1132 src/bp.c:1143 src/bp.c:1144 src/bp.c:1655
 msgid   "Pushback failure: error reading aircraft files from disk."
 msgstr  ""
 
-#: src/bp.c:1197 src/bp.c:1208 src/bp.c:1209
+#: src/bp.c:1197 src/bp.c:1208 src/bp.c:1209 src/bp.c:1722
 msgid   "Pushback failure: error initialising audio messages. Please "
         "reinstall BetterPushback."
 msgstr  ""
 
-#: src/bp.c:1210 src/bp.c:1221 src/bp.c:1222 src/bp.c:1241
+#: src/bp.c:1210 src/bp.c:1221 src/bp.c:1222 src/bp.c:1241 src/bp.c:1740
 msgid   "Pushback failure: aircraft not on ground."
 msgstr  ""
 
-#: src/bp.c:1218 src/bp.c:1229 src/bp.c:1230 src/bp.c:1249
+#: src/bp.c:1218 src/bp.c:1229 src/bp.c:1230 src/bp.c:1249 src/bp.c:1748
 msgid   "Pushback failure: aircraft not stationary."
 msgstr  ""
 
-#: src/bp.c:1225 src/bp.c:1236 src/bp.c:1237 src/bp.c:1256
+#: src/bp.c:1225 src/bp.c:1236 src/bp.c:1237 src/bp.c:1256 src/bp.c:1755
 msgid   "Pushback failure: gear not extended."
 msgstr  ""
 
-#: src/bp.c:1243 src/bp.c:1254 src/bp.c:1255 src/bp.c:1274
+#: src/bp.c:1243 src/bp.c:1254 src/bp.c:1255 src/bp.c:1274 src/bp.c:1773
 msgid   "Disconnect tow + headset and switch to hand signals."
 msgstr  ""
 
-#: src/bp.c:1245 src/bp.c:1256 src/bp.c:1257 src/bp.c:1276
+#: src/bp.c:1245 src/bp.c:1256 src/bp.c:1257 src/bp.c:1276 src/bp.c:1775
 msgid   "Reconnect tow and await further instructions."
 msgstr  ""
 
@@ -57,11 +57,11 @@ msgid   "Pushback advisory: you have your radio volume turned very low and "
         "volume in the X-Plane sound preferences."
 msgstr  ""
 
-#: src/bp.c:1525 src/bp.c:1536 src/bp.c:1537 src/bp.c:1540
+#: src/bp.c:1525 src/bp.c:1536 src/bp.c:1537 src/bp.c:1540 src/bp.c:2072
 msgid   "Pushback failure: aircraft is not compatible with BetterPushback."
 msgstr  ""
 
-#: src/bp.c:1535 src/bp.c:1546 src/bp.c:1547 src/bp.c:1550
+#: src/bp.c:1535 src/bp.c:1546 src/bp.c:1547 src/bp.c:1550 src/bp.c:2082
 msgid   "Pushback failure: cannot push this aircraft with engines running. "
         "Shutdown engines first."
 msgstr  ""
@@ -71,53 +71,54 @@ msgid   "Some doors are still opened or the GPU or the ASU are still "
         "I will proceed."
 msgstr  ""
 
-#: src/bp.c:1547 src/bp.c:1558 src/bp.c:1559 src/bp.c:1562
+#: src/bp.c:1547 src/bp.c:1558 src/bp.c:1559 src/bp.c:1562 src/bp.c:2094
 msgid   "Pushback failure: please first plan your pushback to tell me where "
         "you want to go."
 msgstr  ""
 
 #: src/bp.c:2004 src/bp.c:2018 src/bp.c:2020 src/bp.c:2021 src/bp.c:2028
+#: src/bp.c:2696
 #, c-format
 msgid   "ERROR: master requested tug \"%s\", which we don't have in our in "
         "our library. Please sync your tug libraries before trying again."
 msgstr  ""
 
 #: src/bp.c:2123 src/bp.c:2137 src/bp.c:2139 src/bp.c:2140 src/bp.c:2141
-#: src/bp.c:2148
+#: src/bp.c:2148 src/bp.c:2846
 msgid   "Pushback warning: unable to remove your chocks. Remove them "
         "yourself, or else I won't be able to push your aircraft."
 msgstr  ""
 
 #: src/bp.c:2394 src/bp.c:2398 src/bp.c:2415 src/bp.c:2417 src/bp.c:2418
-#: src/bp.c:2422 src/bp.c:2426 src/bp.c:2433
+#: src/bp.c:2422 src/bp.c:2426 src/bp.c:2433 src/bp.c:3178
 msgid   "Hey! Quit blinding me with your landing lights! Turn them off!"
 msgstr  ""
 
 #: src/bp.c:2397 src/bp.c:2401 src/bp.c:2418 src/bp.c:2420 src/bp.c:2421
-#: src/bp.c:2425 src/bp.c:2429 src/bp.c:2436
+#: src/bp.c:2425 src/bp.c:2429 src/bp.c:2436 src/bp.c:3181
 msgid   "Hey! Quit blinding me with your taxi light! Turn it off!"
 msgstr  ""
 
 #: src/bp.c:3338 src/bp.c:3342 src/bp.c:3359 src/bp.c:3361 src/bp.c:3362
-#: src/bp.c:3367 src/bp.c:3370 src/bp.c:3377
+#: src/bp.c:3367 src/bp.c:3370 src/bp.c:3377 src/bp.c:4229
 msgid   "Pushback failure: your flight controls are preventing me from "
         "steering the aircraft. Unbind any buttons you have set to \"toggle "
         "nosewheel steering\"."
 msgstr  ""
 
-#: src/bp_cam.c:1263 src/bp_cam.c:1286 src/bp_cam.c:1285
+#: src/bp_cam.c:1263 src/bp_cam.c:1286 src/bp_cam.c:1285 src/bp_cam.c:2396
 msgid   "Pushback failure: aircraft is incompatible with BetterPushback."
 msgstr  ""
 
-#: src/bp_cam.c:1285 src/bp_cam.c:1308 src/bp_cam.c:1297
+#: src/bp_cam.c:1285 src/bp_cam.c:1308 src/bp_cam.c:1297 src/bp_cam.c:2408
 msgid   "Pushback failure: no suitable tug for your aircraft."
 msgstr  ""
 
-#: src/bp_cam.c:1294 src/bp_cam.c:1317 src/bp_cam.c:1306
+#: src/bp_cam.c:1294 src/bp_cam.c:1317 src/bp_cam.c:1306 src/bp_cam.c:2417
 msgid   "Can't start planner: aircraft not stationary."
 msgstr  ""
 
-#: src/bp_cam.c:1300 src/bp_cam.c:1323 src/bp_cam.c:1312
+#: src/bp_cam.c:1300 src/bp_cam.c:1323 src/bp_cam.c:1312 src/bp_cam.c:2423
 msgid   "Can't start planner: pushback already in progress. Please stop the "
         "pushback operation first."
 msgstr  ""
@@ -208,17 +209,20 @@ msgid   "Settings related to the current aircraft"
 msgstr  ""
 
 #: src/xplane.c:646 src/xplane.c:648 src/xplane.c:650 src/xplane.c:652
+#: src/xplane.c:842
 msgid   "ERROR: Unable to select pushback tug view at this time."
 msgstr  ""
 
 #: src/xplane.c:822 src/xplane.c:854 src/xplane.c:824 src/xplane.c:856
 #: src/xplane.c:851 src/xplane.c:883 src/xplane.c:853 src/xplane.c:885
+#: src/xplane.c:1085 src/xplane.c:1117
 msgid   "Pushback failure: smartcopilot attempted to switch master/slave or "
         "network connection lost. Stopping operation."
 msgstr  ""
 
 #: src/xplane.c:840 src/xplane.c:868 src/xplane.c:842 src/xplane.c:870
 #: src/xplane.c:869 src/xplane.c:897 src/xplane.c:871 src/xplane.c:899
+#: src/xplane.c:1103 src/xplane.c:1131
 msgid   "Pushback failure: Shared Flight attempted to switch pilot flying or "
         "network connection lost. Stopping operation."
 msgstr  ""
@@ -226,10 +230,12 @@ msgstr  ""
 #: src/xplane.c:963 src/xplane.c:1162 src/xplane.c:1394 src/xplane.c:965
 #: src/xplane.c:1168 src/xplane.c:1400 src/xplane.c:992 src/xplane.c:1199
 #: src/xplane.c:1434 src/xplane.c:994 src/xplane.c:1207 src/xplane.c:1442
+#: src/xplane.c:1226 src/xplane.c:1506 src/xplane.c:1781
 msgid   "Start pushback"
 msgstr  ""
 
 #: src/xplane.c:1381 src/xplane.c:1387 src/xplane.c:1421 src/xplane.c:1429
+#: src/xplane.c:1768
 msgid   "Change pushback"
 msgstr  ""
 
@@ -239,46 +245,57 @@ msgid   "Stop pushback"
 msgstr  ""
 
 #: src/xplane.c:967 src/xplane.c:969 src/xplane.c:996 src/xplane.c:998
+#: src/xplane.c:1232
 msgid   "Start pushback planner"
 msgstr  ""
 
 #: src/xplane.c:969 src/xplane.c:971 src/xplane.c:998 src/xplane.c:1000
+#: src/xplane.c:1234
 msgid   "Stop pushback planner"
 msgstr  ""
 
 #: src/xplane.c:971 src/xplane.c:973 src/xplane.c:1000 src/xplane.c:1002
+#: src/xplane.c:1236
 msgid   "Connect tug before entering pushback plan"
 msgstr  ""
 
 #: src/xplane.c:973 src/xplane.c:975 src/xplane.c:1002 src/xplane.c:1004
+#: src/xplane.c:1241
 msgid   "View from tug's cab."
 msgstr  ""
 
 #: src/xplane.c:976 src/xplane.c:978 src/xplane.c:1005 src/xplane.c:1007
+#: src/xplane.c:1244
 msgid   "Recreate scenery routes from WED files."
 msgstr  ""
 
 #: src/xplane.c:982 src/xplane.c:984 src/xplane.c:1014 src/xplane.c:1016
+#: src/xplane.c:1259
 msgid   "Abort pushback during coupled push"
 msgstr  ""
 
 #: src/xplane.c:1156 src/xplane.c:1162 src/xplane.c:1193 src/xplane.c:1201
+#: src/xplane.c:1500
 msgid   "Pre-plan pushback"
 msgstr  ""
 
 #: src/xplane.c:1158 src/xplane.c:1164 src/xplane.c:1195 src/xplane.c:1203
+#: src/xplane.c:1502
 msgid   "Close pushback planner"
 msgstr  ""
 
 #: src/xplane.c:1160 src/xplane.c:1166 src/xplane.c:1197 src/xplane.c:1205
+#: src/xplane.c:1504
 msgid   "Connect tug first"
 msgstr  ""
 
 #: src/xplane.c:1170 src/xplane.c:1176 src/xplane.c:1207 src/xplane.c:1215
+#: src/xplane.c:1522
 msgid   "Preferences..."
 msgstr  ""
 
 #: src/xplane.c:1166 src/xplane.c:1172 src/xplane.c:1203 src/xplane.c:1211
+#: src/xplane.c:1512
 msgid   "Tug cab view"
 msgstr  ""
 
@@ -355,14 +372,14 @@ msgid   "Slide this bar to move the magic squares up or down."
 msgstr  ""
 
 #: src/bp.c:2344 src/bp.c:2359 src/bp.c:2361 src/bp.c:2362 src/bp.c:2367
-#: src/bp.c:2371 src/bp.c:2378
+#: src/bp.c:2371 src/bp.c:2378 src/bp.c:3096
 msgid   "Waiting for the parking brakes release"
 msgstr  ""
 
 #: src/bp.c:2493 src/bp.c:3474 src/bp.c:2497 src/bp.c:3478 src/bp.c:2514
 #: src/bp.c:3499 src/bp.c:2516 src/bp.c:3501 src/bp.c:2517 src/bp.c:3502
 #: src/bp.c:2521 src/bp.c:3507 src/bp.c:2525 src/bp.c:3510 src/bp.c:2532
-#: src/bp.c:3517
+#: src/bp.c:3517 src/bp.c:3291 src/bp.c:4379
 msgid   "Waiting for the parking brakes set"
 msgstr  ""
 
@@ -390,58 +407,59 @@ msgid   "Push-back called"
 msgstr  ""
 
 #: src/bp.c:3438 src/bp.c:3442 src/bp.c:3459 src/bp.c:3461 src/bp.c:3462
-#: src/bp.c:3467 src/bp.c:3470 src/bp.c:3477
+#: src/bp.c:3467 src/bp.c:3470 src/bp.c:3477 src/bp.c:4337
 msgid   "Driving to the aircraft"
 msgstr  ""
 
 #: src/bp.c:3442 src/bp.c:3446 src/bp.c:3450 src/bp.c:3463 src/bp.c:3467
 #: src/bp.c:3465 src/bp.c:3469 src/bp.c:3466 src/bp.c:3470 src/bp.c:3471
 #: src/bp.c:3475 src/bp.c:3474 src/bp.c:3478 src/bp.c:3481 src/bp.c:3485
+#: src/bp.c:4341 src/bp.c:4345
 msgid   "Waiting for doors/GPU/ASU closed/disconnected"
 msgstr  ""
 
 #: src/bp.c:3448 src/bp.c:3452 src/bp.c:3470 src/bp.c:3472 src/bp.c:3473
-#: src/bp.c:3478 src/bp.c:3481 src/bp.c:3488
+#: src/bp.c:3478 src/bp.c:3481 src/bp.c:3488 src/bp.c:4348
 msgid   "Opening the cradle"
 msgstr  ""
 
 #: src/bp.c:3478 src/bp.c:3482 src/bp.c:3503 src/bp.c:3505 src/bp.c:3506
-#: src/bp.c:3511 src/bp.c:3514 src/bp.c:3521
+#: src/bp.c:3511 src/bp.c:3514 src/bp.c:3521 src/bp.c:4383
 msgid   "Connecting to the aircraft"
 msgstr  ""
 
 #: src/bp.c:3490 src/bp.c:3494 src/bp.c:3515 src/bp.c:3517 src/bp.c:3518
-#: src/bp.c:3523 src/bp.c:3526 src/bp.c:3533
+#: src/bp.c:3523 src/bp.c:3526 src/bp.c:3533 src/bp.c:4397
 msgid   "Connected to the aircraft"
 msgstr  ""
 
 #: src/bp.c:3494 src/bp.c:3498 src/bp.c:3519 src/bp.c:3521 src/bp.c:3522
-#: src/bp.c:3527 src/bp.c:3530 src/bp.c:3537
+#: src/bp.c:3527 src/bp.c:3530 src/bp.c:3537 src/bp.c:4401
 msgid   "Push-back started"
 msgstr  ""
 
 #: src/bp.c:3524 src/bp.c:3528 src/bp.c:3550 src/bp.c:3552 src/bp.c:3553
-#: src/bp.c:3558 src/bp.c:3561 src/bp.c:3568
+#: src/bp.c:3558 src/bp.c:3561 src/bp.c:3568 src/bp.c:4432
 msgid   "Push-back in progress"
 msgstr  ""
 
 #: src/bp.c:3528 src/bp.c:3532 src/bp.c:3554 src/bp.c:3556 src/bp.c:3557
-#: src/bp.c:3562 src/bp.c:3565 src/bp.c:3572
+#: src/bp.c:3562 src/bp.c:3565 src/bp.c:3572 src/bp.c:4436
 msgid   "Push-back stopping"
 msgstr  ""
 
 #: src/bp.c:3532 src/bp.c:3536 src/bp.c:3559 src/bp.c:3561 src/bp.c:3562
-#: src/bp.c:3567 src/bp.c:3570 src/bp.c:3577
+#: src/bp.c:3567 src/bp.c:3570 src/bp.c:3577 src/bp.c:4441
 msgid   "Push-back stopped"
 msgstr  ""
 
 #: src/bp.c:3536 src/bp.c:3540 src/bp.c:3563 src/bp.c:3565 src/bp.c:3566
-#: src/bp.c:3571 src/bp.c:3574 src/bp.c:3581
+#: src/bp.c:3571 src/bp.c:3574 src/bp.c:3581 src/bp.c:4445
 msgid   "Lowering the nose"
 msgstr  ""
 
 #: src/bp.c:3540 src/bp.c:3544 src/bp.c:3567 src/bp.c:3569 src/bp.c:3570
-#: src/bp.c:3575 src/bp.c:3578 src/bp.c:3585
+#: src/bp.c:3575 src/bp.c:3578 src/bp.c:3585 src/bp.c:4449
 msgid   "Ungrabbing the nose"
 msgstr  ""
 
@@ -451,28 +469,29 @@ msgid   "Waiting the OK to disconnect"
 msgstr  ""
 
 #: src/bp.c:3548 src/bp.c:3552 src/bp.c:3575 src/bp.c:3577 src/bp.c:3578
-#: src/bp.c:3583 src/bp.c:3586 src/bp.c:3593
+#: src/bp.c:3583 src/bp.c:3586 src/bp.c:3593 src/bp.c:4457
 msgid   "Disconnecting the tug away from the aircraft"
 msgstr  ""
 
 #: src/bp.c:3589 src/bp.c:3593 src/bp.c:3616 src/bp.c:3618 src/bp.c:3619
-#: src/bp.c:3624 src/bp.c:3627 src/bp.c:3634
+#: src/bp.c:3624 src/bp.c:3627 src/bp.c:3634 src/bp.c:4498
 msgid   "Closing the cradle"
 msgstr  ""
 
 #: src/bp.c:3593 src/bp.c:3597 src/bp.c:3601 src/bp.c:3620 src/bp.c:3624
 #: src/bp.c:3622 src/bp.c:3626 src/bp.c:3623 src/bp.c:3627 src/bp.c:3628
 #: src/bp.c:3632 src/bp.c:3631 src/bp.c:3635 src/bp.c:3638 src/bp.c:3642
+#: src/bp.c:4502 src/bp.c:4506
 msgid   "Moving to the side of the aircraft"
 msgstr  ""
 
 #: src/bp.c:3604 src/bp.c:3608 src/bp.c:3631 src/bp.c:3633 src/bp.c:3634
-#: src/bp.c:3639 src/bp.c:3642 src/bp.c:3649
+#: src/bp.c:3639 src/bp.c:3642 src/bp.c:3649 src/bp.c:4514
 msgid   "Showing the pin and the clear signal"
 msgstr  ""
 
 #: src/bp.c:3608 src/bp.c:3612 src/bp.c:3635 src/bp.c:3637 src/bp.c:3638
-#: src/bp.c:3643 src/bp.c:3646 src/bp.c:3653
+#: src/bp.c:3643 src/bp.c:3646 src/bp.c:3653 src/bp.c:4518
 msgid   "Driving the tug away back to his station"
 msgstr  ""
 
@@ -482,12 +501,12 @@ msgid   "Connected to the aircraft, waiting for clearance"
 msgstr  ""
 
 #: src/bp.c:3486 src/bp.c:3490 src/bp.c:3511 src/bp.c:3513 src/bp.c:3514
-#: src/bp.c:3519 src/bp.c:3522 src/bp.c:3529
+#: src/bp.c:3519 src/bp.c:3522 src/bp.c:3529 src/bp.c:4393
 msgid   "Lifting the aircraft"
 msgstr  ""
 
 #: src/bp.c:3482 src/bp.c:3486 src/bp.c:3507 src/bp.c:3509 src/bp.c:3510
-#: src/bp.c:3515 src/bp.c:3518 src/bp.c:3525
+#: src/bp.c:3515 src/bp.c:3518 src/bp.c:3525 src/bp.c:4387
 msgid   "Grabbing the aircraft"
 msgstr  ""
 
@@ -501,6 +520,7 @@ msgid   "The push process is always halted when the tug is at the nose of the "
 msgstr  ""
 
 #: src/xplane.c:979 src/xplane.c:981 src/xplane.c:1008 src/xplane.c:1010
+#: src/xplane.c:1247
 msgid   "Open preference window."
 msgstr  ""
 
@@ -554,6 +574,7 @@ msgid   "Start/Pause the manual push back"
 msgstr  ""
 
 #: src/xplane.c:993 src/xplane.c:995 src/xplane.c:1025 src/xplane.c:1027
+#: src/xplane.c:1270
 msgid   "Start/Pause the manual push back (yoke not used)"
 msgstr  ""
 
@@ -561,22 +582,27 @@ msgid   "Reverse the trajectory of the push back"
 msgstr  ""
 
 #: src/xplane.c:991 src/xplane.c:993 src/xplane.c:1023 src/xplane.c:1025
+#: src/xplane.c:1268
 msgid   "Start/Pause the manual push back with yoke"
 msgstr  ""
 
 #: src/xplane.c:985 src/xplane.c:987 src/xplane.c:1017 src/xplane.c:1019
+#: src/xplane.c:1262
 msgid   "Turn the tug to the left"
 msgstr  ""
 
 #: src/xplane.c:987 src/xplane.c:989 src/xplane.c:1019 src/xplane.c:1021
+#: src/xplane.c:1264
 msgid   "Turn the tug to the right"
 msgstr  ""
 
 #: src/xplane.c:989 src/xplane.c:991 src/xplane.c:1021 src/xplane.c:1023
+#: src/xplane.c:1266
 msgid   "Toggle the trajectory of the push back"
 msgstr  ""
 
 #: src/xplane.c:1011 src/xplane.c:1209 src/xplane.c:1013 src/xplane.c:1217
+#: src/xplane.c:1250 src/xplane.c:1524
 msgid   "Reload BetterPushback"
 msgstr  ""
 
@@ -584,46 +610,713 @@ msgstr  ""
 msgid   "Waiting for planning the route"
 msgstr  ""
 
-#: src/bp.c:2360 src/bp.c:2367
+#: src/bp.c:2360 src/bp.c:2367 src/bp.c:3080
 msgid   "Waiting for planning the pushback"
 msgstr  ""
 
-msgid "Ground crew audio relative default audio volume:\n"
-      "The volume can be changed here or by using the dataref:\n"
-      "'bp/ground_crew_audio_volume'"
+msgid   "Ground crew audio relative default audio volume:\n"
+        "The volume can be changed here or by using the dataref:\n"
+        "'bp/ground_crew_audio_volume'"
 msgstr  ""
 
 msgid   "Ground crew audio volume"
 msgstr  ""
 
-msgid "Auto-expand for pilot actions"
-msgstr ""
-
-msgid ""
-"Expand the compact Ground Operations panel for required pilot actions, "
-"then collapse it shortly after the action is completed."
+msgid   "Auto-expand for pilot actions"
 msgstr  ""
 
-msgid "Pushback interface"
-msgstr ""
+msgid   "Expand the compact Ground Operations panel for required pilot "
+        "actions, then collapse it shortly after the action is completed."
+msgstr  ""
 
-msgid "Ground Operations"
-msgstr ""
+msgid   "Pushback interface"
+msgstr  ""
 
-msgid "Legacy magic squares"
-msgstr ""
+msgid   "Ground Operations"
+msgstr  ""
 
-msgid "Display marshaller"
-msgstr ""
+msgid   "Legacy magic squares"
+msgstr  ""
 
-msgid ""
-"Show the marshaller during normal pushback operations. Emergency Tow "
-"never displays the marshaller."
-msgstr ""
+msgid   "Display marshaller"
+msgstr  ""
 
-msgid ""
-"Select one global pushback interface. Ground Operations uses the new "
-"panel; Legacy magic squares restores the original operational buttons. "
-"The selection applies immediately while idle. Save preferences to keep "
-"it for the next simulator start."
-msgstr ""
+msgid   "Show the marshaller during normal pushback operations. Emergency Tow "
+        "never displays the marshaller."
+msgstr  ""
+
+msgid   "Select one global pushback interface. Ground Operations uses the new "
+        "panel; Legacy magic squares restores the original operational "
+        "buttons. The selection applies immediately while idle. Save "
+        "preferences to keep it for the next simulator start."
+msgstr  ""
+
+#: src/bp.c:1777
+msgid   "Acknowledge the displayed pin and clear signal."
+msgstr  ""
+
+#: src/bp.c:3013
+msgid   "Tug connected, waiting for emergency tow plan"
+msgstr  ""
+
+#: src/bp.c:3014 src/bp.c:4392
+msgid   "Tug connected, waiting for pushback plan"
+msgstr  ""
+
+#: src/bp.c:4329
+msgid   "Push-back tug standing by"
+msgstr  ""
+
+#: src/bp.c:4332
+msgid   "Push-back tug dispatched"
+msgstr  ""
+
+#: src/bp.c:4378
+msgid   "Ground crew securing the aircraft"
+msgstr  ""
+
+#: src/bp.c:4453
+msgid   "Disconnecting the tug"
+msgstr  ""
+
+#: src/ground_ops_data.c:402 src/ground_ops_data.c:431
+#: src/ground_ops_state.c:597
+msgid   "Flight --"
+msgstr  ""
+
+#: src/ground_ops_data.c:404 src/ground_ops_data.c:439
+#: src/ground_ops_state.c:599
+msgid   "EOBT --"
+msgstr  ""
+
+#: src/ground_ops_data.c:406 src/ground_ops_data.c:463
+#: src/ground_ops_state.c:601
+msgid   "SIM WX unavailable"
+msgstr  ""
+
+#: src/ground_ops_data.c:408 src/ground_ops_data.c:465
+#: src/ground_ops_state.c:603
+msgid   "QNH unavailable"
+msgstr  ""
+
+#: src/ground_ops_data.c:410 src/ground_ops_data.c:470
+#: src/ground_ops_state.c:606
+msgid   "METAR -- | ATIS --"
+msgstr  ""
+
+#: src/ground_ops_data.c:412 src/ground_ops_data.c:501
+msgid   "Local plugin | Offline"
+msgstr  ""
+
+#: src/ground_ops_data.c:428
+#, c-format
+msgid   "Flight %s"
+msgstr  ""
+
+#: src/ground_ops_data.c:436
+#, c-format
+msgid   "EOBT %s"
+msgstr  ""
+
+#: src/ground_ops_data.c:457 src/ground_ops_data.c:481
+#: src/ground_ops_data.c:486
+msgid   "STALE"
+msgstr  ""
+
+#: src/ground_ops_data.c:486
+msgid   "current"
+msgstr  ""
+
+#: src/ground_ops_data.c:504
+msgid   "Mixed sources"
+msgstr  ""
+
+#: src/ground_ops_data.c:505
+msgid   "Stale"
+msgstr  ""
+
+#: src/ground_ops_data.c:506
+msgid   "Current"
+msgstr  ""
+
+#: src/ground_ops_state.c:81 src/ground_ops_state.c:89
+#: src/ground_ops_state.c:98
+msgid   "unknown"
+msgstr  ""
+
+#: src/ground_ops_state.c:296
+msgid   "Reviewing pushback plan"
+msgstr  ""
+
+#: src/ground_ops_state.c:297
+msgid   "The overhead planner is authoritative"
+msgstr  ""
+
+#: src/ground_ops_state.c:298
+msgid   "Complete or cancel the route"
+msgstr  ""
+
+#: src/ground_ops_state.c:303
+msgid   "Ground operation complete"
+msgstr  ""
+
+#: src/ground_ops_state.c:304
+msgid   "Aircraft and equipment are clear"
+msgstr  ""
+
+#: src/ground_ops_state.c:305
+msgid   "Call tow assistance if the\n"
+        "aircraft must return"
+msgstr  ""
+
+#: src/ground_ops_state.c:307
+msgid   "Call tow back"
+msgstr  ""
+
+#: src/ground_ops_state.c:312
+msgid   "Tug available"
+msgstr  ""
+
+#: src/ground_ops_state.c:314
+msgid   "Airport data loaded; ground crew is ready"
+msgstr  ""
+
+#: src/ground_ops_state.c:315
+msgid   "Ground crew is ready; airport data unavailable"
+msgstr  ""
+
+#: src/ground_ops_state.c:316
+msgid   "Call the tug to begin connection"
+msgstr  ""
+
+#: src/ground_ops_state.c:317
+msgid   "Call tug"
+msgstr  ""
+
+#: src/ground_ops_state.c:330
+msgid   "Selecting a compatible tug"
+msgstr  ""
+
+#: src/ground_ops_state.c:330
+msgid   "Using the local tug library"
+msgstr  ""
+
+#: src/ground_ops_state.c:331
+msgid   "Wait for tug selection"
+msgstr  ""
+
+#: src/ground_ops_state.c:336
+msgid   "Tug standing by"
+msgstr  ""
+
+#: src/ground_ops_state.c:336
+msgid   "The tug is ready to approach"
+msgstr  ""
+
+#: src/ground_ops_state.c:337
+msgid   "Ground crew will begin the approach"
+msgstr  ""
+
+#: src/ground_ops_state.c:340
+msgid   "Ground crew dispatching tug"
+msgstr  ""
+
+#: src/ground_ops_state.c:340
+msgid   "Ground operation has started"
+msgstr  ""
+
+#: src/ground_ops_state.c:341
+msgid   "Wait for the tug"
+msgstr  ""
+
+#: src/ground_ops_state.c:346
+msgid   "Tug approaching aircraft"
+msgstr  ""
+
+#: src/ground_ops_state.c:346
+msgid   "Maintaining safe approach speed"
+msgstr  ""
+
+#: src/ground_ops_state.c:347
+msgid   "Monitor tug approach"
+msgstr  ""
+
+#: src/ground_ops_state.c:352
+msgid   "Clearing aircraft services"
+msgstr  ""
+
+#: src/ground_ops_state.c:353
+msgid   "Doors, GPU, or ASU are not yet clear"
+msgstr  ""
+
+#: src/ground_ops_state.c:354
+msgid   "Ground crew connection checks"
+msgstr  ""
+
+#: src/ground_ops_state.c:357
+msgid   "Waiting for aircraft service"
+msgstr  ""
+
+#: src/ground_ops_state.c:358
+msgid   "Doors, GPU, or ASU are not clear"
+msgstr  ""
+
+#: src/ground_ops_state.c:359
+msgid   "Secure doors and equipment"
+msgstr  ""
+
+#: src/ground_ops_state.c:364
+msgid   "Preparing the tug cradle"
+msgstr  ""
+
+#: src/ground_ops_state.c:364 src/ground_ops_state.c:483
+msgid   "Connection equipment is opening"
+msgstr  ""
+
+#: src/ground_ops_state.c:365
+msgid   "Wait for equipment preparation"
+msgstr  ""
+
+#: src/ground_ops_state.c:370
+msgid   "Performing connection checks"
+msgstr  ""
+
+#: src/ground_ops_state.c:371
+msgid   "Aircraft is being secured for tug connection"
+msgstr  ""
+
+#: src/ground_ops_state.c:372
+msgid   "Wait for automatic connection"
+msgstr  ""
+
+#: src/ground_ops_state.c:375
+msgid   "Parking brake required"
+msgstr  ""
+
+#: src/ground_ops_state.c:375
+msgid   "The tug is ready to connect"
+msgstr  ""
+
+#: src/ground_ops_state.c:376 src/ground_ops_state.c:474
+msgid   "Set the parking brake"
+msgstr  ""
+
+#: src/ground_ops_state.c:381
+msgid   "Positioning tug to connect"
+msgstr  ""
+
+#: src/ground_ops_state.c:381
+msgid   "Closing the final safe distance"
+msgstr  ""
+
+#: src/ground_ops_state.c:382
+msgid   "Monitor tug connection"
+msgstr  ""
+
+#: src/ground_ops_state.c:386
+msgid   "Securing the nose gear"
+msgstr  ""
+
+#: src/ground_ops_state.c:386
+msgid   "Tug connection is in progress"
+msgstr  ""
+
+#: src/ground_ops_state.c:387
+msgid   "Wait for nose-gear capture"
+msgstr  ""
+
+#: src/ground_ops_state.c:392
+msgid   "Tug connected; plan the tow"
+msgstr  ""
+
+#: src/ground_ops_state.c:393
+msgid   "Tug connected; plan the push"
+msgstr  ""
+
+#: src/ground_ops_state.c:395
+msgid   "Nose gear captured; saved routes are disabled"
+msgstr  ""
+
+#: src/ground_ops_state.c:396
+msgid   "Nose gear captured; no lift has been performed"
+msgstr  ""
+
+#: src/ground_ops_state.c:397
+msgid   "Plan a one-time tow route"
+msgstr  ""
+
+#: src/ground_ops_state.c:398
+msgid   "Open the planner and accept a route"
+msgstr  ""
+
+#: src/ground_ops_state.c:400 src/ground_ops_state.c:419
+msgid   "Plan tow"
+msgstr  ""
+
+#: src/ground_ops_state.c:400 src/ground_ops_state.c:419
+msgid   "Plan push"
+msgstr  ""
+
+#: src/ground_ops_state.c:402 src/ground_ops_state.c:421
+#: src/ground_ops_state.c:452 src/ground_ops_state.c:462
+msgid   "End operation"
+msgstr  ""
+
+#: src/ground_ops_state.c:405
+msgid   "Lifting the nose gear"
+msgstr  ""
+
+#: src/ground_ops_state.c:405
+msgid   "Connection is nearly complete"
+msgstr  ""
+
+#: src/ground_ops_state.c:406
+msgid   "Wait for lift completion"
+msgstr  ""
+
+#: src/ground_ops_state.c:412
+msgid   "Tug connected; tow plan required"
+msgstr  ""
+
+#: src/ground_ops_state.c:413
+msgid   "Tug connected; plan required"
+msgstr  ""
+
+#: src/ground_ops_state.c:415
+msgid   "Emergency Tow uses one-time manual routes only"
+msgstr  ""
+
+#: src/ground_ops_state.c:416
+msgid   "Late-planning mode is active"
+msgstr  ""
+
+#: src/ground_ops_state.c:417
+msgid   "Open and complete the planner"
+msgstr  ""
+
+#: src/ground_ops_state.c:424
+msgid   "Ready for brake release"
+msgstr  ""
+
+#: src/ground_ops_state.c:424
+msgid   "Tug connected and crew ready"
+msgstr  ""
+
+#: src/ground_ops_state.c:425
+msgid   "Release the parking brake"
+msgstr  ""
+
+#: src/ground_ops_state.c:428
+msgid   "Change plan"
+msgstr  ""
+
+#: src/ground_ops_state.c:434
+msgid   "Starting emergency tow"
+msgstr  ""
+
+#: src/ground_ops_state.c:435
+msgid   "Starting pushback"
+msgstr  ""
+
+#: src/ground_ops_state.c:435
+msgid   "Steering and motion are engaging"
+msgstr  ""
+
+#: src/ground_ops_state.c:436
+msgid   "Monitor initial movement"
+msgstr  ""
+
+#: src/ground_ops_state.c:442
+msgid   "Emergency tow paused"
+msgstr  ""
+
+#: src/ground_ops_state.c:443
+msgid   "Pushback paused"
+msgstr  ""
+
+#: src/ground_ops_state.c:444
+msgid   "Pausing emergency tow"
+msgstr  ""
+
+#: src/ground_ops_state.c:445
+msgid   "Pausing pushback"
+msgstr  ""
+
+#: src/ground_ops_state.c:446
+msgid   "Accepted route and steering state are retained"
+msgstr  ""
+
+#: src/ground_ops_state.c:448
+msgid   "Release parking brake if set, then resume"
+msgstr  ""
+
+#: src/ground_ops_state.c:449
+msgid   "Controlled deceleration in progress"
+msgstr  ""
+
+#: src/ground_ops_state.c:451
+msgid   "Resume tow"
+msgstr  ""
+
+#: src/ground_ops_state.c:451
+msgid   "Resume push"
+msgstr  ""
+
+#: src/ground_ops_state.c:455
+msgid   "Emergency tow in progress"
+msgstr  ""
+
+#: src/ground_ops_state.c:456
+msgid   "Pushback in progress"
+msgstr  ""
+
+#: src/ground_ops_state.c:457
+msgid   "Pause retains route; End disconnects"
+msgstr  ""
+
+#: src/ground_ops_state.c:458
+msgid   "Monitor tow progress"
+msgstr  ""
+
+#: src/ground_ops_state.c:459
+msgid   "Monitor pushback progress"
+msgstr  ""
+
+#: src/ground_ops_state.c:461
+msgid   "Pause tow"
+msgstr  ""
+
+#: src/ground_ops_state.c:461
+msgid   "Pause push"
+msgstr  ""
+
+#: src/ground_ops_state.c:467
+msgid   "Stopping emergency tow"
+msgstr  ""
+
+#: src/ground_ops_state.c:468
+msgid   "Stopping the aircraft"
+msgstr  ""
+
+#: src/ground_ops_state.c:468
+msgid   "Decelerating to a controlled stop"
+msgstr  ""
+
+#: src/ground_ops_state.c:469
+msgid   "Wait for the aircraft to stop"
+msgstr  ""
+
+#: src/ground_ops_state.c:473
+msgid   "Aircraft stopped"
+msgstr  ""
+
+#: src/ground_ops_state.c:473
+msgid   "Parking brake confirmation is required"
+msgstr  ""
+
+#: src/ground_ops_state.c:478
+msgid   "Lowering the nose gear"
+msgstr  ""
+
+#: src/ground_ops_state.c:478
+msgid   "Beginning tug disconnection"
+msgstr  ""
+
+#: src/ground_ops_state.c:479
+msgid   "Wait for nose-gear lowering"
+msgstr  ""
+
+#: src/ground_ops_state.c:483
+msgid   "Releasing the nose gear"
+msgstr  ""
+
+#: src/ground_ops_state.c:484
+msgid   "Wait for nose-gear release"
+msgstr  ""
+
+#: src/ground_ops_state.c:489
+msgid   "Disconnect confirmed"
+msgstr  ""
+
+#: src/ground_ops_state.c:489
+msgid   "Ground crew is preparing to move"
+msgstr  ""
+
+#: src/ground_ops_state.c:490
+msgid   "Wait for tug clearance"
+msgstr  ""
+
+#: src/ground_ops_state.c:494
+msgid   "Ready to disconnect"
+msgstr  ""
+
+#: src/ground_ops_state.c:494
+msgid   "Ground crew is awaiting approval"
+msgstr  ""
+
+#: src/ground_ops_state.c:495
+msgid   "Cleared to disconnect"
+msgstr  ""
+
+#: src/ground_ops_state.c:497
+msgid   "Disconnect tug"
+msgstr  ""
+
+#: src/ground_ops_state.c:498
+msgid   "Reconnect"
+msgstr  ""
+
+#: src/ground_ops_state.c:502
+msgid   "Tug moving clear"
+msgstr  ""
+
+#: src/ground_ops_state.c:502
+msgid   "Separating safely from the aircraft"
+msgstr  ""
+
+#: src/ground_ops_state.c:503
+msgid   "Monitor tug clearance"
+msgstr  ""
+
+#: src/ground_ops_state.c:507
+msgid   "Closing the tug cradle"
+msgstr  ""
+
+#: src/ground_ops_state.c:507
+msgid   "Stowing connection equipment"
+msgstr  ""
+
+#: src/ground_ops_state.c:508
+msgid   "Wait for equipment stowage"
+msgstr  ""
+
+#: src/ground_ops_state.c:513
+msgid   "Driver moving to clear"
+msgstr  ""
+
+#: src/ground_ops_state.c:513
+msgid   "Ground crew is taking position"
+msgstr  ""
+
+#: src/ground_ops_state.c:514
+msgid   "Monitor ground crew"
+msgstr  ""
+
+#: src/ground_ops_state.c:519
+msgid   "Clear signal acknowledged"
+msgstr  ""
+
+#: src/ground_ops_state.c:519
+msgid   "Ground crew will depart shortly"
+msgstr  ""
+
+#: src/ground_ops_state.c:520
+msgid   "Wait for tug departure"
+msgstr  ""
+
+#: src/ground_ops_state.c:524
+msgid   "Clear signal displayed"
+msgstr  ""
+
+#: src/ground_ops_state.c:524
+msgid   "Pin and equipment are clear"
+msgstr  ""
+
+#: src/ground_ops_state.c:525
+msgid   "Verify the clear signal"
+msgstr  ""
+
+#: src/ground_ops_state.c:528
+msgid   "Acknowledge"
+msgstr  ""
+
+#: src/ground_ops_state.c:534
+msgid   "Tug returning to station"
+msgstr  ""
+
+#: src/ground_ops_state.c:534
+msgid   "Aircraft area is being cleared"
+msgstr  ""
+
+#: src/ground_ops_state.c:535
+msgid   "Finalize cockpit checklist"
+msgstr  ""
+
+#: src/ground_ops_state.c:540
+msgid   "Controller idle"
+msgstr  ""
+
+#: src/ground_ops_state.c:540
+msgid   "No active pushback controller state"
+msgstr  ""
+
+#: src/ground_ops_state.c:541
+msgid   "Use classic controls to begin"
+msgstr  ""
+
+#: src/ground_ops_state.c:579
+#, c-format
+msgid   "Speed %.1f m/s"
+msgstr  ""
+
+#: src/ground_ops_state.c:581
+msgid   "Speed --"
+msgstr  ""
+
+#: src/ground_ops_state.c:585
+#, c-format
+msgid   "Remaining %d m"
+msgstr  ""
+
+#: src/ground_ops_state.c:588
+msgid   "Remaining --"
+msgstr  ""
+
+#: src/ground_ops_state.c:609
+msgid   "Local plugin state"
+msgstr  ""
+
+#: src/ground_ops_state.c:612
+#, c-format
+msgid   "Airport %s"
+msgstr  ""
+
+#: src/ground_ops_state.c:615
+msgid   "Airport ----"
+msgstr  ""
+
+#: src/ground_ops_state.c:619
+msgid   "No pilot action required"
+msgstr  ""
+
+#: src/xplane.c:1228 src/xplane.c:1508
+msgid   "End pushback and disconnect"
+msgstr  ""
+
+#: src/xplane.c:1230
+msgid   "Pause or resume automatic pushback"
+msgstr  ""
+
+#: src/xplane.c:1239
+msgid   "Call tug for a one-time emergency tow"
+msgstr  ""
+
+#: src/xplane.c:1253
+msgid   "Show or hide the Ground Operations interface"
+msgstr  ""
+
+#: src/xplane.c:1256
+msgid   "Expand or collapse the Ground Operations interface"
+msgstr  ""
+
+#: src/xplane.c:1510
+msgid   "Pause/Resume automatic pushback"
+msgstr  ""
+
+#: src/xplane.c:1516
+msgid   "Ground Operations: Show/Hide"
+msgstr  ""
+
+#: src/xplane.c:1518
+msgid   "Ground Operations: Expand/Collapse"
+msgstr  ""

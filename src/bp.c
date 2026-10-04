@@ -2549,7 +2549,7 @@ bp_init(void) {
     XPLMGetNthAircraftModel(0, my_acf, my_path);
 
     cfg_disco_when_done = B_FALSE;
-    (void)conf_get_b(bp_conf, "disco_when_done", &cfg_disco_when_done);
+    conf_get_b_per_acf("disco_when_done", &cfg_disco_when_done);
 
     cfg_ignore_park_break = B_FALSE;
     conf_get_b_per_acf("ignore_park_brake", &cfg_ignore_park_break);

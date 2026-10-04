@@ -33,7 +33,7 @@ def function_source(source, name):
 repo = Path(__file__).resolve().parent.parent
 source = (repo / "src/bp.c").read_text()
 upstream = subprocess.check_output(
-    ["git", "show", "377fddf968d0008cc9ef45b8e91e52bba2987369:src/bp.c"],
+    ["git", "show", "86c04e3218759905231fe36d0840b9be4c86a959:src/bp.c"],
     cwd=repo, text=True
 )
 for name in ("pbrake_is_set", "brakes_set"):

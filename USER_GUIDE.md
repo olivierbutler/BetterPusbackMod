@@ -104,10 +104,11 @@ keeps the panel expanded. With the preference disabled, expand and collapse are
 entirely manual. Toggling the option takes effect immediately; select **Save
 preferences** to retain it across simulator starts.
 
-The global **Auto disconnect when done** preference controls the final
-post-push interaction for every aircraft and is remembered across simulator
-starts. It is off by default, preserving the manual disconnect and clear-signal
-acknowledgements described below.
+The per-aircraft **Auto disconnect when done** preference controls the final
+post-push interaction and is remembered across simulator starts. It is off by
+default, preserving the manual disconnect and clear-signal acknowledgements
+described below. Existing global values remain the fallback until an
+aircraft-specific choice is saved.
 
 ## 4. Normal pushback
 
@@ -285,7 +286,7 @@ The current owner-review candidate includes:
 - compact and expanded Ground Operations presentations, including pop-out and
   remembered multi-monitor placement;
 - explicit Call tug, Plan push, and brake gates, with manual disconnect and
-  clear-signal gates unless the global automatic option is enabled;
+  clear-signal gates unless automatic completion is enabled for the aircraft;
 - manual route planning with the legacy route-following behavior;
 - two guarded saved-route slots per matching gate/stand and aircraft profile;
 - Pause/Resume and safe End operation behavior;
