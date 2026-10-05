@@ -3922,7 +3922,7 @@ main_intf(bool_t force_hide) {
      * require any aircraft to be on the ground moving at less than 1 m/s.
      */
     ground_ops_ui_set_legacy_visibility(bp_started ||
-        acf_on_gnd_stopped(NULL));
+        (acf_is_airliner() && acf_on_gnd_stopped(NULL)));
     main_intf_update_automation();
 
     if (!bp_interface_mode_uses_legacy_magic_squares(
@@ -3932,7 +3932,7 @@ main_intf(bool_t force_hide) {
     }
 
     if (get_pref_widget_status() // show also the magic button while in the pref window
-     || ((bp_started || acf_on_gnd_stopped(NULL)) && !force_hide)) {
+     || ((bp_started || (acf_is_airliner() && acf_on_gnd_stopped(NULL))) && !force_hide)) {
         main_intf_show();
     } else {
         main_intf_hide();
