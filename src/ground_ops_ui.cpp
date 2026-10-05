@@ -1297,8 +1297,6 @@ load_rect(const char *left_key, const char *top_key, const char *right_key,
 static void
 load_preferences(void)
 {
-    int saved_presentation = GROUND_OPS_PRESENTATION_HIDDEN;
-    int saved_last_visible = GROUND_OPS_PRESENTATION_PANEL;
     int saved_mode = GROUND_OPS_WINDOW_FLOAT;
     int saved_size = GROUND_OPS_UI_SIZE_STANDARD;
 
@@ -1313,12 +1311,7 @@ load_preferences(void)
         saved_size = GROUND_OPS_UI_SIZE_STANDARD;
     }
     ground_ops_ui_size_set(static_cast<ground_ops_ui_size_t>(saved_size));
-    (void)conf_get_i(bp_conf, "ground_ops_presentation",
-        &saved_presentation);
-    (void)conf_get_i(bp_conf, "ground_ops_last_visible_presentation",
-        &saved_last_visible);
-    presentation = ground_ops_startup_presentation(saved_presentation,
-        saved_last_visible);
+    presentation = GROUND_OPS_PRESENTATION_ORB;
     last_visible_presentation = presentation;
     if (conf_get_i(bp_conf, "ground_ops_window_mode", &saved_mode) &&
         ground_ops_window_mode_valid(saved_mode)) {
@@ -1860,11 +1853,15 @@ manager_callback(float elapsed, float elapsed_flight, int counter,
         refresh_snapshot();
         const ground_ops_snapshot_t *snapshot = ground_ops_state_get(
             &state_cache);
+        bool suppress_auto_presentation = snapshot != nullptr &&
+            (snapshot->primary_action == GROUND_OPS_ACTION_CALL_TUG ||
+            snapshot->primary_action ==
+            GROUND_OPS_ACTION_CALL_EMERGENCY_TOW);
         ground_ops_auto_presentation_t automatic =
             ground_ops_auto_expand_update(&auto_expand_state,
                 auto_expand_for_actions != B_FALSE, true, presentation,
                 snapshot != nullptr && snapshot->action_required,
-                context_now_s());
+                !suppress_auto_presentation, context_now_s());
         if (automatic == GROUND_OPS_AUTO_PRESENTATION_EXPAND) {
             apply_presentation_geometry(GROUND_OPS_PRESENTATION_PANEL,
                 false);
@@ -1928,8 +1925,8 @@ ground_ops_ui_init(void)
         return (B_TRUE);
 
     load_preferences();
-    /* Startup is always visible, including for a first install or a prior
-     * session that ended with the window hidden. This automatic presentation
+    /* Startup is always visible in the compact presentation, including for a
+     * first install or a prior session that ended with the window hidden. This
      * is not a pilot visibility override, so the legacy ground-speed gate can
      * still hide the window while taxiing. */
     manual_visibility_override = B_FALSE;

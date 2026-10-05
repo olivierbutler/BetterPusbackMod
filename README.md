@@ -44,24 +44,24 @@ deleting the separately stored push-route slots.
 
 Ground Operations can be shown as a compact five-orb stage rail, expanded into
 the complete status and action panel, or popped out as a native X-Plane window
-and moved to another monitor. It opens automatically when BetterPushback
-connects to the simulator, restoring the last visible compact or expanded
-presentation. A first-time install, or an older hidden state without visible
-presentation history, opens expanded. The pilot can then show or hide it
-normally. Outside an active operation it automatically hides while the aircraft
-is taxiing and returns when the aircraft stops on the ground. An explicit pilot
-Show command can keep it visible while moving. During an automatic push,
+and moved to another monitor. It opens automatically in the compact
+presentation when BetterPushback connects to the simulator, regardless of its
+last presentation. The pilot can expand, show, or hide it normally. Outside an
+active operation it automatically hides while the aircraft is taxiing and
+returns when the aircraft stops on the ground. An explicit pilot Show command
+can keep it visible while moving. During an automatic push,
 **Pause/Resume** retains
 the accepted route and steering state, while **End operation** stops safely and
 continues through the normal disconnect sequence at the current position.
 The Preferences window offers Standard, Large, and Extra-large interface sizes;
 each selection scales the full layout and its controls together with the text.
 The global **Auto-expand for pilot actions** preference lets the pilot leave
-Ground Operations compact: a newly required action expands the panel, and an
-automatic one-second delay collapses only that automatically opened panel after
-the action is complete. While this preference is enabled, completing a pilot
-action collapses an expanded panel regardless of whether the plugin or the
-pilot expanded it. Hidden windows are not changed.
+Ground Operations compact: a newly required action expands the panel, except
+for **Call tug** and **Call tow back**. An automatic one-second delay collapses
+only that automatically opened panel after the action is complete. While this
+preference is enabled, completing a pilot action collapses an expanded panel
+regardless of whether the plugin or the pilot expanded it. Hidden windows are
+not changed.
 The checkbox takes effect immediately; Save preferences keeps it for later
 simulator starts.
 The global **Auto disconnect when done** preference can complete the

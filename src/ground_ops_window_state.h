@@ -128,7 +128,7 @@ void ground_ops_auto_expand_note_manual(
 ground_ops_auto_presentation_t ground_ops_auto_expand_update(
     ground_ops_auto_expand_state_t *state, bool enabled,
     bool window_visible, ground_ops_presentation_t presentation,
-    bool action_required, double now);
+    bool action_required, bool allow_expansion, double now);
 bool ground_ops_rect_nearest_right(const ground_ops_rect_t *rect,
     const ground_ops_monitor_t *monitor);
 void ground_ops_rect_clamp(ground_ops_rect_t *rect,

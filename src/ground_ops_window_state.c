@@ -307,7 +307,7 @@ ground_ops_auto_presentation_t
 ground_ops_auto_expand_update(ground_ops_auto_expand_state_t *state,
     bool enabled, bool window_visible,
     ground_ops_presentation_t presentation, bool action_required,
-    double now)
+    bool allow_expansion, double now)
 {
     bool continue_action_cycle;
 
@@ -325,7 +325,8 @@ ground_ops_auto_expand_update(ground_ops_auto_expand_state_t *state,
             state->action_active = true;
             if (continue_action_cycle)
                 return (GROUND_OPS_AUTO_PRESENTATION_NONE);
-            if (presentation == GROUND_OPS_PRESENTATION_ORB)
+            if (allow_expansion &&
+                presentation == GROUND_OPS_PRESENTATION_ORB)
                 return (GROUND_OPS_AUTO_PRESENTATION_EXPAND);
         }
         return (GROUND_OPS_AUTO_PRESENTATION_NONE);

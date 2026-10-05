@@ -83,11 +83,11 @@ cockpit.
   small movement threshold to distinguish a click from a drag.
 - Compact mode has no tooltips and never expands from hover; click to expand.
 - With the global **Auto-expand for pilot actions** preference enabled, a new
-  required action expands a visible compact rail. The panel collapses one
-  second after the action clears whether it was expanded automatically or by
-  the pilot. Hidden windows remain hidden, and a new action during the delay
-  cancels the pending collapse. With the preference disabled, presentation
-  changes remain entirely manual.
+  required action other than **Call tug** or **Call tow back** expands a
+  visible compact rail. The panel collapses one second after the action clears
+  whether it was expanded automatically or by the pilot. Hidden windows remain
+  hidden, and a new action during the delay cancels the pending collapse. With
+  the preference disabled, presentation changes remain entirely manual.
 - Red is reserved for a future explicit fault or safety-stop state reported by
   the controller. Normal pilot gates, deliberate pause holds, disconnect
   approval, and destructive alternatives do not make a stage red.

@@ -73,9 +73,9 @@ aircraft and airliners. Using the show command while moving is a manual override
 that keeps the window visible until the pilot hides it again.
 
 Positions are remembered by window mode, monitor, and side. If a saved display
-is removed or resized, the window is recovered into a visible area.
-The last visible compact or expanded presentation is also remembered. A first
-install, or an older saved hidden state without that history, opens expanded.
+is removed or resized, the window is recovered into a visible area. Ground
+Operations always opens in the compact presentation at simulator start,
+regardless of its last presentation.
 
 The Preferences window provides **Standard**, **Large**, and **Extra large**
 Ground Operations sizes. The selected size scales the complete compact rail or
@@ -96,13 +96,14 @@ move the complete stack vertically. This is the original legacy placement
 control; the squares themselves are buttons and are not dragged directly.
 
 The global **Auto-expand for pilot actions** preference is off by default. When
-enabled, a compact visible rail expands when a new pilot action is required and
-collapses one second after that action is completed. The completed action
-collapses the expanded panel whether it was opened automatically or manually.
-It never reopens a hidden window. A second required action during the delay
-keeps the panel expanded. With the preference disabled, expand and collapse are
-entirely manual. Toggling the option takes effect immediately; select **Save
-preferences** to retain it across simulator starts.
+enabled, a compact visible rail expands when a new pilot action is required,
+except for **Call tug** and **Call tow back**, and collapses one second after
+that action is completed. The completed action collapses the expanded panel
+whether it was opened automatically or manually. It never reopens a hidden
+window. A second required action during the delay keeps the panel expanded.
+With the preference disabled, expand and collapse are entirely manual.
+Toggling the option takes effect immediately; select **Save preferences** to
+retain it across simulator starts.
 
 The global **Auto disconnect when done** preference controls the final
 post-push interaction for every aircraft and is remembered across simulator
