@@ -28,6 +28,7 @@
 #include "acf_outline.h"
 #include "clear_signal_gate.h"
 #include "driving.h"
+#include "fast_brake_handoff.h"
 #include "pushback_step.h"
 #include "tug.h"
 #include "wing_walker.h"
@@ -105,6 +106,8 @@ typedef struct {
     pushback_step_t step;        /* current PB step */
     double step_start_t;    /* PB step start time */
     double last_voice_t;    /* last voice message start time */
+    bp_fast_brake_handoff_t fast_brake_handoff;
+    bool_t fast_brakes_relinquished;
 
     double reverse_t;    /* when reversing direction */
 
@@ -160,6 +163,28 @@ extern push_manual_t push_manual;
 void bp_boot_init(void);
 
 void bp_shut_fini(void);
+
+/* Version-1 nosewheel status reasons; internal lifecycle API, not a DLL ABI. */
+typedef enum {
+    BP_NW_NONE = 0,
+    BP_NW_NORMAL_COMPLETE = 1,
+    BP_NW_SOFT_END = 2,
+    BP_NW_HARD_ABORT = 3,
+    BP_NW_AIRCRAFT_RESET = 4,
+    BP_NW_PROVIDER_DISABLED = 5,
+    BP_NW_CORE_RELOAD = 6,
+    BP_NW_INITIALIZATION_FAILED = 7,
+    BP_NW_INVALID_GEOMETRY = 8,
+    BP_NW_INVALID_RATE = 9,
+    BP_NW_TIME_RESET = 10,
+    BP_NW_UNSUPPORTED_SLAVE = 11,
+    BP_NW_DEBUG_MODE = 12,
+    BP_NW_CONTRACT_NOT_READY = 13,
+    BP_NW_CONTROLLER_FAILURE = 14
+} bp_nosewheel_status_reason_t;
+
+void bp_nosewheel_status_enable(void);
+void bp_nosewheel_status_invalidate(bp_nosewheel_status_reason_t reason);
 
 bool_t bp_init(void);
 

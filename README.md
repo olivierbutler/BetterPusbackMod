@@ -64,7 +64,7 @@ regardless of whether the plugin or the pilot expanded it. Hidden windows are
 not changed.
 The checkbox takes effect immediately; Save preferences keeps it for later
 simulator starts.
-The global **Auto disconnect when done** preference can complete the
+The per-aircraft **Auto disconnect when done** preference can complete the
 post-push disconnect and final clear-signal acknowledgement without another
 pilot input after the requested parking brake has been set. The normal tug
 lowering, separation, side-clear movement, audio, and signal timing are retained.
@@ -125,8 +125,33 @@ vertically between 20% and 80% of the selected monitor.
 
 Ground Operations presents disconnect/reconnect and clear-signal actions in
 the panel. Legacy mode restores the original shortcut windows and its original
-disconnect/reconnect buttons. Enabling the global **Auto disconnect when done**
+disconnect/reconnect buttons. Enabling **Auto disconnect when done** for the aircraft
 preference completes the post-push actions automatically in either mode.
+
+### Optional legacy routes and Fast Ground Handling
+
+**Legacy route recall** is a separate, default-off preference for both
+interfaces. It recalls and saves routes using the original position/heading
+cache without the newer gate-slot dialogs. Existing in-session plans are
+retained when calling the tug. Emergency Tow remains session-only, and the
+newer gate-route slots are not changed by this option.
+
+**Fast Ground Handling** independently skips artificial waits and timed handling
+animations, not tug travel, towing or required pilot acknowledgements. Its
+parking-brake handoff stops BPB's own pedal-brake writes after confirmation,
+then waits for both pedal-request readbacks to fall below the existing threshold
+while the parking brake remains set. It never writes a synthetic release zero
+on the successful handoff path. After verification, renewed pedal presses do
+not block lowering or disconnect; losing the parking brake restores BPB's hold.
+While waiting, the status asks the pilot to release the pedals or abort.
+
+The old **Classic Mode** preset is retired. Existing enabled Classic settings
+are migrated once to Legacy magic squares, automatic completion, marshaller
+off and Legacy route recall on; existing explicit values of the new settings
+are retained. The Fast setting is retained independently. Fast and Legacy route
+recall remain global and are saved through Preferences. Auto disconnect follows
+the upstream per-aircraft setting, falling back to the previous global value
+when no aircraft-specific value exists.
 
 The global build script is located here and is called '```build_release```'.
 Once you have the pre-requisite build packages installed, simply run:

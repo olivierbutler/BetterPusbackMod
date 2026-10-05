@@ -105,10 +105,11 @@ With the preference disabled, expand and collapse are entirely manual.
 Toggling the option takes effect immediately; select **Save preferences** to
 retain it across simulator starts.
 
-The global **Auto disconnect when done** preference controls the final
-post-push interaction for every aircraft and is remembered across simulator
-starts. It is off by default, preserving the manual disconnect and clear-signal
-acknowledgements described below.
+The per-aircraft **Auto disconnect when done** preference controls the final
+post-push interaction and is remembered across simulator starts. It is off by
+default, preserving the manual disconnect and clear-signal acknowledgements
+described below. Existing global values remain the fallback until an
+aircraft-specific choice is saved.
 
 ## 4. Normal pushback
 
@@ -173,7 +174,37 @@ signal. No further pilot action is required, but the tug still lowers, releases,
 moves to the selected side, presents its signals, and observes the same 15-second
 minimum clear-signal display before departure.
 
+### Fast Ground Handling
+
+The separate **Fast Ground Handling** preference removes artificial pauses,
+voice-message waits and timed handling animations, including lowering and
+disconnect after the parking-brake handoff. Tug travel and aircraft towing
+remain normal. Fast does not approve Disconnect or Acknowledge on the pilot's
+behalf; that remains the upstream interface/automatic-completion policy.
+
+If the pedals are still held when the parking brake is set, BPB stops writing
+its own pedal request and asks you to release the pedals. Lowering and
+disconnect remain paused until the pedal readbacks are below the existing
+threshold and the parking brake is still set. After successful handoff, pedal
+presses do not block progress, but parking-brake loss restores BPB's hold.
+There is no timeout-based disconnect; use **Abort pushback** if an input never
+returns below the threshold. Successful handoff and final cleanup do not write
+a synthetic zero over pilot brake input.
+
 ## 5. Saved routes
+
+The default-off **Legacy route recall** preference selects the original
+position/heading route cache in either interface. The empty planner recalls
+the nearest compatible route within 30 metres and 10 degrees automatically,
+without a gate-slot selection/replacement dialog. It does not replace an
+already prepared in-session plan. Routes are saved at pre-planned pushback
+start or once a late plan is accepted. Emergency Tow, slave and manual-push
+save exclusions remain. Calling the tug retains a completed pre-plan when
+this option is enabled. The original cache and the newer gate slots are
+separate: Legacy route recall never writes the newer slots.
+
+With Legacy route recall disabled, the upstream slot workflow below is
+unchanged.
 
 At a published airport start, BetterPushback can identify a gate or stand only
 when the live nosewheel position and heading uniquely match it within the
@@ -207,6 +238,15 @@ Resume, and End operation remain available. After final disconnect and tug
 departure, BetterPushback returns to its normal cold-start state.
 
 ## 7. Commands and recovery
+
+### Migration from Classic Mode
+
+The old Classic preset is replaced by independent preferences. An enabled
+old preset initializes missing settings to **Legacy magic squares**, **Auto
+disconnect when done** on, **Display marshaller** off and **Legacy route
+recall** on. Existing explicit new settings take precedence; **Fast Ground
+Handling** is retained separately. The old preset is then marked inactive so
+later preference changes are not overwritten on restart.
 
 The most useful assignable commands are:
 
@@ -247,7 +287,7 @@ The current owner-review candidate includes:
 - compact and expanded Ground Operations presentations, including pop-out and
   remembered multi-monitor placement;
 - explicit Call tug, Plan push, and brake gates, with manual disconnect and
-  clear-signal gates unless the global automatic option is enabled;
+  clear-signal gates unless automatic completion is enabled for the aircraft;
 - manual route planning with the legacy route-following behavior;
 - two guarded saved-route slots per matching gate/stand and aircraft profile;
 - Pause/Resume and safe End operation behavior;

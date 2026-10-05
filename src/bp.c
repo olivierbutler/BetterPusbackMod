@@ -29,6 +29,16 @@
 #include <stddef.h>
 #include <errno.h>
 #include <time.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+#if IBM
+#include <windows.h>
+#include <bcrypt.h>
+#elif !APL
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 #include <png.h>
 
@@ -61,6 +71,7 @@
 #include "cfg.h"
 #include "emergency_tow.h"
 #include "ground_ops_ui.h"
+#include "handling_timing.h"
 #include "msg.h"
 #include "post_push_automation.h"
 #include "telemetry.h"
@@ -103,6 +114,19 @@
 #define    TUG_APPCH_SHORT_DIST    (2 * bp_ls.tug->veh.wheelbase)
 
 #define    MIN_STEP_TIME        0.001    /* minimum simulation step in secs */
+
+static double
+artificial_delay(double seconds)
+{
+    return bp_handling_duration(seconds, bp_fast_ground_handling() != B_FALSE);
+}
+
+static double
+handling_fraction(double elapsed, double duration)
+{
+    return bp_handling_fraction(elapsed, duration,
+        bp_fast_ground_handling() != B_FALSE);
+}
 
 #define    MSG_DOORS_GPU "Some doors are still opened or the GPU or the ASU are still connected. I'm waiting for all of them closed and disconnected then I will proceed."
 #define	   HINTBAR_HEIGHT	20
@@ -185,6 +209,497 @@ bp_long_state_t bp_ls = {0};
 
 static bool_t inited = B_FALSE;
 static XPLMFlightLoopID bp_floop = NULL;
+
+/* Stable semantic values, deliberately independent of pushback_step_t. */
+typedef enum {
+    NW_IDLE = 0, NW_APPROACH = 1, NW_CAPTURE_PREP = 2,
+    NW_WINCH_LOADING = 3, NW_CAPTURED_PRE_LIFT = 4, NW_LIFTING = 5,
+    NW_CARRIED_STILL = 6, NW_CARRIED_MOVING = 7, NW_PARTIAL_HELD = 8,
+    NW_LOWERING = 9, NW_UNGRABBING = 10, NW_WAIT_DISCONNECT = 11,
+    NW_WINCH_ROLL_OFF = 12, NW_RELEASED_CLEARING = 13,
+    NW_COMPLETED = 14, NW_INVALID_STATE = 15
+} nw_phase_t;
+
+enum { NW_XP = 0, NW_HOLD = 1, NW_RATE = 2, NW_INVALID = 3 };
+enum {
+    NW_READY = 1 << 0, NW_CUSTODY = 1 << 1, NW_FULLY_LIFTED = 1 << 2,
+    NW_RECONNECT = 1 << 3, NW_END_REQUESTED = 1 << 4,
+    NW_MASTER = 1 << 5, NW_RATE_HELD_SAMPLE = 1 << 6
+};
+enum { NW_STATUS_COUNT = 17 };
+typedef char nw_int_word_size[(sizeof(int) == sizeof(uint32_t)) ? 1 : -1];
+
+/* Never feeds the controller, and survives bp_state_init's memset. */
+static struct {
+    int snapshot[NW_STATUS_COUNT];
+    uint32_t boot_token[4];
+    uint64_t epoch, revision;
+    bool_t booted, boot_ok, enabled, basis_valid, exhausted;
+    bool_t custody, fully_lifted, reconnect, end_requested, terminal;
+    bool_t rate_window;
+    int nosegear_index, lift_kind, rate_sample_cycle;
+    nw_phase_t phase;
+    bp_nosewheel_status_reason_t reason, fault;
+} nw_status = { .nosegear_index = -1, .lift_kind = -1,
+    .rate_sample_cycle = -1 };
+
+static bool_t
+nw_boot_identity(void)
+{
+#if IBM
+    if (BCryptGenRandom(NULL, (PUCHAR)nw_status.boot_token,
+        sizeof(nw_status.boot_token), BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0)
+        return (B_FALSE);
+#elif APL
+    arc4random_buf(nw_status.boot_token, sizeof(nw_status.boot_token));
+#else
+    int fd = open("/dev/urandom", O_RDONLY | O_NONBLOCK);
+    ssize_t n;
+
+    if (fd < 0)
+        return (B_FALSE);
+    n = read(fd, nw_status.boot_token, sizeof(nw_status.boot_token));
+    close(fd);
+    if (n != (ssize_t)sizeof(nw_status.boot_token))
+        return (B_FALSE);
+#endif
+    return ((nw_status.boot_token[0] | nw_status.boot_token[1] |
+        nw_status.boot_token[2] | nw_status.boot_token[3]) != 0);
+}
+
+static void
+nw_close_rate(void)
+{
+    nw_status.rate_window = B_FALSE;
+    nw_status.rate_sample_cycle = -1;
+}
+
+static void
+nw_fault(bp_nosewheel_status_reason_t reason)
+{
+    nw_status.fault = reason;
+    nw_close_rate();
+}
+
+static void
+nw_advance(uint64_t *counter)
+{
+    if (*counter == UINT64_MAX) {
+        nw_status.exhausted = B_TRUE;
+        nw_fault(BP_NW_CONTRACT_NOT_READY);
+    } else {
+        (*counter)++;
+    }
+}
+
+static int
+nw_word(uint32_t word)
+{
+    int result;
+
+    /* IntArray words carry bit patterns, not signed numeric conversions. */
+    memcpy(&result, &word, sizeof(result));
+    return (result);
+}
+
+static void
+nw_publish(void)
+{
+    int s[NW_STATUS_COUNT] = {0};
+    int cycle, flags, mode;
+    nw_phase_t phase = nw_status.phase;
+    bp_nosewheel_status_reason_t reason = nw_status.reason;
+    bool_t ready;
+
+    if (!nw_status.booted)
+        return;
+    nw_advance(&nw_status.revision);
+    cycle = XPLMGetCycleNumber();
+    ready = nw_status.boot_ok && !nw_status.exhausted &&
+        nw_status.enabled && nw_status.basis_valid;
+    flags = (ready ? NW_READY : 0) | (!slave_mode ? NW_MASTER : 0) |
+        (nw_status.reconnect ? NW_RECONNECT : 0) |
+        (nw_status.end_requested ? NW_END_REQUESTED : 0);
+    mode = nw_status.rate_window ? NW_RATE :
+        (nw_status.custody ? NW_HOLD : NW_XP);
+
+    if (nw_status.fault != BP_NW_NONE) {
+        mode = NW_INVALID;
+        phase = NW_INVALID_STATE;
+        reason = nw_status.fault;
+    } else if (nw_status.terminal) {
+        mode = NW_XP;
+        phase = NW_COMPLETED;
+    } else if (!ready) {
+        mode = NW_INVALID;
+        phase = NW_INVALID_STATE;
+        if (reason == BP_NW_NONE)
+            reason = BP_NW_CONTRACT_NOT_READY;
+    }
+    /* draw_tugs also refreshes position on MIN_STEP_TIME frames. */
+    if (mode == NW_HOLD && nw_status.fully_lifted &&
+        (phase == NW_CARRIED_STILL || phase == NW_CARRIED_MOVING)) {
+        if (bp_ls.tug == NULL || !isfinite(bp_ls.tug->pos.spd)) {
+            mode = NW_INVALID;
+            phase = NW_INVALID_STATE;
+            reason = BP_NW_INVALID_GEOMETRY;
+        } else {
+            phase = bp_ls.tug->pos.spd == 0 ? NW_CARRIED_STILL :
+                NW_CARRIED_MOVING;
+        }
+    }
+    if (slave_mode) {
+        mode = NW_INVALID;
+        phase = NW_INVALID_STATE;
+        reason = BP_NW_UNSUPPORTED_SLAVE;
+    } else if (bp_ls.tug != NULL && (bp_ls.tug->info->anim_debug ||
+        bp_ls.tug->info->quick_debug)) {
+        mode = NW_INVALID;
+        phase = NW_INVALID_STATE;
+        reason = BP_NW_DEBUG_MODE;
+    }
+    if (!nw_status.boot_ok || nw_status.exhausted) {
+        flags &= ~NW_READY;
+        mode = NW_INVALID;
+        phase = NW_INVALID_STATE;
+        reason = BP_NW_CONTRACT_NOT_READY;
+    }
+    if (mode == NW_HOLD || mode == NW_RATE) {
+        flags |= NW_CUSTODY;
+        if (nw_status.fully_lifted)
+            flags |= NW_FULLY_LIFTED;
+    }
+    if (mode == NW_RATE && nw_status.rate_sample_cycle != cycle)
+        flags |= NW_RATE_HELD_SAMPLE;
+
+    s[0] = 1;
+    s[1] = mode;
+    s[2] = phase;
+    s[3] = flags;
+    s[4] = nw_status.basis_valid ? nw_status.nosegear_index : -1;
+    s[5] = nw_status.lift_kind;
+    for (unsigned i = 0; i < 4; i++)
+        s[6 + i] = nw_word(nw_status.boot_token[i]);
+    s[10] = nw_word((uint32_t)nw_status.epoch);
+    s[11] = nw_word((uint32_t)(nw_status.epoch >> 32));
+    s[12] = nw_word((uint32_t)nw_status.revision);
+    s[13] = nw_word((uint32_t)(nw_status.revision >> 32));
+    s[14] = cycle;
+    s[15] = mode == NW_RATE ? nw_status.rate_sample_cycle : -1;
+    s[16] = reason;
+    /* SDK getters only copy this committed array, on the main thread. */
+    memcpy(nw_status.snapshot, s, sizeof(s));
+}
+
+static void
+nw_clear_authority(void)
+{
+    nw_close_rate();
+    nw_status.custody = B_FALSE;
+    nw_status.fully_lifted = B_FALSE;
+}
+
+void
+bp_nosewheel_status_invalidate(bp_nosewheel_status_reason_t reason)
+{
+    nw_advance(&nw_status.epoch);
+    nw_clear_authority();
+    nw_status.basis_valid = B_FALSE;
+    nw_status.nosegear_index = -1;
+    nw_status.lift_kind = -1;
+    nw_status.terminal = B_FALSE;
+    nw_status.reconnect = B_FALSE;
+    nw_status.end_requested = B_FALSE;
+    if (reason == BP_NW_PROVIDER_DISABLED || reason == BP_NW_CORE_RELOAD)
+        nw_status.enabled = B_FALSE;
+    /* Disable is nested inside reload; retain the more specific cause. */
+    if (reason != BP_NW_PROVIDER_DISABLED ||
+        nw_status.reason != BP_NW_CORE_RELOAD)
+        nw_status.reason = reason;
+    nw_status.fault = nw_status.reason;
+    nw_publish();
+}
+
+void
+bp_nosewheel_status_enable(void)
+{
+    nw_status.enabled = B_TRUE;
+    nw_status.reason = BP_NW_NONE;
+    nw_status.fault = BP_NW_NONE;
+    nw_status.terminal = B_FALSE;
+    nw_status.phase = NW_IDLE;
+    nw_publish();
+}
+
+static void
+nw_reset_basis(void)
+{
+    nw_clear_authority();
+    nw_status.basis_valid = B_FALSE;
+    nw_status.nosegear_index = -1;
+    nw_status.lift_kind = -1;
+    if (!nw_status.terminal)
+        nw_status.phase = NW_IDLE;
+    nw_publish();
+}
+
+static void
+nw_basis_ready(void)
+{
+    nw_status.basis_valid = bp.acf.nw_i >= 0 && bp.acf.nw_i < 10 &&
+        bp.acf.n_gear > 1 && isfinite(bp.acf.nw_len) &&
+        bp.acf.nw_len >= 0 && isfinite(bp.acf.nw_z) &&
+        isfinite(bp.acf.tirrad) && bp.acf.tirrad > 0;
+    nw_status.nosegear_index = nw_status.basis_valid ? bp.acf.nw_i : -1;
+    if (!nw_status.basis_valid)
+        nw_fault(BP_NW_INVALID_GEOMETRY);
+    nw_publish();
+}
+
+static void
+nw_new_operation(bool_t reconnect)
+{
+    nw_advance(&nw_status.epoch);
+    nw_close_rate();
+    nw_status.fully_lifted = B_FALSE;
+    if (!reconnect)
+        nw_status.custody = B_FALSE;
+    nw_status.reconnect = reconnect;
+    nw_status.end_requested = B_FALSE;
+    nw_status.terminal = B_FALSE;
+    nw_status.reason = BP_NW_NONE;
+    nw_status.fault = nw_status.basis_valid ? BP_NW_NONE :
+        BP_NW_INVALID_GEOMETRY;
+    nw_status.phase = reconnect ? NW_CAPTURE_PREP : NW_APPROACH;
+    nw_publish();
+}
+
+static void
+nw_end_window(void)
+{
+    nw_close_rate();
+    if (nw_status.custody && !nw_status.fully_lifted)
+        nw_status.phase = NW_PARTIAL_HELD;
+    else if (nw_status.fully_lifted && bp_ls.tug != NULL &&
+        isfinite(bp_ls.tug->pos.spd))
+        nw_status.phase = bp_ls.tug->pos.spd == 0 ? NW_CARRIED_STILL :
+            NW_CARRIED_MOVING;
+    else if (nw_status.fully_lifted)
+        nw_fault(BP_NW_INVALID_GEOMETRY);
+}
+
+static void
+nw_end_requested(void)
+{
+    nw_end_window();
+    nw_status.end_requested = B_TRUE;
+    nw_status.reason = BP_NW_SOFT_END;
+    nw_publish();
+}
+
+static void
+nw_completed(void)
+{
+    nw_clear_authority();
+    if (!nw_status.terminal) {
+        if (nw_status.fault != BP_NW_NONE)
+            nw_status.reason = nw_status.fault;
+        else if (nw_status.reason == BP_NW_NONE && bp_started)
+            nw_status.reason = BP_NW_NORMAL_COMPLETE;
+    }
+    nw_status.fault = BP_NW_NONE;
+    nw_status.terminal = B_TRUE;
+    nw_status.phase = NW_COMPLETED;
+    nw_publish();
+}
+
+static void
+nw_phase(nw_phase_t phase)
+{
+    nw_close_rate();
+    nw_status.phase = phase;
+}
+
+static bool_t
+nw_tug_basis(void)
+{
+    const tug_info_t *ti;
+    double platform, wall_offset;
+
+    if (!nw_status.basis_valid || bp_ls.tug == NULL) {
+        nw_fault(BP_NW_INVALID_GEOMETRY);
+        return (B_FALSE);
+    }
+    ti = bp_ls.tug->info;
+    if ((ti->lift_type != LIFT_GRAB && ti->lift_type != LIFT_WINCH) ||
+        !isfinite(ti->lift_height) || ti->lift_height <= 0) {
+        nw_fault(BP_NW_INVALID_GEOMETRY);
+        return (B_FALSE);
+    }
+    nw_status.lift_kind = ti->lift_type == LIFT_GRAB ? 0 : 1;
+    if (ti->lift_type == LIFT_WINCH) {
+        platform = ti->lift_wall_z - ti->plat_z;
+        if (!isfinite(ti->plat_h) || ti->plat_h < 0 ||
+            !isfinite(platform) || platform <= 0 ||
+            !isfinite(bp_ls.tug->tirrad) || bp_ls.tug->tirrad <= 0 ||
+            (ti->lift_wall_loc != LIFT_WALL_FRONT &&
+            ti->lift_wall_loc != LIFT_WALL_CENTER &&
+            ti->lift_wall_loc != LIFT_WALL_BACK)) {
+            nw_fault(BP_NW_INVALID_GEOMETRY);
+            return (B_FALSE);
+        }
+        wall_offset = ti->lift_wall_loc == LIFT_WALL_FRONT ?
+            bp_ls.tug->tirrad : (ti->lift_wall_loc == LIFT_WALL_BACK ?
+            -bp_ls.tug->tirrad : 0);
+        if (!isfinite(platform - wall_offset) ||
+            platform - wall_offset <= 0) {
+            nw_fault(BP_NW_INVALID_GEOMETRY);
+            return (B_FALSE);
+        }
+    }
+    return (B_TRUE);
+}
+
+static void
+nw_captured(void)
+{
+    nw_phase(NW_CAPTURED_PRE_LIFT);
+    if (nw_tug_basis()) {
+        nw_status.custody = B_TRUE;
+        nw_status.fault = BP_NW_NONE;
+    }
+}
+
+static void
+nw_support_written(double lift, double fraction, bool_t lowering)
+{
+    if (!nw_tug_basis() || !isfinite(lift) ||
+        lift < bp.acf.nw_len || !isfinite(fraction)) {
+        nw_fault(BP_NW_INVALID_GEOMETRY);
+        return;
+    }
+    if (lift > bp.acf.nw_len)
+        nw_status.custody = B_TRUE;
+    if (lowering) {
+        if (fraction < 1)
+            nw_status.fully_lifted = B_FALSE;
+    } else if (fraction == 1) {
+        nw_status.fully_lifted = B_TRUE;
+        if (!isfinite(bp_ls.tug->pos.spd)) {
+            nw_fault(BP_NW_INVALID_GEOMETRY);
+            return;
+        }
+        nw_status.phase = bp_ls.tug->pos.spd == 0 ? NW_CARRIED_STILL :
+            NW_CARRIED_MOVING;
+    }
+    nw_status.fault = BP_NW_NONE;
+}
+
+static bool_t
+nw_winch_geometry(double total, double distance, double platform)
+{
+    if (!nw_tug_basis() || !isfinite(total) || total <= 0 ||
+        !isfinite(platform) || platform <= 0 ||
+        !isfinite(distance)) {
+        nw_fault(BP_NW_INVALID_GEOMETRY);
+        return (B_FALSE);
+    }
+    return (B_TRUE);
+}
+
+static void
+nw_rate_written(nw_phase_t phase)
+{
+    float rate = bp.anim.nosewheel_rot_spd;
+
+    nw_phase(phase);
+    if (!nw_tug_basis() || nw_status.lift_kind != 1)
+        return;
+    nw_status.custody = B_TRUE;
+    nw_status.fully_lifted = B_FALSE;
+    if (!isfinite(rate) || (phase == NW_WINCH_LOADING && rate < 0) ||
+        (phase == NW_WINCH_ROLL_OFF && rate > 0)) {
+        nw_fault(BP_NW_INVALID_RATE);
+        return;
+    }
+    nw_status.fault = BP_NW_NONE;
+    nw_status.rate_window = B_TRUE;
+    nw_status.rate_sample_cycle = XPLMGetCycleNumber();
+}
+
+static void
+nw_released(void)
+{
+    nw_clear_authority();
+    nw_status.fault = BP_NW_NONE;
+    nw_status.phase = NW_RELEASED_CLEARING;
+}
+
+static void
+nw_observe_step(void)
+{
+    if (bp_ls.tug != NULL)
+        (void)nw_tug_basis();
+    switch (bp.step) {
+    case PB_STEP_OFF:
+        nw_phase(NW_IDLE);
+        break;
+    case PB_STEP_TUG_LOAD:
+    case PB_STEP_START:
+    case PB_STEP_DRIVING_UP_CLOSE:
+    case PB_STEP_WAITING_FOR_DOORS:
+    case PB_STEP_OPENING_CRADLE:
+    case PB_STEP_WAITING_FOR_PBRAKE:
+    case PB_STEP_DRIVING_UP_CONNECT:
+        nw_phase(NW_APPROACH);
+        break;
+    case PB_STEP_GRABBING:
+        nw_phase(NW_CAPTURE_PREP);
+        break;
+    case PB_STEP_LIFTING:
+        nw_phase(late_plan_requested ? NW_CAPTURED_PRE_LIFT : NW_LIFTING);
+        break;
+    case PB_STEP_CONNECTED:
+    case PB_STEP_STARTING:
+    case PB_STEP_PUSHING:
+    case PB_STEP_STOPPING:
+    case PB_STEP_STOPPED:
+        if (!nw_status.custody) {
+            nw_phase(NW_CAPTURE_PREP);
+        } else if (!nw_status.fully_lifted) {
+            nw_phase(NW_PARTIAL_HELD);
+        } else if (bp_ls.tug == NULL || !isfinite(bp_ls.tug->pos.spd)) {
+            nw_fault(BP_NW_INVALID_GEOMETRY);
+        } else {
+            nw_phase(bp_ls.tug->pos.spd == 0 ? NW_CARRIED_STILL :
+                NW_CARRIED_MOVING);
+        }
+        break;
+    case PB_STEP_LOWERING:
+        nw_phase(NW_LOWERING);
+        break;
+    case PB_STEP_UNGRABBING:
+        nw_phase(NW_UNGRABBING);
+        break;
+    case PB_STEP_WAITING4OK2DISCO:
+        nw_phase(NW_WAIT_DISCONNECT);
+        break;
+    case PB_STEP_MOVING_AWAY:
+        if (!nw_status.custody)
+            nw_phase(NW_RELEASED_CLEARING);
+        break;
+    case PB_STEP_CLOSING_CRADLE:
+    case PB_STEP_STARTING2CLEAR:
+    case PB_STEP_MOVING2CLEAR:
+    case PB_STEP_CLEAR_SIGNAL:
+    case PB_STEP_DRIVING_AWAY:
+        if (nw_status.custody)
+            nw_fault(BP_NW_INVALID_GEOMETRY);
+        else
+            nw_phase(NW_RELEASED_CLEARING);
+        break;
+    }
+}
 
 static bool_t cfg_disco_when_done = B_FALSE;
 static bool_t cfg_ignore_park_break = B_FALSE;
@@ -348,7 +863,7 @@ max_steer_angle(void) {
 static bool_t
 pbrake_is_set(void) {
     bool_t result;
-    
+
     if(slave_mode && pb_set_override) 
         return pb_set_remote;
 
@@ -915,6 +1430,57 @@ brakes_set(bool_t flag) {
     ASSERT(!slave_mode);
     dr_setf(&drs.lbrake, val);
     dr_setf(&drs.rbrake, val);
+}
+
+static bool_t
+fast_brake_handoff_active(void)
+{
+    return bp_fast_brake_handoff_enabled(&bp.fast_brake_handoff,
+        bp_fast_ground_handling() != B_FALSE, slave_mode != B_FALSE,
+        cfg_ignore_park_break != B_FALSE);
+}
+
+static bool_t
+fast_brake_handoff_ready(void)
+{
+    bool_t parking_brake_set = pbrake_is_set();
+    double left = dr_getf(&drs.lbrake);
+    double right = dr_getf(&drs.rbrake);
+    bool_t pedals_released = isfinite(left) && isfinite(right) &&
+        left >= 0 && right >= 0 && left < BRAKE_PEDAL_THRESH &&
+        right < BRAKE_PEDAL_THRESH;
+    bp_fast_brake_action_t action = bp_fast_brake_handoff_update(
+        &bp.fast_brake_handoff, parking_brake_set != B_FALSE,
+        pedals_released != B_FALSE);
+
+    switch (action) {
+    case BP_FAST_BRAKE_HOLD:
+    case BP_FAST_BRAKE_RESTORE:
+        brakes_set(B_TRUE);
+        bp.fast_brakes_relinquished = B_FALSE;
+        bp_hint_status_str = _("Waiting for the parking brakes set");
+        return (B_FALSE);
+    case BP_FAST_BRAKE_WITHDRAW:
+        bp.fast_brakes_relinquished = B_TRUE;
+        bp_hint_status_str = _("Waiting for brake pedals to be released (or abort pushback)");
+        return (B_FALSE);
+    case BP_FAST_BRAKE_WAIT_PEDALS:
+        bp_hint_status_str = _("Waiting for brake pedals to be released (or abort pushback)");
+        return (B_FALSE);
+    case BP_FAST_BRAKE_COMPLETE:
+        return (B_TRUE);
+    }
+    VERIFY_FAIL();
+    return (B_FALSE);
+}
+
+static void
+pb_enter_ungrabbing(bool_t require_parking_brake)
+{
+    nw_phase(NW_UNGRABBING);
+    bp.fast_brake_handoff.required = require_parking_brake != B_FALSE;
+    bp.step = PB_STEP_UNGRABBING;
+    bp.step_start_t = bp.cur_t;
 }
 
 /*
@@ -1637,6 +2203,7 @@ read_gear_info(void) {
 
 static bool_t
 bp_state_init(void) {
+    nw_reset_basis();
     memset(&bp, 0, sizeof(bp));
     list_create(&bp.segs, sizeof(seg_t), offsetof(seg_t, node));
 
@@ -1706,6 +2273,7 @@ bp_state_init(void) {
     bp.step = PB_STEP_OFF;
     bp.step_start_t = 0;
 
+    nw_basis_ready();
     return (B_TRUE);
 }
 
@@ -1777,10 +2345,19 @@ bp_boot_init(void) {
         _("Acknowledge the displayed pin and clear signal."));
 
     DCR_CREATE_F(NULL, &bp.anim.nosewheel_rot_spd, false, "bp/anim/nosewheel_rotation_speed_rad_sec");
+    nw_status.booted = B_TRUE;
+    nw_status.boot_ok = nw_boot_identity();
+    if (!nw_status.boot_ok)
+        memset(nw_status.boot_token, 0, sizeof(nw_status.boot_token));
+    nw_publish();
+    DCR_CREATE_VI(NULL, nw_status.snapshot, NW_STATUS_COUNT, false,
+        "bp/anim/nosewheel_rotation_status");
 }
 
 void
 bp_shut_fini(void) {
+    bp_nosewheel_status_invalidate(BP_NW_PROVIDER_DISABLED);
+    nw_status.booted = B_FALSE;
 }
 
 /*
@@ -1999,6 +2576,9 @@ bp_init(void) {
 
     return (B_TRUE);
     errout:
+    nw_reset_basis();
+    nw_fault(BP_NW_INITIALIZATION_FAILED);
+    nw_publish();
     XPLMUnregisterCommandHandler(disco_cmd, disco_handler, 1, NULL);
     XPLMUnregisterCommandHandler(clear_ack_cmd, clear_ack_handler, 1, NULL);
     XPLMUnregisterCommandHandler(recon_cmd, recon_handler, 1, NULL);
@@ -2148,7 +2728,14 @@ bp_start(void) {
         bp_floop = XPLMCreateFlightLoop(&floop);
     XPLMScheduleFlightLoop(bp_floop, -1, 1);
 
+    if (bp_legacy_routes() && emergency_tow_allows_persistent_routes() &&
+        !slave_mode && !late_plan_requested && !push_manual.active &&
+        list_head(&bp.segs) != NULL) {
+        route_save_legacy(&bp.segs);
+    }
+
     bp_started = B_TRUE;
+    nw_new_operation(B_FALSE);
     bp_conf_set_save_enabled(!bp_started);
 
     /*
@@ -2176,6 +2763,7 @@ bp_stop(void) {
     if (!bp_started)
         return (B_FALSE);
 
+    nw_end_requested();
     bp.stop_from_pause_hold = pushback_stop_is_stationary_handoff(bp.step,
         bp.pause_requested != B_FALSE, bp.pause_hold != B_FALSE);
     if (bp.stop_from_pause_hold) {
@@ -2198,6 +2786,10 @@ bp_stop(void) {
 
 void
 bp_fini(void) {
+    if (bp_started && (nw_status.reason == BP_NW_NONE ||
+        nw_status.reason == BP_NW_SOFT_END))
+        bp_nosewheel_status_invalidate(BP_NW_HARD_ABORT);
+    nw_reset_basis();
     if (!inited)
         return;
 
@@ -2581,6 +3173,7 @@ bp_complete(void) {
     bool_t emergency_completed = emergency_session &&
         bp.step == PB_STEP_DRIVING_AWAY;
 
+    nw_completed();
     telemetry_stop();
     /*
      * Needs to go before the bp_started check in case the planner has
@@ -2610,7 +3203,8 @@ bp_complete(void) {
 
     if (!slave_mode) {
         dr_seti(&drs.override_steer, 0);
-        brakes_set(B_FALSE);
+        if (!bp.fast_brakes_relinquished)
+            brakes_set(B_FALSE);
         dr_setvf(&drs.leg_len, &bp.acf.nw_len, bp.acf.nw_i, 1);
     }
 
@@ -2656,6 +3250,7 @@ pb_step_tug_load(void) {
                                    airline);
         if (bp_ls.tug == NULL) {
             /* tug_alloc_auto already spoke the error */
+            nw_fault(BP_NW_CONTROLLER_FAILURE);
             bp_complete();
             return (B_FALSE);
         }
@@ -2699,6 +3294,7 @@ pb_step_tug_load(void) {
                                          "libraries before trying again."), tug_name);
             logMsg(BP_ERROR_LOG "%s", msg);
             XPLMSpeakString(msg);
+            nw_fault(BP_NW_CONTROLLER_FAILURE);
             bp_complete();
             return (B_FALSE);
         }
@@ -2801,7 +3397,8 @@ pb_step_driving_up_close(void) {
          * transition delay once the tug stops.
          */
         bp.step_start_t = bp.cur_t;
-    } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
+    } else if (bp.cur_t - bp.step_start_t >=
+        artificial_delay(STATE_TRANS_DELAY)) {
         tug_set_cradle_beeper_on(bp_ls.tug, B_TRUE);
         tug_set_cradle_lights_on(B_TRUE);
         tug_set_hazard_lights_on(B_TRUE);
@@ -2875,7 +3472,8 @@ pb_step_driving_up_connect(void) {
          * transition delay once the tug stops.
          */
         bp.step_start_t = bp.cur_t;
-    } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
+    } else if (bp.cur_t - bp.step_start_t >=
+        artificial_delay(STATE_TRANS_DELAY)) {
         bp.winching.start_acf_pos = bp.cur_pos.pos;
         bp.step++;
         bp.step_start_t = bp.cur_t;
@@ -2885,7 +3483,8 @@ pb_step_driving_up_connect(void) {
 static void
 pb_step_connect_grab(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double cradle_closed_fract = d_t / PB_CONN_LIFT_DELAY;
+    double cradle_closed_fract =
+        handling_fraction(d_t, PB_CONN_LIFT_DELAY);
 
     cradle_closed_fract = MAX(MIN(cradle_closed_fract, 1), 0);
     tug_set_lift_arm_pos(bp_ls.tug, 1 - cradle_closed_fract, B_TRUE);
@@ -2897,6 +3496,7 @@ pb_step_connect_grab(void) {
     }
 
     if (cradle_closed_fract >= 1) {
+        nw_captured();
         bp.step++;
         bp.step_start_t = bp.cur_t;
     }
@@ -2907,6 +3507,7 @@ pb_step_connect_winch(void) {
     double d_t = bp.cur_t - bp.step_start_t;
     const tug_info_t *ti = bp_ls.tug->info;
     double winch_total, winched_dist;
+    int rate_count;
 
     /* spend some time putting the winching strap in place */
     if (!bp.winching.complete && d_t < STATE_TRANS_DELAY)
@@ -2958,14 +3559,22 @@ pb_step_connect_winch(void) {
          * since our tug is standing still and it's the aircraft
          * which is moving.
          */
-        dr_getvf32(&drs.tire_rot_spd, &bp.anim.nosewheel_rot_spd,
+        rate_count = dr_getvf32(&drs.tire_rot_spd, &bp.anim.nosewheel_rot_spd,
                    bp.acf.nw_i, 1);
+        if (rate_count != 1)
+            nw_fault(BP_NW_INVALID_RATE);
+        else if (nw_winch_geometry(winch_total, winched_dist,
+            ti->lift_wall_z - ti->plat_z))
+            nw_rate_written(NW_WINCH_LOADING);
     } else {
         bp.winching.complete = B_TRUE;
         /*
          * Stop nosewheel animation when we're done winching.
          */
         bp.anim.nosewheel_rot_spd = 0;
+        if (nw_winch_geometry(winch_total, winched_dist,
+            ti->lift_wall_z - ti->plat_z))
+            nw_captured();
     }
 
     if (bp.winching.complete) {
@@ -3020,6 +3629,12 @@ pb_step_lift(void) {
         late_plan_requested = B_FALSE;
         if (!slave_mode) {
             plan_complete = B_TRUE; /* BP_DATAREF plan_complete */
+            /* Late planning reaches the 1.13 save point after connection. */
+            if (bp_legacy_routes() &&
+                emergency_tow_allows_persistent_routes() &&
+                !push_manual.active && list_head(&bp.segs) != NULL) {
+                route_save_legacy(&bp.segs);
+            }
         }
         bp.step_start_t = bp.cur_t;
         logMsg(BP_INFO_LOG "%s plan accepted; beginning nose-gear lift "
@@ -3028,7 +3643,7 @@ pb_step_lift(void) {
     }
 
     d_t = bp.cur_t - bp.step_start_t;
-    lift_fract = d_t / PB_CONN_LIFT_DURATION;
+    lift_fract = handling_fraction(d_t, PB_CONN_LIFT_DURATION);
 
     lift_fract = MAX(MIN(lift_fract, 1), 0);
     tug_set_lift_pos(lift_fract);
@@ -3039,6 +3654,7 @@ pb_step_lift(void) {
     if (!slave_mode && !cfg_ignore_park_break) {
         brakes_set(B_TRUE);
         dr_setvf(&drs.leg_len, &lift, bp.acf.nw_i, 1);
+        nw_support_written(lift, lift_fract, B_FALSE);
     }
 
     /*
@@ -3046,11 +3662,11 @@ pb_step_lift(void) {
      * tug's Tractive Effort to simulate that the engine is
      * being used to pressurize a hydraulic lift system.
      */
-    if (d_t < PB_CONN_LIFT_DURATION) {
+    if (d_t < artificial_delay(PB_CONN_LIFT_DURATION)) {
         tug_set_TE_override(bp_ls.tug, B_TRUE);
         tug_set_TE_snd(bp_ls.tug, PB_LIFT_TE, bp.d_t);
     }
-    if (d_t >= PB_CONN_LIFT_DURATION) {
+    if (d_t >= artificial_delay(PB_CONN_LIFT_DURATION)) {
         tug_set_TE_override(bp_ls.tug, B_TRUE);
         tug_set_TE_snd(bp_ls.tug, 0, bp.d_t);
         tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
@@ -3058,7 +3674,8 @@ pb_step_lift(void) {
         tug_set_TE_override(bp_ls.tug, B_FALSE);
     }
 
-    if (d_t >= PB_CONN_LIFT_DURATION + STATE_TRANS_DELAY) {
+    if (d_t >= artificial_delay(PB_CONN_LIFT_DURATION +
+        STATE_TRANS_DELAY)) {
         bp_connected = B_TRUE;
         if (bp_ls.tug->info->lift_type != LIFT_WINCH) {
             msg_play(MSG_CONNECTED);
@@ -3266,6 +3883,7 @@ pb_step_stopping(void) {
         if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
             msg_play(MSG_OP_COMPLETE);
             bp.stop_from_pause_hold = B_FALSE;
+            bp_fast_brake_handoff_reset(&bp.fast_brake_handoff, B_TRUE);
             bp.step++;
             bp.step_start_t = bp.cur_t;
             bp.last_voice_t = bp.cur_t;
@@ -3278,9 +3896,11 @@ pb_step_stopped(void) {
     if (!slave_mode) {
         turn_nosewheel(0);
         push_at_speed(0, bp.veh.max_accel, B_FALSE, B_FALSE);
-        if (!cfg_ignore_park_break)
+        if (!cfg_ignore_park_break && !fast_brake_handoff_active())
             brakes_set(B_TRUE);
     }
+    if (fast_brake_handoff_active() && !fast_brake_handoff_ready())
+        return;
     if (!pbrake_is_set() && !cfg_ignore_park_break) {
         /*
          * Ignoring Brake status if ignore_park_break is set
@@ -3289,9 +3909,11 @@ pb_step_stopped(void) {
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes set");
-    } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY &&
-               bp.cur_t - bp.last_voice_t >= msg_dur(MSG_OP_COMPLETE) +
-                                             STATE_TRANS_DELAY) {
+    } else if (bp.cur_t - bp.step_start_t >=
+               artificial_delay(STATE_TRANS_DELAY) &&
+               bp.cur_t - bp.last_voice_t >=
+               artificial_delay(msg_dur(MSG_OP_COMPLETE) +
+                   STATE_TRANS_DELAY)) {
         msg_play(MSG_DISCO);
         bp.step++;
         bp.step_start_t = bp.cur_t;
@@ -3302,17 +3924,21 @@ pb_step_stopped(void) {
 static void
 pb_step_lowering(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double lift_fract = 1 - ((d_t - STATE_TRANS_DELAY) /
-                             PB_CONN_LIFT_DURATION);
+    double lift_fract = 1 - handling_fraction(
+        d_t - artificial_delay(STATE_TRANS_DELAY), PB_CONN_LIFT_DURATION);
     double lift;
+
+    if (fast_brake_handoff_active() && !fast_brake_handoff_ready())
+        return;
 
     if (!slave_mode) {
         turn_nosewheel(0);
-        if (!cfg_ignore_park_break)
+        if (!cfg_ignore_park_break && !bp.fast_brakes_relinquished)
             brakes_set(B_TRUE);
     }
 
-    if (bp.cur_t - bp.last_voice_t < msg_dur(MSG_OP_COMPLETE)) {
+    if (bp.cur_t - bp.last_voice_t <
+        artificial_delay(msg_dur(MSG_OP_COMPLETE))) {
         /*
          * Keep resetting step_start_t to properly calculate
          * lift_fract relative to our step_start_t.
@@ -3324,7 +3950,7 @@ pb_step_lowering(void) {
     tug_set_lift_in_transit(B_TRUE);
 
     /* Slight delay after the parking brake ann was made */
-    if (d_t <= STATE_TRANS_DELAY)
+    if (d_t <= artificial_delay(STATE_TRANS_DELAY))
         return;
 
     lift_fract = MAX(MIN(lift_fract, 1), 0);
@@ -3332,8 +3958,10 @@ pb_step_lowering(void) {
     /* Iterate the lift */
     lift = (bp_ls.tug->info->lift_height * lift_fract) + bp.acf.nw_len +
            tug_plat_h(bp_ls.tug);
-    if (!slave_mode)
+    if (!slave_mode) {
         dr_setvf(&drs.leg_len, &lift, bp.acf.nw_i, 1);
+        nw_support_written(lift, lift_fract, B_TRUE);
+    }
 
     tug_set_lift_pos(lift_fract);
     tug_set_cradle_air_on(bp_ls.tug, B_TRUE, bp.cur_t);
@@ -3341,23 +3969,24 @@ pb_step_lowering(void) {
 
     if (lift_fract == 0) {
         tug_set_cradle_air_on(bp_ls.tug, B_FALSE, bp.cur_t);
-        bp.step++;
-        bp.step_start_t = bp.cur_t;
+        pb_enter_ungrabbing(B_TRUE);
     }
 }
 
 static bool_t
 pb_step_ungrabbing_grab(void) {
     double d_t = bp.cur_t - bp.step_start_t;
-    double cradle_fract = d_t / PB_CRADLE_DELAY;
+    double cradle_fract = handling_fraction(d_t, PB_CRADLE_DELAY);
 
     cradle_fract = MAX(MIN(cradle_fract, 1), 0);
     tug_set_lift_arm_pos(bp_ls.tug, cradle_fract, B_TRUE);
 
-    if (cradle_fract >= 1.0)
+    if (cradle_fract >= 1.0) {
         tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
+        nw_released();
+    }
 
-    return (d_t >= PB_CRADLE_DELAY + STATE_TRANS_DELAY);
+    return (d_t >= artificial_delay(PB_CRADLE_DELAY + STATE_TRANS_DELAY));
 }
 
 static bool_t
@@ -3368,12 +3997,12 @@ pb_step_ungrabbing_winch(void) {
      * enforce some delays between removing the winch strap and
      * driving away
      */
-    if (d_t < STATE_TRANS_DELAY)
+    if (d_t < artificial_delay(STATE_TRANS_DELAY))
         return (B_FALSE);
 
     tug_set_winch_on(bp_ls.tug, B_FALSE);
 
-    if (d_t < 2 * STATE_TRANS_DELAY)
+    if (d_t < artificial_delay(2 * STATE_TRANS_DELAY))
         return (B_FALSE);
 
     return (B_TRUE);
@@ -3383,14 +4012,19 @@ static void
 pb_step_ungrabbing(void) {
     bool_t complete;
 
+    if (fast_brake_handoff_active() && !fast_brake_handoff_ready())
+        return;
+
     if (bp_ls.tug->info->lift_type == LIFT_GRAB)
         complete = pb_step_ungrabbing_grab();
     else
         complete = pb_step_ungrabbing_winch();
 
     if (complete) {
-        if (!slave_mode)
-            brakes_set(B_FALSE);
+        if (!slave_mode) {
+            if (!bp.fast_brakes_relinquished)
+                brakes_set(B_FALSE);
+        }
 
         tug_set_lift_in_transit(B_FALSE);
         tug_set_TE_override(bp_ls.tug, B_FALSE);
@@ -3424,15 +4058,16 @@ pb_step_closing_cradle(void) {
     double d_t = bp.cur_t - bp.step_start_t;
 
     tug_set_lift_in_transit(B_TRUE);
-    tug_set_tire_sense_pos(bp_ls.tug, 1 - d_t / PB_CRADLE_DELAY);
-    tug_set_lift_pos(d_t / PB_CRADLE_DELAY);
+    double cradle_fract = handling_fraction(d_t, PB_CRADLE_DELAY);
+    tug_set_tire_sense_pos(bp_ls.tug, 1 - cradle_fract);
+    tug_set_lift_pos(cradle_fract);
 
-    if (d_t >= PB_CRADLE_DELAY) {
+    if (d_t >= artificial_delay(PB_CRADLE_DELAY)) {
         tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
         tug_set_lift_in_transit(B_FALSE);
     }
 
-    if (d_t >= PB_CRADLE_DELAY + STATE_TRANS_DELAY) {
+    if (d_t >= artificial_delay(PB_CRADLE_DELAY + STATE_TRANS_DELAY)) {
         /* determine which direction we'll drive away */
         bool_t right = tug_clear_is_right();
         msg_play(right ? MSG_DONE_RIGHT : MSG_DONE_LEFT);
@@ -3513,6 +4148,7 @@ recon_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
     if (bp.step != PB_STEP_WAITING4OK2DISCO)
         return (0);
 
+    nw_new_operation(B_TRUE);
     /*
      * Reconnection works as follows:
      * 1) We shift state back to the grabbing step, so the tug starts
@@ -3521,6 +4157,8 @@ recon_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon) {
      */
     op_complete = B_FALSE;
     bp.reconnect = B_TRUE;
+    bp.fast_brakes_relinquished = B_FALSE;
+    bp_fast_brake_handoff_reset(&bp.fast_brake_handoff, B_TRUE);
     bp.step = PB_STEP_GRABBING;
     bp.step_start_t = bp.cur_t;
     bp_reconnect_notify();
@@ -3961,7 +4599,8 @@ pb_step_waiting4ok2disco(void) {
     /* Be defensive if upgrading while an old interface is still visible. */
     disco_intf_hide();
 
-    if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
+    if (bp.cur_t - bp.step_start_t >=
+        artificial_delay(STATE_TRANS_DELAY)) {
         vect2_t dir, p;
 
         dir = hdg2dir(bp.cur_pos.hdg);
@@ -3981,8 +4620,9 @@ pb_step_starting2clear(void) {
     double turn_hdg, back_hdg, square_side;
 
     /* Let the message play out before starting to move */
-    if (bp.cur_t - bp.step_start_t < MAX(msg_dur(MSG_DONE_RIGHT),
-                                         msg_dur(MSG_DONE_LEFT)) + STATE_TRANS_DELAY)
+    if (bp.cur_t - bp.step_start_t <
+        artificial_delay(MAX(msg_dur(MSG_DONE_RIGHT),
+            msg_dur(MSG_DONE_LEFT)) + STATE_TRANS_DELAY))
         return;
 
     right = tug_clear_is_right();
@@ -4037,6 +4677,7 @@ static void
 pb_step_clear_signal(void) {
     double acf2start_lat_displ, acf2start_long_displ;
     vect2_t acf2start, acfdir;
+    bool_t first_display = !bp.clear_signal_gate.displayed;
 
     tug_set_clear_signal(B_TRUE, tug_clear_is_right());
     bp.clear_signal_gate.displayed = true;
@@ -4051,9 +4692,11 @@ pb_step_clear_signal(void) {
         logMsg(BP_INFO_LOG "Automatic post-push pin and clear signal acknowledged");
     }
 
-    /* Preserve the legacy minimum display time in both workflow modes. */
-    if (!bp_clear_signal_can_depart(&bp.clear_signal_gate,
-        bp.cur_t - bp.step_start_t))
+    /* Fast shortens display time, not the upstream acknowledgement policy. */
+    if ((bp_fast_ground_handling() && first_display) ||
+        !bp_clear_signal_can_depart_after(&bp.clear_signal_gate,
+        bp.cur_t - bp.step_start_t,
+        bp_fast_ground_handling() ? 0 : BP_CLEAR_SIGNAL_MIN_SECONDS))
         return;
 
     /*
@@ -4188,6 +4831,13 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
     UNUSED(refcon);
 
     bp_gather();
+    if (bp.cur_t < bp.last_t)
+        nw_fault(BP_NW_TIME_RESET);
+    if (slave_mode)
+        nw_fault(BP_NW_UNSUPPORTED_SLAVE);
+    else if (bp_ls.tug != NULL && (bp_ls.tug->info->anim_debug ||
+        bp_ls.tug->info->quick_debug))
+        nw_fault(BP_NW_DEBUG_MODE);
     /*
      * This used to draw the tug from a drawing phase, but since
      * we've switched to the XPLMInstance API, this instead updates
@@ -4195,8 +4845,10 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
      */
     draw_tugs();
 
-    if (bp.cur_t - bp.last_t < MIN_STEP_TIME)
+    if (bp.cur_t - bp.last_t < MIN_STEP_TIME) {
+        nw_publish();
         return (-1);
+    }
 
     bp.d_pos.pos = vect2_sub(bp.cur_pos.pos, bp.last_pos.pos);
     bp.d_pos.hdg = rel_hdg(bp.last_pos.hdg, bp.cur_pos.hdg);
@@ -4231,6 +4883,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                               "aircraft. Unbind any buttons you have set to "
                               "\"toggle nosewheel steering\"."));
             msg_stop();
+            nw_fault(BP_NW_CONTROLLER_FAILURE);
             bp_complete();
             return (0);
         }
@@ -4255,13 +4908,13 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
     if (!late_plan_requested &&
         ((!slave_mode && ((list_head(&bp.segs) == NULL) && !push_manual.active )) ||
          (slave_mode && op_complete))) {
+        nw_end_window();
         if (bp.awaiting_plan) {
             /* End the operation from the pre-lift hold without lifting. */
             bp.awaiting_plan = B_FALSE;
             tug_set_lift_pos(0);
             tug_set_lift_in_transit(B_TRUE);
-            bp.step = PB_STEP_UNGRABBING;
-            bp.step_start_t = bp.cur_t;
+            pb_enter_ungrabbing(B_FALSE);
         } else if (bp.step < PB_STEP_GRABBING) {
             bp_complete();
             return (0);
@@ -4273,6 +4926,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             if (ABS(bp.cur_pos.spd) < SPEED_COMPLETE_THRESH &&
                 pbrake_is_set()) {
                 bp.step = PB_STEP_STOPPED;
+                bp_fast_brake_handoff_reset(&bp.fast_brake_handoff, B_TRUE);
                 bp.stop_from_pause_hold = B_FALSE;
             } else {
                 bp.step = PB_STEP_STOPPING;
@@ -4315,6 +4969,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
 
     bp_hint_status_str = NULL ;
 
+    nw_observe_step();
     switch (bp.step) {
         case PB_STEP_OFF:
             VERIFY_FAIL();
@@ -4322,6 +4977,8 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             ASSERT3P(bp_ls.tug, ==, NULL);
             if (!pb_step_tug_load())
                 return (0);
+            if (bp_ls.tug != NULL)
+                (void)nw_tug_basis();
             tug_pending_mode = (tug_auto_start && tug_starts_next_plane);
             break;
         case PB_STEP_START:
@@ -4349,14 +5006,17 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                 double d_t = bp.cur_t - bp.step_start_t;
 
                 tug_set_lift_in_transit(B_TRUE);
-                tug_set_lift_pos(1 - d_t / PB_CRADLE_DELAY);
-                tug_set_tire_sense_pos(bp_ls.tug, d_t / PB_CRADLE_DELAY);
-                if (d_t >= PB_CRADLE_DELAY) {
+                double cradle_fract =
+                    handling_fraction(d_t, PB_CRADLE_DELAY);
+                tug_set_lift_pos(1 - cradle_fract);
+                tug_set_tire_sense_pos(bp_ls.tug, cradle_fract);
+                if (d_t >= artificial_delay(PB_CRADLE_DELAY)) {
                     tug_set_lift_in_transit(B_FALSE);
                     tug_set_cradle_beeper_on(bp_ls.tug, B_FALSE);
                     prop_single_adjust();
                 }
-                if (d_t >= PB_CRADLE_DELAY + STATE_TRANS_DELAY) {
+                if (d_t >= artificial_delay(PB_CRADLE_DELAY +
+                    STATE_TRANS_DELAY)) {
                     if (!bp.reconnect && !late_plan_requested) {
                         if (pbrake_is_set())
                             msg_play(MSG_RDY2CONN_NOPARK);
@@ -4483,8 +5143,16 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                     bp.anim.nosewheel_rot_spd =
                             -bp_ls.tug->veh_slow.max_fwd_spd /
                             MAX(tirrad, 1e-3);
+                    if (nw_winch_geometry(plat_len, dist, plat_len)) {
+                        if (!isfinite(tirrad) || tirrad <= 0)
+                            nw_fault(BP_NW_INVALID_GEOMETRY);
+                        else
+                            nw_rate_written(NW_WINCH_ROLL_OFF);
+                    }
                 } else {
                     bp.anim.nosewheel_rot_spd = 0;
+                    if (nw_winch_geometry(plat_len, dist, plat_len))
+                        nw_released();
                 }
             }
             if (tug_is_stopped(bp_ls.tug)) {
@@ -4492,6 +5160,8 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                 bp.step++;
                 bp.step_start_t = bp.cur_t;
                 bp.anim.nosewheel_rot_spd = 0;
+                if (nw_status.custody)
+                    nw_fault(BP_NW_INVALID_GEOMETRY);
             }
             break;
         case PB_STEP_CLOSING_CRADLE:
@@ -4536,6 +5206,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
     bp.last_t = bp.cur_t;
     dr_getvf(&drs.tire_steer_cmd, &bp.last_steer, bp.acf.nw_i, 1);
 
+    nw_publish();
     return (-1);
 }
 

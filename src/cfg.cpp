@@ -149,6 +149,14 @@ const char *crew_language_tooltip =
 
 const char *dev_menu_tooltip = "Show the developer menu options.";
 const char *save_prefs_tooltip = "Save current preferences to disk.";
+const char *legacy_routes_tooltip =
+    "Automatically recall and save routes using the original position and "
+    "heading cache, without gate-slot selection or replacement dialogs. "
+    "The newer saved gate slots remain unchanged.";
+const char *fast_ground_handling_tooltip =
+    "Skip artificial ground handling waits and animations, including "
+    "disconnect after parking brake set. Brake checks, towing and tug travel "
+    "keep normal behavior.";
 const char *disco_when_done_tooltip =
     "Never ask and always automatically disconnect "
     "the tug when the pushback operation is complete.";
@@ -318,6 +326,8 @@ private:
   bool_t hide_magic_squares;
   bool_t dont_hide;
   bool_t always_connect_tug_first;
+  bool_t legacy_routes;
+  bool_t fast_ground_handling;
   bool_t per_aircraft_is_global;
   bool_t xp11_only;
   bool_t is_destroy;
@@ -422,6 +432,9 @@ void SettingsWindow::LoadConfig(void) {
   always_connect_tug_first = B_FALSE;
   (void)conf_get_b(bp_conf, "always_connect_tug_first",
                    &always_connect_tug_first);
+
+  legacy_routes = bp_legacy_routes();
+  fast_ground_handling = bp_fast_ground_handling();
 
   tug_starts_next_plane = B_FALSE;
   (void)conf_get_b(bp_conf, "tug_starts_next_plane", &tug_starts_next_plane);
@@ -804,7 +817,7 @@ void SettingsWindow::buildInterface() {
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
             ImGui::GetStyle().Alpha *
             BUTTON_DISABLED); // Reduce button opacity
-    }    
+    }
 
     ImGui::TableNextRow();
 
@@ -852,7 +865,7 @@ void SettingsWindow::buildInterface() {
     }
     if (ImGui::IsItemDeactivatedAfterEdit())
       bp_ui_click_play();
-  
+
     if (bp_interface_mode_uses_legacy_magic_squares(
             static_cast<bp_interface_mode_t>(pushback_interface_mode))) {
     ImGui::PopStyleVar();
@@ -932,7 +945,7 @@ void SettingsWindow::buildInterface() {
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
             ImGui::GetStyle().Alpha *
             BUTTON_DISABLED); // Reduce button opacity
-    }    
+    }
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::Text("%s", _("Hide the magic squares"));
@@ -1006,7 +1019,7 @@ void SettingsWindow::buildInterface() {
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
             ImGui::GetStyle().Alpha *
             BUTTON_DISABLED); // Reduce button opacity
-    }                                       
+    }
       ImGui::TableNextRow();
       ImGui::TableNextColumn();
       ImGui::Text("%s", _("Hide the magic squares"));
@@ -1034,6 +1047,21 @@ void SettingsWindow::buildInterface() {
       (void)conf_set_b(bp_conf, "display_marshaller", display_marshaller);
     }
 
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Legacy route recall"));
+    Tooltip(_(legacy_routes_tooltip));
+    ImGui::TableNextColumn();
+    (void)ImGui::Checkbox("##legacy_route_recall", (bool *)&legacy_routes);
+
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text("%s", _("Fast Ground Handling"));
+    Tooltip(_(fast_ground_handling_tooltip));
+    ImGui::TableNextColumn();
+    (void)ImGui::Checkbox("##fast_ground_handling",
+                          (bool *)&fast_ground_handling);
 
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
@@ -1181,6 +1209,8 @@ void SettingsWindow::buildInterface() {
   Tooltip(_(save_prefs_tooltip));
   if (save_button) {
     SetVisible(B_FALSE);
+    (void)conf_set_b(bp_conf, "legacy_route_recall", legacy_routes);
+    (void)conf_set_b(bp_conf, "fast_ground_handling", fast_ground_handling);
     (void)bp_conf_save();
     bp_sched_reload();
     set_pref_widget_status(B_FALSE);
@@ -1214,6 +1244,27 @@ void SettingsWindow::buildInterface() {
 
 SettingsWindow *setup_window = nullptr;
 
+static bool_t migrate_classic_preferences(void) {
+  bool_t classic = B_FALSE, value;
+  int mode;
+
+  if (!conf_get_b(bp_conf, "classic_mode", &classic) || !classic)
+    return B_FALSE;
+
+  /* Existing explicit choices win over the retired Classic preset. */
+  if (!conf_get_i(bp_conf, BP_INTERFACE_MODE_CONFIG_KEY, &mode))
+    conf_set_i(bp_conf, BP_INTERFACE_MODE_CONFIG_KEY,
+               BP_INTERFACE_MODE_LEGACY_MAGIC_SQUARES);
+  if (!conf_get_b(bp_conf, "disco_when_done", &value))
+    conf_set_b(bp_conf, "disco_when_done", B_TRUE);
+  if (!conf_get_b(bp_conf, "display_marshaller", &value))
+    conf_set_b(bp_conf, "display_marshaller", B_FALSE);
+  if (!conf_get_b(bp_conf, "legacy_route_recall", &value))
+    conf_set_b(bp_conf, "legacy_route_recall", B_TRUE);
+  conf_set_b(bp_conf, "classic_mode", B_FALSE);
+  return B_TRUE;
+}
+
 bool_t bp_conf_init(void) {
   char *path;
   FILE *fp;
@@ -1240,6 +1291,9 @@ bool_t bp_conf_init(void) {
   }
   free(path);
 
+  if (migrate_classic_preferences() && !bp_conf_save())
+    logMsg(BP_ERROR_LOG "Unable to persist migrated Classic preferences");
+
   inited = B_TRUE;
 
   fdr_find(&drs.fov_h_deg, "sim/graphics/view/field_of_view_horizontal_deg");
@@ -1255,6 +1309,20 @@ bool_t bp_conf_init(void) {
 
   fetchGitVersion();
   return (B_TRUE);
+}
+
+bool_t bp_legacy_routes(void) {
+  bool_t enabled = B_FALSE;
+  if (bp_conf != NULL)
+    (void)conf_get_b(bp_conf, "legacy_route_recall", &enabled);
+  return enabled;
+}
+
+bool_t bp_fast_ground_handling(void) {
+  bool_t enabled = B_FALSE;
+  if (bp_conf != NULL)
+    (void)conf_get_b(bp_conf, "fast_ground_handling", &enabled);
+  return enabled;
 }
 
 bool_t bp_conf_save(void) {
