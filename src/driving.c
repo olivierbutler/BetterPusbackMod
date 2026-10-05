@@ -1055,6 +1055,71 @@ route_load(geo_pos2_t start_pos, double start_hdg, list_t *segs) {
     routes_free(t);
 }
 
+static bool_t
+legacy_route_matches(const route_t *route, const route_t *anchor) {
+    return (vect3_dist(route->pos_ecef, anchor->pos_ecef) <= 30 &&
+        fabs(rel_hdg(route->hdg, anchor->hdg)) <= 10);
+}
+
+static route_t *
+legacy_route_find(avl_tree_t *table, const route_t *anchor) {
+    route_t *best = NULL;
+    double best_distance = INFINITY;
+
+    /* Keep 1.14's strict AVL ordering; apply 1.13 tolerances separately. */
+    for (route_t *route = avl_first(table); route != NULL;
+        route = AVL_NEXT(table, route)) {
+        double distance = vect3_dist(route->pos_ecef, anchor->pos_ecef);
+        if (legacy_route_matches(route, anchor) && distance < best_distance) {
+            best = route;
+            best_distance = distance;
+        }
+    }
+    return (best);
+}
+
+void
+route_save_legacy(const list_t *segs) {
+    avl_tree_t *table;
+    route_t *saved, *route, *next;
+
+    ASSERT(list_head(segs) != NULL);
+    table = routes_load();
+    saved = route_alloc(table, segs);
+    for (route = avl_first(table); route != NULL; route = next) {
+        next = AVL_NEXT(table, route);
+        if (route != saved && legacy_route_matches(route, saved)) {
+            avl_remove(table, route);
+            route_free(route);
+        }
+    }
+    (void) routes_store(table);
+    routes_free(table);
+}
+
+void
+route_load_legacy(geo_pos2_t start_pos, double start_hdg, list_t *segs) {
+    avl_tree_t *table;
+    route_t anchor = {0}, *route;
+
+    ASSERT3P(list_head(segs), ==, NULL);
+    table = routes_load();
+    anchor.pos_ecef = geo2ecef_mtr(
+        GEO_POS3(start_pos.lat, start_pos.lon, 0), &wgs84);
+    anchor.hdg = start_hdg;
+    route = legacy_route_find(table, &anchor);
+    if (route != NULL) {
+        for (seg_t *seg = list_head(&route->segs); seg != NULL;
+            seg = list_next(&route->segs, seg)) {
+            seg_t *copy = safe_calloc(1, sizeof(*copy));
+            memcpy(copy, seg, sizeof(*copy));
+            seg_world2local(copy);
+            list_insert_tail(segs, copy);
+        }
+    }
+    routes_free(table);
+}
+
 void
 route_table_create(avl_tree_t *route_table) {
     avl_create(route_table, route_table_compar, sizeof(route_t),
