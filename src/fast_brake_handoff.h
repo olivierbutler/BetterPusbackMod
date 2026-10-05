@@ -38,7 +38,8 @@ bp_fast_brake_handoff_enabled(const bp_fast_brake_handoff_t *handoff,
 
 static inline bp_fast_brake_action_t
 bp_fast_brake_handoff_update(bp_fast_brake_handoff_t *handoff,
-    bool parking_brake_set, bool pedals_released)
+    bool parking_brake_set, bool pedal_release_observable,
+    bool pedals_released)
 {
     if (!parking_brake_set) {
         bool withdrawn = handoff->phase != BP_FAST_BRAKE_HOLDING;
@@ -47,6 +48,16 @@ bp_fast_brake_handoff_update(bp_fast_brake_handoff_t *handoff,
     }
     if (handoff->phase == BP_FAST_BRAKE_VERIFIED)
         return BP_FAST_BRAKE_COMPLETE;
+    /*
+     * On aircraft without a hydraulic parking-brake valve, the parking
+     * brake is the same mechanically locked brake circuit as the pedals.
+     * A non-zero pedal readback is therefore expected and cannot be used to
+     * distinguish pilot input from the selected parking brake.
+     */
+    if (!pedal_release_observable) {
+        handoff->phase = BP_FAST_BRAKE_VERIFIED;
+        return BP_FAST_BRAKE_COMPLETE;
+    }
     if (handoff->phase == BP_FAST_BRAKE_HOLDING) {
         /* Observe a subsequent frame without any BPB toe-brake write. */
         handoff->phase = BP_FAST_BRAKE_WAITING_PEDALS;

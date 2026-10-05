@@ -60,9 +60,9 @@ ground_ops_window_mode_valid(int mode)
 bool
 ground_ops_window_effectively_visible(bool window_exists,
     bool planner_suspended, bool legacy_gate_hidden,
-    bool manual_visibility_override)
+    bool manual_visibility_override, bool aircraft_eligible)
 {
-    return (window_exists && !planner_suspended &&
+    return (aircraft_eligible && window_exists && !planner_suspended &&
         (manual_visibility_override || !legacy_gate_hidden));
 }
 

@@ -105,6 +105,7 @@ static bool_t ui_enabled = B_TRUE;
 static bool_t captions_enabled = B_TRUE;
 static bool_t auto_expand_for_actions = B_FALSE;
 static bool_t planner_suspended = B_FALSE;
+static bool_t aircraft_eligible = B_FALSE;
 static bool_t legacy_gate_hidden = B_FALSE;
 static bool_t manual_visibility_override = B_FALSE;
 static bool_t have_float_rect = B_FALSE;
@@ -1527,8 +1528,9 @@ static bool
 create_window(ground_ops_presentation_t requested)
 {
     ground_ops_rect_t initial_float;
+    bool_t effectively_visible;
 
-    if (!ui_enabled || ground_window != nullptr)
+    if (!ui_enabled || !aircraft_eligible || ground_window != nullptr)
         return (ground_window != nullptr);
     if (!bp_ui_runtime_init())
         return (false);
@@ -1560,9 +1562,14 @@ create_window(ground_ops_presentation_t requested)
         ground_window->SetWindowGeometryOS(os_rect.left, os_rect.top,
             os_rect.right, os_rect.bottom);
     }
-    ground_window->SetVisible(B_TRUE);
+    effectively_visible = ground_ops_window_effectively_visible(true, false,
+        legacy_gate_hidden != B_FALSE,
+        manual_visibility_override != B_FALSE,
+        aircraft_eligible != B_FALSE) ? B_TRUE : B_FALSE;
+    ground_window->SetVisible(effectively_visible);
     reset_performance();
-    logMsg(BP_INFO_LOG "Ground Ops UI shown in %s mode (%s)",
+    logMsg(BP_INFO_LOG "Ground Ops UI %s in %s mode (%s)",
+        effectively_visible ? "shown" : "prepared hidden",
         requested == GROUND_OPS_PRESENTATION_PANEL ? "panel" :
         "compact rail",
         window_mode == GROUND_OPS_WINDOW_POPOUT ? "popout" : "floating");
@@ -1603,7 +1610,8 @@ apply_legacy_visibility(bool_t visible)
     }
 
     effectively_visible = ground_ops_window_effectively_visible(true, false,
-        hidden != B_FALSE, manual_visibility_override != B_FALSE) ?
+        hidden != B_FALSE, manual_visibility_override != B_FALSE,
+        aircraft_eligible != B_FALSE) ?
         B_TRUE : B_FALSE;
     ground_window->SetVisible(effectively_visible);
     if (manager_loop != nullptr) {
@@ -1719,6 +1727,8 @@ process_action(UiAction action)
 
     switch (action) {
     case UiAction::ShowOrb:
+        if (!aircraft_eligible)
+            break;
         ground_ops_auto_expand_note_manual(&auto_expand_state,
             action_required);
         if (ground_window == nullptr)
@@ -1727,6 +1737,8 @@ process_action(UiAction action)
             apply_presentation_geometry(GROUND_OPS_PRESENTATION_ORB, true);
         break;
     case UiAction::ShowPanel:
+        if (!aircraft_eligible)
+            break;
         ground_ops_auto_expand_note_manual(&auto_expand_state,
             action_required);
         if (ground_window == nullptr)
@@ -1735,6 +1747,8 @@ process_action(UiAction action)
             apply_presentation_geometry(GROUND_OPS_PRESENTATION_PANEL, true);
         break;
     case UiAction::RestoreStartupPresentation:
+        if (!aircraft_eligible)
+            break;
         if (presentation == GROUND_OPS_PRESENTATION_ORB)
             (void)create_window(GROUND_OPS_PRESENTATION_ORB);
         else
@@ -1744,9 +1758,12 @@ process_action(UiAction action)
         hide_window("hidden");
         break;
     case UiAction::ToggleVisible:
+        if (!aircraft_eligible)
+            break;
         if (!ground_ops_window_effectively_visible(ground_window != nullptr,
             planner_suspended != B_FALSE, legacy_gate_hidden != B_FALSE,
-            manual_visibility_override != B_FALSE)) {
+            manual_visibility_override != B_FALSE,
+            aircraft_eligible != B_FALSE)) {
             manual_visibility_override = B_TRUE;
             if (ground_window == nullptr)
                 (void)create_window(last_visible_presentation);
@@ -1757,11 +1774,14 @@ process_action(UiAction action)
         }
         break;
     case UiAction::ToggleExpanded:
+        if (!aircraft_eligible)
+            break;
         ground_ops_auto_expand_note_manual(&auto_expand_state,
             action_required);
         if (!ground_ops_window_effectively_visible(ground_window != nullptr,
             planner_suspended != B_FALSE, legacy_gate_hidden != B_FALSE,
-            manual_visibility_override != B_FALSE)) {
+            manual_visibility_override != B_FALSE,
+            aircraft_eligible != B_FALSE)) {
             manual_visibility_override = B_TRUE;
             if (ground_window == nullptr)
                 (void)create_window(GROUND_OPS_PRESENTATION_PANEL);
@@ -1847,7 +1867,8 @@ manager_callback(float elapsed, float elapsed_flight, int counter,
         process_action(action);
     if (ground_ops_window_effectively_visible(ground_window != nullptr,
         planner_suspended != B_FALSE, legacy_gate_hidden != B_FALSE,
-        manual_visibility_override != B_FALSE)) {
+        manual_visibility_override != B_FALSE,
+        aircraft_eligible != B_FALSE)) {
         local_data_poll_elapsed += elapsed;
         if (local_data_poll_elapsed >= LOCAL_DATA_POLL_SECONDS) {
             (void)refresh_local_data_context();
@@ -1928,10 +1949,10 @@ ground_ops_ui_init(void)
         return (B_TRUE);
 
     load_preferences();
-    /* Startup is always visible in the compact presentation, including for a
-     * first install or a prior session that ended with the window hidden. This
-     * is not a pilot visibility override, so the legacy ground-speed gate can
-     * still hide the window while taxiing. */
+    /* Eligible airliners start in the compact presentation, including after a
+     * prior session that ended with the window hidden. The aircraft gate is
+     * fail-closed until main_intf has classified the loaded aircraft. */
+    aircraft_eligible = B_FALSE;
     manual_visibility_override = B_FALSE;
     bp_ui_click_init();
     disconnect_tug_cmd = XPLMFindCommand("BetterPushback/disconnect");
@@ -2025,6 +2046,7 @@ ground_ops_ui_fini(void)
     have_polled_rect = false;
     pending_action = UiAction::None;
     planner_suspended = B_FALSE;
+    aircraft_eligible = B_FALSE;
     legacy_gate_hidden = B_FALSE;
     manual_visibility_override = B_FALSE;
     geometry_poll_elapsed = 0;
@@ -2072,7 +2094,45 @@ ground_ops_ui_is_visible(void)
 {
     return (ground_ops_window_effectively_visible(ground_window != nullptr,
         planner_suspended != B_FALSE, legacy_gate_hidden != B_FALSE,
-        manual_visibility_override != B_FALSE) ? B_TRUE : B_FALSE);
+        manual_visibility_override != B_FALSE,
+        aircraft_eligible != B_FALSE) ? B_TRUE : B_FALSE);
+}
+
+extern "C" void
+ground_ops_ui_set_aircraft_eligible(bool_t eligible)
+{
+    bool_t next = eligible != B_FALSE ? B_TRUE : B_FALSE;
+    bool_t visible;
+
+    if (aircraft_eligible == next)
+        return;
+    aircraft_eligible = next;
+    if (!initialized || !ui_enabled)
+        return;
+
+    if (!aircraft_eligible) {
+        manual_visibility_override = B_FALSE;
+        ground_ops_auto_expand_reset(&auto_expand_state);
+        if (ground_window != nullptr)
+            ground_window->SetVisible(B_FALSE);
+        if (manager_loop != nullptr)
+            XPLMScheduleFlightLoop(manager_loop, 0, 1);
+        logMsg(BP_INFO_LOG "Ground Ops UI hidden: loaded aircraft is not "
+            "eligible for the airliner interface");
+        return;
+    }
+
+    if (ground_window == nullptr) {
+        queue_action(UiAction::RestoreStartupPresentation);
+        return;
+    }
+
+    visible = ground_ops_window_effectively_visible(true,
+        planner_suspended != B_FALSE, legacy_gate_hidden != B_FALSE,
+        manual_visibility_override != B_FALSE, true) ? B_TRUE : B_FALSE;
+    ground_window->SetVisible(visible);
+    if (manager_loop != nullptr)
+        XPLMScheduleFlightLoop(manager_loop, visible ? -1.0f : 0.0f, 1);
 }
 
 extern "C" void
@@ -2153,7 +2213,8 @@ ground_ops_ui_resume_after_planner(void)
     refresh_snapshot();
     visible = ground_ops_window_effectively_visible(true, false,
         legacy_gate_hidden != B_FALSE,
-        manual_visibility_override != B_FALSE) ? B_TRUE : B_FALSE;
+        manual_visibility_override != B_FALSE,
+        aircraft_eligible != B_FALSE) ? B_TRUE : B_FALSE;
     ground_window->SetVisible(visible);
     if (manager_loop != nullptr && visible)
         XPLMScheduleFlightLoop(manager_loop, -1.0f, 1);

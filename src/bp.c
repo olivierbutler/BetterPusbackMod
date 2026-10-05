@@ -156,7 +156,7 @@ typedef struct {
 
 static struct {
     dr_t lbrake, rbrake;
-    dr_t pbrake, pbrake_rat;
+    dr_t pbrake, pbrake_rat, pbrake_valve, pbrake_trap;
     bool_t pbrake_is_custom;
     dr_t rot_force_M, rot_force_N;
     dr_t axial_force;
@@ -875,6 +875,38 @@ pbrake_is_set(void) {
     return result;
 }
 
+/*
+ * X-Plane 12.2 replaced parking_brake_ratio with wheel_brake_ratio, but the
+ * replacement reports pressure requested at the master cylinder.  That
+ * pressure can come from BetterPushback's own temporary toe-brake hold, so it
+ * is not an independent parking-brake indication for the Fast disconnect
+ * handoff.  Use the parking-brake control itself, or the hydraulic parking
+ * valve on aircraft configured with one.  Keep the legacy detector above
+ * unchanged for the established non-Fast workflow.
+ */
+static bool_t
+fast_pbrake_is_set(void)
+{
+    if (drs.pbrake_is_custom)
+        return (dr_getf(&drs.pbrake) != 0);
+    if (dr_getf(&drs.pbrake) != 0)
+        return (B_TRUE);
+    if (bp_xp_ver >= 12200)
+        return (dr_geti(&drs.pbrake_trap) != 0 &&
+            dr_geti(&drs.pbrake_valve) != 0);
+    return (dr_getf(&drs.pbrake_rat) != 0);
+}
+
+static bool_t
+fast_pedal_release_observable(void)
+{
+    if (drs.pbrake_is_custom)
+        return (B_FALSE);
+    if (bp_xp_ver < 12200)
+        return (B_TRUE);
+    return (dr_geti(&drs.pbrake_trap) != 0);
+}
+
 static const char *
 telemetry_step_name(pushback_step_t step)
 {
@@ -1443,7 +1475,8 @@ fast_brake_handoff_active(void)
 static bool_t
 fast_brake_handoff_ready(void)
 {
-    bool_t parking_brake_set = pbrake_is_set();
+    bool_t parking_brake_set = fast_pbrake_is_set();
+    bool_t pedal_release_observable = fast_pedal_release_observable();
     double left = dr_getf(&drs.lbrake);
     double right = dr_getf(&drs.rbrake);
     bool_t pedals_released = isfinite(left) && isfinite(right) &&
@@ -1451,7 +1484,7 @@ fast_brake_handoff_ready(void)
         right < BRAKE_PEDAL_THRESH;
     bp_fast_brake_action_t action = bp_fast_brake_handoff_update(
         &bp.fast_brake_handoff, parking_brake_set != B_FALSE,
-        pedals_released != B_FALSE);
+        pedal_release_observable != B_FALSE, pedals_released != B_FALSE);
 
     switch (action) {
     case BP_FAST_BRAKE_HOLD:
@@ -1462,6 +1495,8 @@ fast_brake_handoff_ready(void)
         return (B_FALSE);
     case BP_FAST_BRAKE_WITHDRAW:
         bp.fast_brakes_relinquished = B_TRUE;
+        logMsg(BP_INFO_LOG "Fast parking-brake handoff: BPB toe-brake "
+            "writes stopped; waiting for independent pedal readback");
         bp_hint_status_str = _("Waiting for brake pedals to be released (or abort pushback)");
         return (B_FALSE);
     case BP_FAST_BRAKE_WAIT_PEDALS:
@@ -2455,6 +2490,10 @@ bp_init(void) {
     }
     if (bp_xp_ver >= 12200) {
         fdr_find(&drs.pbrake_rat, "sim/cockpit2/controls/wheel_brake_ratio");
+        fdr_find(&drs.pbrake_valve,
+            "sim/cockpit2/controls/park_brake_valve");
+        fdr_find(&drs.pbrake_trap,
+            "sim/aircraft/gear/acf_park_brake_trap");
     } else {
         fdr_find(&drs.pbrake_rat, "sim/cockpit2/controls/parking_brake_ratio");
     }
@@ -3901,6 +3940,8 @@ pb_step_stopping(void) {
 
 static void
 pb_step_stopped(void) {
+    bool_t parking_brake_set;
+
     if (!slave_mode) {
         turn_nosewheel(0);
         push_at_speed(0, bp.veh.max_accel, B_FALSE, B_FALSE);
@@ -3909,7 +3950,9 @@ pb_step_stopped(void) {
     }
     if (fast_brake_handoff_active() && !fast_brake_handoff_ready())
         return;
-    if (!pbrake_is_set() && !cfg_ignore_park_break) {
+    parking_brake_set = bp_fast_ground_handling() ?
+        fast_pbrake_is_set() : pbrake_is_set();
+    if (!parking_brake_set && !cfg_ignore_park_break) {
         /*
          * Ignoring Brake status if ignore_park_break is set
          * Keep resetting the start time to enforce a delay
@@ -4562,13 +4605,18 @@ main_intf_reposition(void)
 
 void
 main_intf(bool_t force_hide) {
+    bool_t ground_ops_eligible = bp_started || acf_is_airliner();
+
     /*
      * Preserve the owner's legacy visibility gate for the replacement Ground
-     * Operations panel: remain visible for an active operation, otherwise
-     * require any aircraft to be on the ground moving at less than 1 m/s.
+     * Operations panel. The hard aircraft gate cannot be bypassed by startup
+     * or manual show commands; an active operation remains eligible so its
+     * status is not lost. The separate speed gate can still be overridden by
+     * an eligible pilot using the show command while taxiing.
      */
-    ground_ops_ui_set_legacy_visibility(bp_started ||
-        (acf_is_airliner() && acf_on_gnd_stopped(NULL)));
+    ground_ops_ui_set_aircraft_eligible(ground_ops_eligible);
+    ground_ops_ui_set_legacy_visibility(ground_ops_eligible &&
+        (bp_started || acf_on_gnd_stopped(NULL)));
     main_intf_update_automation();
 
     if (!bp_interface_mode_uses_legacy_magic_squares(
