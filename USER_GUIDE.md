@@ -66,11 +66,12 @@ happening.
   until the pilot shows it again, but opens automatically at the next simulator
   start.
 
-At simulator start, Ground Operations is visible while the aircraft is stopped
-on the ground. Outside an active operation, it automatically hides once the
-aircraft begins taxiing and restores when the aircraft stops. This applies to GA
-aircraft and airliners. Using the show command while moving is a manual override
-that keeps the window visible until the pilot hides it again.
+At simulator start, Ground Operations is visible for eligible airliners while
+the aircraft is stopped on the ground. Outside an active operation, it
+automatically hides once the aircraft begins taxiing and restores when the
+aircraft stops. General-aviation aircraft do not display either operational
+interface. For an eligible airliner, using the show command while moving is a
+manual override that keeps the window visible until the pilot hides it again.
 
 Positions are remembered by window mode, monitor, and side. If a saved display
 is removed or resized, the window is recovered into a visible area. Ground
@@ -182,14 +183,14 @@ disconnect after the parking-brake handoff. Tug travel and aircraft towing
 remain normal. Fast does not approve Disconnect or Acknowledge on the pilot's
 behalf; that remains the upstream interface/automatic-completion policy.
 
-If the pedals are still held when the parking brake is set, BPB stops writing
-its own pedal request and asks you to release the pedals. Lowering and
-disconnect remain paused until the pedal readbacks are below the existing
-threshold and the parking brake is still set. After successful handoff, pedal
-presses do not block progress, but parking-brake loss restores BPB's hold.
-There is no timeout-based disconnect; use **Abort pushback** if an input never
-returns below the threshold. Successful handoff and final cleanup do not write
-a synthetic zero over pilot brake input.
+On aircraft with a hydraulic parking-brake valve, BPB stops writing its own
+pedal request after the valve is closed and asks you to release any remaining
+pedal input. Lowering remains paused until the pedal readbacks are below the
+existing threshold and the parking brake remains secured. Aircraft with a
+mechanically locked/common brake keep the normal BPB hold through the immediate
+lowering animation because their parking-brake pressure is also reported as
+pedal pressure. Parking-brake loss restores BPB's hold. There is no
+timeout-based disconnect; use **Abort pushback** if an input never clears.
 
 ## 5. Saved routes
 

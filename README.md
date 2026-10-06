@@ -137,13 +137,13 @@ retained when calling the tug. Emergency Tow remains session-only, and the
 newer gate-route slots are not changed by this option.
 
 **Fast Ground Handling** independently skips artificial waits and timed handling
-animations, not tug travel, towing or required pilot acknowledgements. Its
-parking-brake handoff stops BPB's own pedal-brake writes after confirmation,
-then waits for both pedal-request readbacks to fall below the existing threshold
-while the parking brake remains set. It never writes a synthetic release zero
-on the successful handoff path. After verification, renewed pedal presses do
-not block lowering or disconnect; losing the parking brake restores BPB's hold.
-While waiting, the status asks the pilot to release the pedals or abort.
+animations, not tug travel, towing or required pilot acknowledgements. On
+aircraft with a hydraulic parking-brake valve, its brake handoff stops BPB's
+pedal-brake writes after confirmation, then waits for both pedal readbacks to
+fall below the existing threshold while the valve remains closed. Aircraft
+with a mechanically locked/common brake retain the normal BPB hold through the
+immediate lowering animation because their selected parking brake legitimately
+retains master-cylinder pressure. Losing the parking brake restores BPB's hold.
 
 The old **Classic Mode** preset is retired. Existing enabled Classic settings
 are migrated once to Legacy magic squares, automatic completion, marshaller

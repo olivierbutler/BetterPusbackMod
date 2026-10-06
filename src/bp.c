@@ -156,7 +156,7 @@ typedef struct {
 
 static struct {
     dr_t lbrake, rbrake;
-    dr_t pbrake, pbrake_rat;
+    dr_t pbrake, pbrake_rat, pbrake_valve, pbrake_trap;
     bool_t pbrake_is_custom;
     dr_t rot_force_M, rot_force_N;
     dr_t axial_force;
@@ -875,6 +875,38 @@ pbrake_is_set(void) {
     return result;
 }
 
+/*
+ * X-Plane 12.2 replaced parking_brake_ratio with wheel_brake_ratio, but the
+ * replacement reports pressure requested at the master cylinder.  That
+ * pressure can come from BetterPushback's own temporary toe-brake hold, so it
+ * is not an independent parking-brake indication for the Fast disconnect
+ * handoff.  Use the parking-brake control itself, or the hydraulic parking
+ * valve on aircraft configured with one.  Keep the legacy detector above
+ * unchanged for the established non-Fast workflow.
+ */
+static bool_t
+fast_pbrake_is_set(void)
+{
+    if (drs.pbrake_is_custom)
+        return (dr_getf(&drs.pbrake) != 0);
+    if (dr_getf(&drs.pbrake) != 0)
+        return (B_TRUE);
+    if (bp_xp_ver >= 12200)
+        return (dr_geti(&drs.pbrake_trap) != 0 &&
+            dr_geti(&drs.pbrake_valve) != 0);
+    return (dr_getf(&drs.pbrake_rat) != 0);
+}
+
+static bool_t
+fast_pedal_release_observable(void)
+{
+    if (drs.pbrake_is_custom)
+        return (B_FALSE);
+    if (bp_xp_ver < 12200)
+        return (B_TRUE);
+    return (dr_geti(&drs.pbrake_trap) != 0);
+}
+
 static const char *
 telemetry_step_name(pushback_step_t step)
 {
@@ -1443,7 +1475,8 @@ fast_brake_handoff_active(void)
 static bool_t
 fast_brake_handoff_ready(void)
 {
-    bool_t parking_brake_set = pbrake_is_set();
+    bool_t parking_brake_set = fast_pbrake_is_set();
+    bool_t pedal_release_observable = fast_pedal_release_observable();
     double left = dr_getf(&drs.lbrake);
     double right = dr_getf(&drs.rbrake);
     bool_t pedals_released = isfinite(left) && isfinite(right) &&
@@ -1451,7 +1484,7 @@ fast_brake_handoff_ready(void)
         right < BRAKE_PEDAL_THRESH;
     bp_fast_brake_action_t action = bp_fast_brake_handoff_update(
         &bp.fast_brake_handoff, parking_brake_set != B_FALSE,
-        pedals_released != B_FALSE);
+        pedal_release_observable != B_FALSE, pedals_released != B_FALSE);
 
     switch (action) {
     case BP_FAST_BRAKE_HOLD:
@@ -1462,6 +1495,8 @@ fast_brake_handoff_ready(void)
         return (B_FALSE);
     case BP_FAST_BRAKE_WITHDRAW:
         bp.fast_brakes_relinquished = B_TRUE;
+        logMsg(BP_INFO_LOG "Fast parking-brake handoff: BPB toe-brake "
+            "writes stopped; waiting for independent pedal readback");
         bp_hint_status_str = _("Waiting for brake pedals to be released (or abort pushback)");
         return (B_FALSE);
     case BP_FAST_BRAKE_WAIT_PEDALS:
@@ -2455,6 +2490,10 @@ bp_init(void) {
     }
     if (bp_xp_ver >= 12200) {
         fdr_find(&drs.pbrake_rat, "sim/cockpit2/controls/wheel_brake_ratio");
+        fdr_find(&drs.pbrake_valve,
+            "sim/cockpit2/controls/park_brake_valve");
+        fdr_find(&drs.pbrake_trap,
+            "sim/aircraft/gear/acf_park_brake_trap");
     } else {
         fdr_find(&drs.pbrake_rat, "sim/cockpit2/controls/parking_brake_ratio");
     }
@@ -3006,7 +3045,8 @@ bp_run_push(bool_t hold_requested) {
          * the driver changing gear and flipping around.
          */
         if (bp.reverse_t != 0.0) {
-            if (bp.cur_t - bp.reverse_t < 2 * STATE_TRANS_DELAY) {
+            if (bp.cur_t - bp.reverse_t <
+                artificial_delay(2 * STATE_TRANS_DELAY)) {
                 push_at_speed(0, bp.veh.max_accel, B_TRUE,
                               B_FALSE);
                 break;
@@ -3080,7 +3120,8 @@ bp_run_push_manual(void) {
         * the driver changing gear and flipping around.
         */
     if (bp.reverse_t != 0.0) {
-        if (bp.cur_t - bp.reverse_t < 2 * STATE_TRANS_DELAY) {
+        if (bp.cur_t - bp.reverse_t <
+            artificial_delay(2 * STATE_TRANS_DELAY)) {
             push_at_speed(0, bp.veh.max_accel, B_TRUE,
                             B_FALSE);
             return (push_manual.active);                
@@ -3422,7 +3463,8 @@ pb_step_waiting_for_pbrake(void) {
             brakes_set(B_TRUE);
     } else if ((!pbrake_is_set() && !cfg_ignore_park_break) ||
         /* wait until the rdy2conn message has stopped playing */
-        bp.cur_t - bp.last_voice_t < msg_dur(MSG_RDY2CONN)) {
+        bp.cur_t - bp.last_voice_t <
+            artificial_delay(msg_dur(MSG_RDY2CONN))) {
         /* keep resetting the start time to enforce a delay */
         bp.step_start_t = bp.cur_t;
         return;
@@ -3431,7 +3473,7 @@ pb_step_waiting_for_pbrake(void) {
      * After the parking brake is set and the message has finished
      * playing, wait a short moment until starting to move again.
      */
-    if (bp.cur_t - bp.step_start_t < STATE_TRANS_DELAY)
+    if (bp.cur_t - bp.step_start_t < artificial_delay(STATE_TRANS_DELAY))
         return;
 
     /* Workaround for Zibo 737 chocks being set - remove them. */
@@ -3510,14 +3552,16 @@ pb_step_connect_winch(void) {
     int rate_count;
 
     /* spend some time putting the winching strap in place */
-    if (!bp.winching.complete && d_t < STATE_TRANS_DELAY)
+    if (!bp.winching.complete &&
+        d_t < artificial_delay(STATE_TRANS_DELAY))
         return;
 
     tug_set_lift_pos(0);
     tug_set_winch_on(bp_ls.tug, B_TRUE);
 
     /* after installing the strap, wait some more to make the pbrake call */
-    if (!bp.winching.complete && d_t < 2 * STATE_TRANS_DELAY) {
+    if (!bp.winching.complete &&
+        d_t < artificial_delay(2 * STATE_TRANS_DELAY)) {
         tug_set_lift_arm_pos(bp_ls.tug, 1.0, B_TRUE);
         return;
     }
@@ -3704,14 +3748,16 @@ pb_step_connected(void) {
         disable_replanning();
 
     if (parking_brake_set ||
-        bp.cur_t - bp.last_voice_t < msg_dur(MSG_CONNECTED)) {
+        bp.cur_t - bp.last_voice_t <
+            artificial_delay(msg_dur(MSG_CONNECTED))) {
         /*
          * Keep resetting the start time to enforce the state delay
          * after the message is done and the parking brake is released.
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes release");
-    } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
+    } else if (bp.cur_t - bp.step_start_t >=
+        artificial_delay(STATE_TRANS_DELAY)) {
         if (!slave_mode) {
             bool_t backward = true; 
             if (!push_manual.active) {
@@ -3880,7 +3926,8 @@ pb_step_stopping(void) {
     } else {
         if (!slave_mode && !cfg_ignore_park_break)
             brakes_set(B_TRUE);
-        if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
+        if (bp.cur_t - bp.step_start_t >=
+            artificial_delay(STATE_TRANS_DELAY)) {
             msg_play(MSG_OP_COMPLETE);
             bp.stop_from_pause_hold = B_FALSE;
             bp_fast_brake_handoff_reset(&bp.fast_brake_handoff, B_TRUE);
@@ -3893,6 +3940,8 @@ pb_step_stopping(void) {
 
 static void
 pb_step_stopped(void) {
+    bool_t parking_brake_set;
+
     if (!slave_mode) {
         turn_nosewheel(0);
         push_at_speed(0, bp.veh.max_accel, B_FALSE, B_FALSE);
@@ -3901,7 +3950,9 @@ pb_step_stopped(void) {
     }
     if (fast_brake_handoff_active() && !fast_brake_handoff_ready())
         return;
-    if (!pbrake_is_set() && !cfg_ignore_park_break) {
+    parking_brake_set = bp_fast_ground_handling() ?
+        fast_pbrake_is_set() : pbrake_is_set();
+    if (!parking_brake_set && !cfg_ignore_park_break) {
         /*
          * Ignoring Brake status if ignore_park_break is set
          * Keep resetting the start time to enforce a delay
@@ -4554,13 +4605,18 @@ main_intf_reposition(void)
 
 void
 main_intf(bool_t force_hide) {
+    bool_t ground_ops_eligible = bp_started || acf_is_airliner();
+
     /*
      * Preserve the owner's legacy visibility gate for the replacement Ground
-     * Operations panel: remain visible for an active operation, otherwise
-     * require any aircraft to be on the ground moving at less than 1 m/s.
+     * Operations panel. The hard aircraft gate cannot be bypassed by startup
+     * or manual show commands; an active operation remains eligible so its
+     * status is not lost. The separate speed gate can still be overridden by
+     * an eligible pilot using the show command while taxiing.
      */
-    ground_ops_ui_set_legacy_visibility(bp_started ||
-        (acf_is_airliner() && acf_on_gnd_stopped(NULL)));
+    ground_ops_ui_set_aircraft_eligible(ground_ops_eligible);
+    ground_ops_ui_set_legacy_visibility(ground_ops_eligible &&
+        (bp_started || acf_on_gnd_stopped(NULL)));
     main_intf_update_automation();
 
     if (!bp_interface_mode_uses_legacy_magic_squares(
@@ -5063,11 +5119,6 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             if (!slave_mode) {
                 dr_seti(&drs.override_steer, 1);
                 brakes_set(B_FALSE);
-            }
-            if (bp.cur_t - bp.step_start_t >= PB_START_DELAY) {
-                bp.step++;
-                bp.step_start_t = bp.cur_t;
-            } else if (!slave_mode) {
                 if (!push_manual.active) {
                     seg_t *seg = list_tail(&bp.segs);
                     ASSERT(seg != NULL);
@@ -5086,6 +5137,11 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                 }
                 turn_nosewheel(0);
                 push_at_speed(0, bp.veh.max_accel, B_FALSE, B_FALSE);
+            }
+            if (bp.cur_t - bp.step_start_t >=
+                artificial_delay(PB_START_DELAY)) {
+                bp.step++;
+                bp.step_start_t = bp.cur_t;
             }
             break;
         case PB_STEP_PUSHING:

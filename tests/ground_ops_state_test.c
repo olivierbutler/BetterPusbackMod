@@ -276,14 +276,14 @@ test_fast_brake_handoff_holds_then_releases_and_verifies(void)
     bp_fast_brake_handoff_t handoff = {0};
     bp_fast_brake_handoff_reset(&handoff, true);
 
-    assert(bp_fast_brake_handoff_update(&handoff, false, false) ==
+    assert(bp_fast_brake_handoff_update(&handoff, false, true, false) ==
         BP_FAST_BRAKE_HOLD);
-    assert(bp_fast_brake_handoff_update(&handoff, true, false) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, false) ==
         BP_FAST_BRAKE_WITHDRAW);
     for (int frame = 0; frame < 1000; frame++)
-        assert(bp_fast_brake_handoff_update(&handoff, true, false) ==
+        assert(bp_fast_brake_handoff_update(&handoff, true, true, false) ==
             BP_FAST_BRAKE_WAIT_PEDALS);
-    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, true) ==
         BP_FAST_BRAKE_COMPLETE);
 }
 
@@ -293,15 +293,15 @@ test_fast_brake_handoff_retries_without_unset_reading(void)
     bp_fast_brake_handoff_t handoff = {0};
     bp_fast_brake_handoff_reset(&handoff, true);
 
-    assert(bp_fast_brake_handoff_update(&handoff, true, false) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, false) ==
         BP_FAST_BRAKE_WITHDRAW);
-    assert(bp_fast_brake_handoff_update(&handoff, false, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, false, true, true) ==
         BP_FAST_BRAKE_RESTORE);
-    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, true) ==
         BP_FAST_BRAKE_WITHDRAW);
-    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, true) ==
         BP_FAST_BRAKE_COMPLETE);
-    assert(bp_fast_brake_handoff_update(&handoff, false, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, false, true, true) ==
         BP_FAST_BRAKE_RESTORE);
 }
 
@@ -311,13 +311,13 @@ test_fast_brake_handoff_rejects_late_transient(void)
     bp_fast_brake_handoff_t handoff = {0};
     bp_fast_brake_handoff_reset(&handoff, true);
 
-    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, true) ==
         BP_FAST_BRAKE_WITHDRAW);
-    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, true) ==
         BP_FAST_BRAKE_COMPLETE);
-    assert(bp_fast_brake_handoff_update(&handoff, true, false) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, false) ==
         BP_FAST_BRAKE_COMPLETE);
-    assert(bp_fast_brake_handoff_update(&handoff, false, false) ==
+    assert(bp_fast_brake_handoff_update(&handoff, false, true, false) ==
         BP_FAST_BRAKE_RESTORE);
 }
 
@@ -326,16 +326,27 @@ test_fast_brake_handoff_resets_for_each_disconnect(void)
 {
     bp_fast_brake_handoff_t handoff = {0};
     bp_fast_brake_handoff_reset(&handoff, true);
-    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, true) ==
         BP_FAST_BRAKE_WITHDRAW);
-    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, true) ==
         BP_FAST_BRAKE_COMPLETE);
 
     bp_fast_brake_handoff_reset(&handoff, true);
-    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, true) ==
         BP_FAST_BRAKE_WITHDRAW);
-    assert(bp_fast_brake_handoff_update(&handoff, true, true) ==
+    assert(bp_fast_brake_handoff_update(&handoff, true, true, true) ==
         BP_FAST_BRAKE_COMPLETE);
+}
+
+static void
+test_fast_brake_handoff_accepts_locked_common_brake(void)
+{
+    bp_fast_brake_handoff_t handoff = {0};
+    bp_fast_brake_handoff_reset(&handoff, true);
+
+    assert(bp_fast_brake_handoff_update(&handoff, true, false, false) ==
+        BP_FAST_BRAKE_COMPLETE);
+    assert(handoff.phase == BP_FAST_BRAKE_VERIFIED);
 }
 
 static void
@@ -785,6 +796,7 @@ main(void)
     test_fast_brake_handoff_retries_without_unset_reading();
     test_fast_brake_handoff_rejects_late_transient();
     test_fast_brake_handoff_resets_for_each_disconnect();
+    test_fast_brake_handoff_accepts_locked_common_brake();
     test_fast_brake_handoff_mode_and_abort_exceptions();
     test_fast_pedal_wait_is_visible_in_ground_ops();
     test_stage_visuals_distinguish_blocking_from_automatic_progress();

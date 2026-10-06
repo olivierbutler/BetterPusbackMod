@@ -158,6 +158,13 @@ static uint64_t counter(int offset)
 static void expect(int mode, int phase, int flags, int reason)
 {
     nw_publish();
+    if (nw_status.snapshot[1] != mode || nw_status.snapshot[2] != phase ||
+        nw_status.snapshot[3] != flags || nw_status.snapshot[16] != reason) {
+        fprintf(stderr, "nosewheel mismatch: expected %d/%d/%d/%d, "
+            "received %d/%d/%d/%d\n", mode, phase, flags, reason,
+            nw_status.snapshot[1], nw_status.snapshot[2],
+            nw_status.snapshot[3], nw_status.snapshot[16]);
+    }
     assert(nw_status.snapshot[0] == 1);
     assert(nw_status.snapshot[1] == mode);
     assert(nw_status.snapshot[2] == phase);
@@ -269,22 +276,31 @@ static void grab(bool quick)
 
 static void winch(bool quick)
 {
+    unsigned early_rate_reads = quick ? 1 : 0;
+
     reset(LIFT_WINCH, quick);
     bp.step = PB_STEP_GRABBING;
     bp.anim.nosewheel_rot_spd = 99; /* stale rate has no admission */
     bp.cur_t = 1;
     nw_observe_step(); pb_step_connect_winch();
-    expect(NW_XP, NW_CAPTURE_PREP, NW_READY | NW_MASTER, BP_NW_NONE);
+    if (quick) {
+        expect(NW_RATE, NW_WINCH_LOADING,
+            NW_READY | NW_MASTER | NW_CUSTODY, BP_NW_NONE);
+    } else {
+        expect(NW_XP, NW_CAPTURE_PREP, NW_READY | NW_MASTER, BP_NW_NONE);
+    }
     bp.cur_t = 5; drs.tire_rot_spd.value = 2;
     parking_brake = true;
     nw_observe_step(); pb_step_connect_winch();
-    expect(NW_XP, NW_CAPTURE_PREP, NW_READY | NW_MASTER, BP_NW_NONE);
-    assert(rate_reads == 0);
+    expect(quick ? NW_HOLD : NW_XP, NW_CAPTURE_PREP,
+        NW_READY | NW_MASTER | (quick ? NW_CUSTODY : 0), BP_NW_NONE);
+    assert(rate_reads == early_rate_reads);
     parking_brake = false;
     nw_observe_step(); pb_step_connect_winch();
     expect(NW_RATE, NW_WINCH_LOADING,
         NW_READY | NW_MASTER | NW_CUSTODY, BP_NW_NONE);
-    assert(nw_status.snapshot[15] == cycle && rate_reads == 1);
+    assert(nw_status.snapshot[15] == cycle &&
+        rate_reads == early_rate_reads + 1);
     cycle++;
     expect(NW_RATE, NW_WINCH_LOADING,
         NW_READY | NW_MASTER | NW_CUSTODY | NW_RATE_HELD_SAMPLE, BP_NW_NONE);
@@ -292,7 +308,7 @@ static void winch(bool quick)
     nw_observe_step(); pb_step_connect_winch();
     expect(NW_RATE, NW_WINCH_LOADING,
         NW_READY | NW_MASTER | NW_CUSTODY, BP_NW_NONE);
-    assert(rate_reads == 2);
+    assert(rate_reads == early_rate_reads + 2);
     nw_end_requested();
     expect(NW_HOLD, NW_PARTIAL_HELD,
         NW_READY | NW_MASTER | NW_CUSTODY | NW_END_REQUESTED, BP_NW_SOFT_END);
@@ -323,7 +339,7 @@ static void winch(bool quick)
     nw_observe_step(); pb_step_connect_winch();
     expect(NW_HOLD, NW_CAPTURED_PRE_LIFT,
         NW_READY | NW_MASTER | NW_CUSTODY | NW_RECONNECT, BP_NW_NONE);
-    assert(rate_reads == 3); /* no invented second winch copy */
+    assert(rate_reads == early_rate_reads + 3); /* no invented second copy */
     bp.step = PB_STEP_MOVING_AWAY;
     bp.cur_pos.pos = (vect2_t){0, 0};
     tug.pos.pos = (vect2_t){4, 0}; tug.pos.spd = 0.1;

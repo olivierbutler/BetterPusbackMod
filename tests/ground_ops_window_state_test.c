@@ -150,17 +150,21 @@ static void
 test_effective_visibility(void)
 {
     assert(!ground_ops_window_effectively_visible(false, false, false,
-        false));
+        false, true));
     assert(!ground_ops_window_effectively_visible(true, true, false,
-        false));
+        false, true));
     assert(ground_ops_window_effectively_visible(true, false, false,
-        false));
+        false, true));
     assert(!ground_ops_window_effectively_visible(true, false, true,
-        false));
+        false, true));
     assert(ground_ops_window_effectively_visible(true, false, true,
-        true));
+        true, true));
     assert(!ground_ops_window_effectively_visible(true, true, true,
-        true));
+        true, true));
+    assert(!ground_ops_window_effectively_visible(true, false, false,
+        false, false));
+    assert(!ground_ops_window_effectively_visible(true, false, true,
+        true, false));
 }
 
 static void

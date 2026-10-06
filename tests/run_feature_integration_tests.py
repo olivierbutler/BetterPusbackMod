@@ -9,7 +9,7 @@ import tempfile
 
 
 def function(source, name):
-    match = re.search(r"^(?:static\s+)?(?:void|bool_t)\s+" + re.escape(name)
+    match = re.search(r"^(?:static\s+)?(?:void|bool_t|float)\s+" + re.escape(name)
                       + r"\([^)]*\)\s*\{", source, re.MULTILINE)
     assert match is not None, name
     depth = 1
@@ -27,6 +27,34 @@ def function(source, name):
 repo = Path(__file__).resolve().parent.parent
 controller = (repo / "src/bp.c").read_text()
 config = (repo / "src/cfg.cpp").read_text()
+
+# Protect every Fast timing call site that was lost during an earlier merge.
+# The helper's Fast-on/Fast-off return values are exercised by the C tests;
+# these checks bind that reviewed policy to the production controller stages.
+fast_timing_contract = {
+    "bp_run_push": ("artificial_delay(2 * STATE_TRANS_DELAY)",),
+    "bp_run_push_manual": ("artificial_delay(2 * STATE_TRANS_DELAY)",),
+    "pb_step_waiting_for_pbrake": (
+        "artificial_delay(msg_dur(MSG_RDY2CONN))",
+        "artificial_delay(STATE_TRANS_DELAY)",
+    ),
+    "pb_step_connect_winch": (
+        "artificial_delay(STATE_TRANS_DELAY)",
+        "artificial_delay(2 * STATE_TRANS_DELAY)",
+    ),
+    "pb_step_connected": (
+        "artificial_delay(msg_dur(MSG_CONNECTED))",
+        "artificial_delay(STATE_TRANS_DELAY)",
+    ),
+    "pb_step_stopping": ("artificial_delay(STATE_TRANS_DELAY)",),
+    "bp_run": ("artificial_delay(PB_START_DELAY)",),
+}
+for name, required_delays in fast_timing_contract.items():
+    implementation = re.sub(r"\s+", " ", function(controller, name))
+    for required_delay in required_delays:
+        assert implementation.count(required_delay) == 1, (
+            name, required_delay, implementation.count(required_delay))
+
 upstream = subprocess.check_output([
     "git", "show", "86c04e3218759905231fe36d0840b9be4c86a959:src/bp.c"
 ], cwd=repo, text=True)

@@ -3,6 +3,7 @@
 
 import os
 from pathlib import Path
+import hashlib
 import re
 import subprocess
 import tempfile
@@ -49,20 +50,31 @@ roll_off = source[source.index("        case PB_STEP_MOVING_AWAY:",
 roll_off = "static void run_roll_off(void) { switch (bp.step) {\n" + roll_off \
     + "default: assert(false); } }\n"
 
-# An observational extension must leave existing mutation sites untouched.
-baseline = subprocess.check_output(
-    ["git", "show", "f8cd6251a428e7fc16e2d9a1ced1980973fd7198:src/bp.c"],
-    cwd=repo, text=True
+# An observational extension must leave the reviewed controller mutation sites
+# untouched.  Keep the compact signatures in-tree so a fresh checkout can run
+# this contract without fetching an object from a contributor's repository.
+mutation_contract = (
+    (r"\b(?:dr_set\w*|brakes_set|push_at_speed|turn_nosewheel)\s*\(",
+     70, "9483ab540f2162edb5a9e24da3ce90c6cd4de6dcf806e710284f124b0ce294f6",
+     "dr_setf(&drs.contract_probe, 1);"),
+    (r"bp\.(?:step\s*(?:\+\+|=)|anim\.nosewheel_rot_spd\s*=)",
+     44, "a256eee33495d59c8bc382d0b775d1c5526c06faa642fcedb48c2c76dfc3ce6e",
+     "bp.step++;"),
+    (r"dr_getvf32\(&drs\.tire_rot_spd",
+     1, "e222170cb70e727ce77d6f61ab4ae8f166220a990c1a5d2c041500b0822e19b6",
+     "dr_getvf32(&drs.tire_rot_spd, &contract_probe, 0, 1);"),
 )
-for pattern in (
-    r"\b(?:dr_set\w*|brakes_set|push_at_speed|turn_nosewheel)\s*\(",
-    r"bp\.(?:step\s*(?:\+\+|=)|anim\.nosewheel_rot_spd\s*=)",
-    r"dr_getvf32\(&drs\.tire_rot_spd"
-):
+
+for pattern, expected_count, expected_digest, probe in mutation_contract:
     def mutation_sites(text):
         return [re.sub(r"\s+", " ", line.replace("rate_count = ", "")).strip()
                 for line in text.splitlines() if re.search(pattern, line)]
-    assert mutation_sites(source) == mutation_sites(baseline), pattern
+
+    sites = mutation_sites(source)
+    digest = hashlib.sha256("\n".join(sites).encode()).hexdigest()
+    assert len(sites) == expected_count, (pattern, len(sites))
+    assert digest == expected_digest, (pattern, digest)
+    assert len(mutation_sites(source + "\n" + probe)) == expected_count + 1
 assert "crc64_rand" not in metadata and "crc64_srand" not in metadata
 for name in ("bp_start", "bp_stop", "bp_state_init", "bp_fini", "bp_complete"):
     assert "nw_" in function(source, name), name

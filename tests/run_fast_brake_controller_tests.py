@@ -54,8 +54,9 @@ assert not re.search(r"bp\.step\s*=\s*PB_STEP_UNGRABBING", source.replace(
 ))
 
 functions = (
-    "pbrake_is_set", "brakes_set", "fast_brake_handoff_active",
-    "fast_brake_handoff_ready", "bp_complete",
+    "pbrake_is_set", "fast_pbrake_is_set",
+    "fast_pedal_release_observable", "brakes_set",
+    "fast_brake_handoff_active", "fast_brake_handoff_ready", "bp_complete",
     "pb_enter_ungrabbing", "pb_step_stopped", "pb_step_lowering",
     "pb_step_ungrabbing_grab", "pb_step_ungrabbing_winch",
     "pb_step_ungrabbing", "recon_handler"

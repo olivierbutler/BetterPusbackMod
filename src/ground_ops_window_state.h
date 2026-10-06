@@ -96,7 +96,7 @@ ground_ops_presentation_t ground_ops_startup_presentation(
 bool ground_ops_window_mode_valid(int mode);
 bool ground_ops_window_effectively_visible(bool window_exists,
     bool planner_suspended, bool legacy_gate_hidden,
-    bool manual_visibility_override);
+    bool manual_visibility_override, bool aircraft_eligible);
 bool ground_ops_ui_size_valid(int size);
 double ground_ops_ui_size_multiplier(ground_ops_ui_size_t size);
 ground_ops_ui_size_t ground_ops_ui_size_get(void);

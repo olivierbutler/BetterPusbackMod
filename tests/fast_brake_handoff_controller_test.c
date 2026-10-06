@@ -23,6 +23,7 @@ typedef struct { double value; } test_dr_t;
 #define STATE_TRANS_DELAY 2.0
 #define PB_CONN_LIFT_DURATION 9.0
 #define PB_CRADLE_DELAY 10.0
+#define BP_INFO_LOG ""
 #define MSG_OP_COMPLETE 0
 #define MSG_DISCO 1
 #define LIFT_GRAB 0
@@ -37,7 +38,8 @@ static struct {
     struct { double max_accel; } veh;
 } bp;
 static struct {
-    test_dr_t pbrake, pbrake_rat, lbrake, rbrake, leg_len, override_steer;
+    test_dr_t pbrake, pbrake_rat, pbrake_valve, pbrake_trap;
+    test_dr_t lbrake, rbrake, leg_len, override_steer;
     bool pbrake_is_custom;
 } drs;
 typedef struct { int lift_type; double lift_height; } test_tug_info_t;
@@ -46,6 +48,7 @@ static test_tug_info_t tug_info;
 static test_tug_t tug;
 static struct { test_tug_t *tug; void *wing_walker; } bp_ls;
 static bool slave_mode, cfg_ignore_park_break, fast;
+static int bp_xp_ver;
 static bool pb_set_override, pb_set_remote, op_complete;
 static bool bp_started, bp_connected, late_plan_requested, plan_complete;
 static unsigned brake_writes, zero_writes, reconnect_notifications;
@@ -54,6 +57,7 @@ static double pilot_left, pilot_right;
 static const char *bp_hint_status_str;
 
 static double dr_getf(const test_dr_t *dr) { return dr->value; }
+static int dr_geti(const test_dr_t *dr) { return (int)dr->value; }
 static void dr_setf(test_dr_t *dr, double value)
 {
     dr->value = value;
@@ -68,6 +72,7 @@ static void dr_setf(test_dr_t *dr, double value)
     }
 }
 static void dr_seti(test_dr_t *dr, int value) { dr->value = value; }
+static void logMsg(const char *format, ...) { UNUSED(format); }
 static void dr_setvf(test_dr_t *dr, double *value, int offset, int count)
 { UNUSED(dr); UNUSED(value); UNUSED(offset); UNUSED(count); }
 static bool_t bp_fast_ground_handling(void) { return fast; }
@@ -122,11 +127,13 @@ static void reset_test(bool fast_mode, bool slave, bool ignore, int lift_type)
 {
     memset(&bp, 0, sizeof(bp));
     memset(&drs, 0, sizeof(drs));
+    drs.pbrake_trap.value = 1;
     tug.info = &tug_info;
     bp_ls.tug = &tug;
     bp_ls.wing_walker = NULL;
     tug_info.lift_type = lift_type;
     fast = fast_mode;
+    bp_xp_ver = 12200;
     slave_mode = slave;
     cfg_ignore_park_break = ignore;
     pb_set_override = pb_set_remote = op_complete = false;
@@ -206,6 +213,49 @@ static void test_parking_loss_restores_hold_and_retries(void)
     pilot_frame(0, 0);
     pb_step_stopped();
     assert(bp.step == PB_STEP_LOWERING && zero_writes == 0);
+}
+
+static void test_xp122_common_brake_ignores_bpb_wheel_pressure(void)
+{
+    reset_test(true, false, false, LIFT_GRAB);
+    drs.pbrake_trap.value = 0;
+    drs.pbrake.value = 0;
+    drs.pbrake_rat.value = 0.9;
+    drs.lbrake.value = drs.rbrake.value = 0.9;
+    bp.step = PB_STEP_STOPPED;
+
+    /* BPB's own master-cylinder pressure is not a parking-brake signal. */
+    pb_step_stopped();
+    assert(bp.step == PB_STEP_STOPPED && brake_writes == 2);
+    assert(!bp.fast_brakes_relinquished && geometry_writes == 0);
+
+    /* A mechanically locked/common parking brake can retain pressure. */
+    drs.pbrake.value = 1;
+    pb_step_stopped();
+    assert(bp.step == PB_STEP_LOWERING);
+    assert(!bp.fast_brakes_relinquished);
+    assert(bp.fast_brake_handoff.phase == BP_FAST_BRAKE_VERIFIED);
+    pilot_frame(0.9, 0.9);
+    pb_step_lowering();
+    assert(bp.step == PB_STEP_UNGRABBING && geometry_writes != 0);
+    pb_step_ungrabbing();
+    assert(bp.step == PB_STEP_WAITING4OK2DISCO && zero_writes == 2);
+}
+
+static void test_xp122_valve_brake_retains_pedal_handoff(void)
+{
+    reset_test(true, false, false, LIFT_GRAB);
+    drs.pbrake.value = 0;
+    drs.pbrake_trap.value = 1;
+    drs.pbrake_valve.value = 1;
+    drs.lbrake.value = drs.rbrake.value = 0.9;
+    bp.step = PB_STEP_STOPPED;
+
+    pb_step_stopped();
+    assert(bp.step == PB_STEP_STOPPED && bp.fast_brakes_relinquished);
+    pilot_frame(0, 0);
+    pb_step_stopped();
+    assert(bp.step == PB_STEP_LOWERING);
 }
 
 static void test_stuck_single_invalid_pedal_and_abort(void)
@@ -372,6 +422,8 @@ int main(void)
 {
     test_held_pedals_then_release_successful_cleanup();
     test_parking_loss_restores_hold_and_retries();
+    test_xp122_common_brake_ignores_bpb_wheel_pressure();
+    test_xp122_valve_brake_retains_pedal_handoff();
     test_stuck_single_invalid_pedal_and_abort();
     test_reconnect_and_loss_before_geometry();
     test_mode_matrix_and_original_cradle_timing();
