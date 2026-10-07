@@ -60,6 +60,7 @@
 #include "bp_cam.h"
 #include "cfg.h"
 #include "emergency_tow.h"
+#include "ext_api_msgs.h"
 #include "ground_ops_ui.h"
 #include "msg.h"
 #include "post_push_automation.h"
@@ -2844,7 +2845,6 @@ pb_step_driving_up_close(void) {
 static void
 pb_step_waiting_for_pbrake(void) {
     vect2_t p_end, dir;
-    dr_t zibo_chocks;
 
     if (late_plan_requested) {
         /*
@@ -2868,19 +2868,7 @@ pb_step_waiting_for_pbrake(void) {
     if (bp.cur_t - bp.step_start_t < STATE_TRANS_DELAY)
         return;
 
-    /* Workaround for Zibo 737 chocks being set - remove them. */
-    if (dr_find(&zibo_chocks, "laminar/B738/fms/chock_status") &&
-        dr_geti(&zibo_chocks) != 0) {
-        if (zibo_chocks.writable) {
-            dr_seti(&zibo_chocks, 0);
-        } else {
-            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback warning: unable to remove "
-                              "your chocks. Remove them yourself, or else I "
-                              "won't be able to push your aircraft."));
-            logMsg(BP_WARN_LOG "unable to remove your chocks.");
-        }
-    }
-
+    /* The chocks are removed as the push starts (chocks_remove). */
     dir = hdg2dir(bp_ls.tug->pos.hdg);
     if (bp_ls.tug->info->lift_type == LIFT_GRAB) {
         p_end = vect2_add(bp_ls.tug->pos.pos, vect2_scmul(dir,
@@ -3101,6 +3089,85 @@ pb_step_lift(void) {
     }
 }
 
+/*
+ * Removes the chocks as the push starts, so the aircraft can move: X-Plane's
+ * own (any wheel chocked) and the Zibo 737's. Returns B_TRUE if there were
+ * any to remove, B_FALSE if there were none or they could not be removed.
+ */
+static bool_t
+chocks_remove(void)
+{
+    dr_t is_chocked, zibo_chocks;
+    int chocked[10] = { 0 };
+    int n;
+    bool_t removed = B_FALSE;
+
+    if (dr_find(&is_chocked, "sim/flightmodel2/gear/is_chocked")) {
+        n = dr_getvi(&is_chocked, chocked, 0, 10);
+        for (int i = 0; i < n && !removed; i++)
+            removed = (chocked[i] != 0);
+        if (removed) {
+            XPLMCommandRef cmd =
+                XPLMFindCommand("sim/flight_controls/remove_chocks");
+            if (cmd != NULL) {
+                XPLMCommandOnce(cmd);
+            } else {
+                memset(chocked, 0, sizeof (chocked));
+                dr_setvi(&is_chocked, chocked, 0, n);
+            }
+        }
+    }
+
+    /* Workaround for Zibo 737 chocks being set - remove them. */
+    if (dr_find(&zibo_chocks, "laminar/B738/fms/chock_status") &&
+        dr_geti(&zibo_chocks) != 0) {
+        if (zibo_chocks.writable) {
+            dr_seti(&zibo_chocks, 0);
+            removed = B_TRUE;
+        } else {
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback warning: unable to remove "
+                              "your chocks. Remove them yourself, or else I "
+                              "won't be able to push your aircraft."));
+            logMsg(BP_WARN_LOG "unable to remove your chocks.");
+            return (B_FALSE);
+        }
+    }
+    if (removed)
+        logMsg(BP_INFO_LOG "removed the aircraft's chocks to start the push");
+    return (removed);
+}
+
+/*
+ * Starts one of the push-start lines (MSG_START_PB, _TOW, _PB_NOSTART,
+ * _TOW_NOSTART). When the crew had to remove the chocks it says the same
+ * line chocks first, through X-Plane's speech: there is no recording of it.
+ */
+static void
+start_line_play(message_t msg, bool_t chocks_removed)
+{
+    msg_spoken_t kind;
+
+    if (!chocks_removed) {
+        msg_play(msg);
+        return;
+    }
+    switch (msg) {
+    case MSG_START_TOW:
+        kind = MSG_SPOKEN_CHOCKS_TOW;
+        break;
+    case MSG_START_PB_NOSTART:
+        kind = MSG_SPOKEN_CHOCKS_PB_NOSTART;
+        break;
+    case MSG_START_TOW_NOSTART:
+        kind = MSG_SPOKEN_CHOCKS_TOW_NOSTART;
+        break;
+    default:
+        kind = MSG_SPOKEN_CHOCKS_PB;
+        break;
+    }
+    msg_speak(kind, _(bp_ext_msg_text(bp_ext_msg_spoken_public(kind))));
+}
+
 static void
 pb_step_connected(void) {
     seg_t *seg = NULL;
@@ -3130,19 +3197,21 @@ pb_step_connected(void) {
         if (parking_brake_set)
             bp_blocker = BP_BLOCKER_RELEASE_PARKING_BRAKE;
     } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
+        bool_t chocks_removed = chocks_remove();
+
         if (!slave_mode) {
-            bool_t backward = true; 
+            bool_t backward = true;
             if (!push_manual.active) {
                 ASSERT(seg != NULL);
                 backward = seg->backward;
             }
             if (dr_geti(&drs.num_engns) == 0 ||
                 eng_is_running() || !eng_ok2start()) {
-                msg_play(backward ? MSG_START_PB_NOSTART :
-                         MSG_START_TOW_NOSTART);
+                start_line_play(backward ? MSG_START_PB_NOSTART :
+                                MSG_START_TOW_NOSTART, chocks_removed);
             } else {
-                msg_play(backward ? MSG_START_PB :
-                         MSG_START_TOW);
+                start_line_play(backward ? MSG_START_PB :
+                                MSG_START_TOW, chocks_removed);
             }
         } else {
             /*
@@ -3150,7 +3219,7 @@ pb_step_connected(void) {
              * assume it's going to be backward (as that's
              * the most likely direction anyhow).
              */
-            msg_play(MSG_START_PB);
+            start_line_play(MSG_START_PB, chocks_removed);
         }
 
         bp.step++;

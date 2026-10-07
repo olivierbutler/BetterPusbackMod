@@ -44,7 +44,12 @@ typedef enum {
     /* Spoken through X-Plane's speech (msg_speak), not recorded: */
     BP_EXT_MSG_DOORS_GPU_OPEN = 16,
     BP_EXT_MSG_LIGHTS_WARNING = 17,
-    BP_EXT_MSG_SYSTEM = 18
+    BP_EXT_MSG_SYSTEM = 18,
+    /* The push-start lines when the crew removes the chocks first: */
+    BP_EXT_MSG_START_PUSHBACK_CHOCKS = 19,
+    BP_EXT_MSG_START_TOW_CHOCKS = 20,
+    BP_EXT_MSG_START_PUSHBACK_CHOCKS_NO_ENGINE_START = 21,
+    BP_EXT_MSG_START_TOW_CHOCKS_NO_ENGINE_START = 22
 } bp_ext_msg_t;
 
 int bp_ext_msg_public(message_t msg);

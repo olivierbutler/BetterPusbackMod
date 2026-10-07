@@ -33,7 +33,7 @@ a pilot who uses it on its own.
 
 | Dataref | Type | Meaning |
 | --- | --- | --- |
-| `bp/api_version` | int | Interface version (this document: 6) |
+| `bp/api_version` | int | Interface version (this document: 7) |
 | `bp/state_seq` | int | Changes whenever a value below changes |
 | `bp/started` | int | An operation is running (existing dataref) |
 | `bp/emergency_tow` | int | The running operation is the Emergency Tow |
@@ -173,6 +173,10 @@ report how long it speaks).
 | 16 | `doors_gpu_open` | "Some doors are still opened or the GPU or the ASU are still connected. I'm waiting for all of them closed and disconnected then I will proceed." |
 | 17 | `lights_warning` | "Hey! Quit blinding me with your landing lights! Turn them off!" (or taxi lights), during the push |
 | 18 | `system` | A failure or warning about BetterPushback itself, e.g. "Pushback failure: no suitable tug for your aircraft." |
+| 19 | `start_pb_chocks` | "Removing chocks, and beginning pushback. You may start engines." (version 7, instead of line 8) |
+| 20 | `start_tow_chocks` | "Removing chocks, and beginning the tow. You may start engines." (instead of 9) |
+| 21 | `start_pb_chocks_nostart` | "Removing chocks, and beginning pushback." (instead of 10) |
+| 22 | `start_tow_chocks_nostart` | "Removing chocks, and beginning the tow." (instead of 11) |
 
 ## Version 3: blockers
 
@@ -220,7 +224,7 @@ How it works:
   over is not played by BetterPushback; it is published as usual
   (`bp/msg_seq`, `bp/msg_text`, ...) for the other plugin to speak. The same
   goes for the messages BetterPushback would say through X-Plane's speech
-  (lines 16 to 18): published, not spoken. The operation never waits for
+  (lines 16 to 22): published, not spoken. The operation never waits for
   those, so reporting them in `bp/voice_done_seq` is optional.
 - Where the operation waits for a line to finish (before connecting, before
   starting the push after "Release parking brake", before the tug lowers and
@@ -354,6 +358,24 @@ that plugin, or load one the pilot saved.
 - Saving overwrites the slot. A plugin should save only when its user asks
   for it.
 
+## Version 7: chocks
+
+The pilot (or another plugin) may have chocked the wheels at the stand, and a
+chocked aircraft cannot be pushed. As the push or tow starts, after the
+parking brake is released, the crew now removes the chocks: X-Plane's
+(`sim/flightmodel2/gear/is_chocked`, any wheel; removed with
+`sim/flight_controls/remove_chocks`) and the Zibo 737's
+(`laminar/B738/fms/chock_status`, which BetterPushback used to clear silently
+before connecting).
+
+When there were chocks to remove, the push-start line is replaced by the same
+line chocks first, said through X-Plane's speech (there is no recording of
+it) and published as lines 19 to 22 (see version 2): "Removing chocks, and
+beginning pushback." with ", you may start engines" exactly where line 8 or 9
+would have said it. Without chocks nothing changes. A plugin that speaks the
+lines (version 4) should therefore treat lines 19 to 22 as push-start lines,
+like 8 to 11.
+
 ## Testing
 
 ### Unit tests
@@ -367,8 +389,9 @@ All run as part of `tests/run_all_tests.sh`:
   item and its kind only while an operation runs.
 - `tests/run_ext_api_msgs_tests.sh` checks that every crew line has a unique,
   fixed number, key, text and caption, and that the brake-set and
-  no-engine-start variants leave out the part that does not apply, and that
-  the X-Plane speech lines (16 to 18) follow the recordings.
+  no-engine-start variants leave out the part that does not apply, that
+  the X-Plane speech lines (16 to 22) follow the recordings, and that each
+  chocks line matches its push-start line.
 - `tests/run_ext_api_voice_tests.sh` checks the external-voice timing: an
   external line lasts until it is reported finished, never longer than its
   recording plus the grace, and falls back to the recording when the
@@ -405,7 +428,7 @@ the script), and copy `tools/ext_api_demo/BPExtDemo` to
 
 A test run, at a published stand:
 
-1. Before calling the tug: the window shows interface 6, step `off`, the
+1. Before calling the tug: the window shows interface 7, step `off`, the
    stand's name.
 2. *Call tug*: the step and stage follow the panel's rail; each crew line
    appears. With a door open, the blocker is `aircraft_not_ready` and names
@@ -419,3 +442,6 @@ A test run, at a published stand:
    `BPDemo/voice_stall`: the recordings come back.
 5. Still on the stand with a route loaded: `BPDemo/save_slot1`, then slot 1
    shows 1, and on the next visit to this stand the planner offers the route.
+6. Chock the wheels (`sim/flight_controls/install_chocks`) before releasing
+   the brake for the push: the line is `start_pb_chocks` (or a variant),
+   "Removing chocks, and beginning pushback...", and the chocks are gone.

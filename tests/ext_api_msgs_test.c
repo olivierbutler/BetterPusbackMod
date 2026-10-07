@@ -85,7 +85,43 @@ test_spoken_lines_follow_the_recordings(void)
             assert(strcmp(bp_ext_msg_key(pub),
                 bp_ext_msg_key(bp_ext_msg_public((message_t)m))) != 0);
     }
-    assert(strcmp(bp_ext_msg_key(19), "") == 0);
+    assert(strcmp(bp_ext_msg_key(23), "") == 0);
+}
+
+static void
+test_chocks_lines_are_the_start_lines_chocks_first(void)
+{
+    /* Each push-start variant has its chocks line, after the speech lines. */
+    static const struct {
+        msg_spoken_t kind;
+        int pub;
+        message_t start;
+        const char *key;
+    } chocks[] = {
+        { MSG_SPOKEN_CHOCKS_PB, 19, MSG_START_PB, "start_pb_chocks" },
+        { MSG_SPOKEN_CHOCKS_TOW, 20, MSG_START_TOW, "start_tow_chocks" },
+        { MSG_SPOKEN_CHOCKS_PB_NOSTART, 21, MSG_START_PB_NOSTART,
+            "start_pb_chocks_nostart" },
+        { MSG_SPOKEN_CHOCKS_TOW_NOSTART, 22, MSG_START_TOW_NOSTART,
+            "start_tow_chocks_nostart" }
+    };
+
+    for (int i = 0; i < 4; i++) {
+        const char *text = bp_ext_msg_text(chocks[i].pub);
+        const char *start = bp_ext_msg_text(
+            bp_ext_msg_public(chocks[i].start));
+
+        assert(bp_ext_msg_spoken_public(chocks[i].kind) == chocks[i].pub);
+        assert(strcmp(bp_ext_msg_key(chocks[i].pub), chocks[i].key) == 0);
+        assert(strncmp(text, "Removing chocks, and beginning ", 31) == 0);
+        assert(strlen(text) < BP_EXT_MSG_TEXT_LEN);
+        /* Engines may be started exactly when the start line says so. */
+        assert((strstr(text, "start engines") != NULL) ==
+            (strstr(start, "start engines") != NULL));
+        assert((strstr(text, "pushback") != NULL) ==
+            (strstr(start, "pushback") != NULL));
+        assert(bp_ext_msg_caption(chocks[i].pub) == GROUND_OPS_CAPTION_NONE);
+    }
 }
 
 int
@@ -96,6 +132,7 @@ main(void)
     test_variants_drop_the_part_that_does_not_apply();
     test_no_line_is_empty();
     test_spoken_lines_follow_the_recordings();
+    test_chocks_lines_are_the_start_lines_chocks_first();
     printf("ext_api_msgs tests passed\n");
     return (0);
 }

@@ -70,8 +70,9 @@ static const struct {
 };
 
 /*
- * Lines spoken through X-Plane's speech (msg_speak). The two warnings have a
- * fixed English text (bp.c); system messages vary, so they have none here.
+ * Lines spoken through X-Plane's speech (msg_speak). The warnings and the
+ * chocks lines have a fixed English text (bp.c says the chocks lines from
+ * here); system messages vary, so they have none here.
  */
 static const struct {
     msg_spoken_t kind;
@@ -85,7 +86,18 @@ static const struct {
         "I will proceed." },
     { MSG_SPOKEN_LIGHTS, BP_EXT_MSG_LIGHTS_WARNING, "lights_warning",
         "Hey! Quit blinding me with your lights! Turn them off!" },
-    { MSG_SPOKEN_SYSTEM, BP_EXT_MSG_SYSTEM, "system", "" }
+    { MSG_SPOKEN_SYSTEM, BP_EXT_MSG_SYSTEM, "system", "" },
+    { MSG_SPOKEN_CHOCKS_PB, BP_EXT_MSG_START_PUSHBACK_CHOCKS,
+        "start_pb_chocks",
+        "Removing chocks, and beginning pushback. You may start engines." },
+    { MSG_SPOKEN_CHOCKS_TOW, BP_EXT_MSG_START_TOW_CHOCKS, "start_tow_chocks",
+        "Removing chocks, and beginning the tow. You may start engines." },
+    { MSG_SPOKEN_CHOCKS_PB_NOSTART,
+        BP_EXT_MSG_START_PUSHBACK_CHOCKS_NO_ENGINE_START,
+        "start_pb_chocks_nostart", "Removing chocks, and beginning pushback." },
+    { MSG_SPOKEN_CHOCKS_TOW_NOSTART,
+        BP_EXT_MSG_START_TOW_CHOCKS_NO_ENGINE_START,
+        "start_tow_chocks_nostart", "Removing chocks, and beginning the tow." }
 };
 
 #define SPOKEN_COUNT ((int)(sizeof (spoken) / sizeof (spoken[0])))

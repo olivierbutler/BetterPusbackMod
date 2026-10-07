@@ -56,7 +56,15 @@ typedef enum {
 typedef enum {
     MSG_SPOKEN_DOORS_GPU,       /* a door open, the GPU or ASU connected */
     MSG_SPOKEN_LIGHTS,          /* landing or taxi lights on during the push */
-    MSG_SPOKEN_SYSTEM           /* a failure or warning about the plugin itself */
+    MSG_SPOKEN_SYSTEM,          /* a failure or warning about the plugin itself */
+    /*
+     * The push or tow starts and the crew first removes the chocks: says
+     * MSG_START_PB, _TOW, _PB_NOSTART or _TOW_NOSTART, chocks first.
+     */
+    MSG_SPOKEN_CHOCKS_PB,
+    MSG_SPOKEN_CHOCKS_TOW,
+    MSG_SPOKEN_CHOCKS_PB_NOSTART,
+    MSG_SPOKEN_CHOCKS_TOW_NOSTART
 } msg_spoken_t;
 
 typedef struct {
