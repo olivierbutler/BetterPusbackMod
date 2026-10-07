@@ -566,7 +566,8 @@ planner_nosewheel_position(void)
 }
 
 static bool_t
-planner_prepare_gate_context(double *match_distance, double *match_heading)
+prepare_gate_context(gate_route_context_t *context, double *match_distance,
+    double *match_heading)
 {
     XPLMProbeRef probe;
     XPLMProbeInfo_t info = {.structSize = sizeof(info)};
@@ -576,7 +577,7 @@ planner_prepare_gate_context(double *match_distance, double *match_heading)
     char aircraft_path[512] = {0};
     double unused;
 
-    gate_route_context_reset(&planner_gate_context);
+    gate_route_context_reset(context);
     probe = XPLMCreateProbe(xplm_ProbeY);
     if (probe == NULL)
         return B_FALSE;
@@ -592,8 +593,14 @@ planner_prepare_gate_context(double *match_distance, double *match_heading)
     XPLMGetNthAircraftModel(0, aircraft, aircraft_path);
     return gate_route_find_published_start(airportdb, nosewheel_geo,
         nosewheel, dr_getf(&drs.hdg), aircraft, bp.veh.wheelbase,
-        bp.acf.nw_z, bp.acf.main_z, &planner_gate_context,
-        match_distance, match_heading);
+        bp.acf.nw_z, bp.acf.main_z, context, match_distance, match_heading);
+}
+
+static bool_t
+planner_prepare_gate_context(double *match_distance, double *match_heading)
+{
+    return (prepare_gate_context(&planner_gate_context, match_distance,
+        match_heading));
 }
 
 static int
@@ -2393,7 +2400,7 @@ bp_cam_start(void)
 
     if (!acf_is_compatible())
     {
-        XPLMSpeakString(_("Pushback failure: aircraft is incompatible "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: aircraft is incompatible "
                           "with BetterPushback."));
         return (B_FALSE);
     }
@@ -2405,7 +2412,7 @@ bp_cam_start(void)
     if (!tug_available(dr_getf(&drs.mtow), bp.acf.nw_len, bp.acf.tirrad,
                        bp.acf.nw_type, strcmp(icao, "") != 0 ? icao : NULL, airline))
     {
-        XPLMSpeakString(_("Pushback failure: no suitable tug for your "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: no suitable tug for your "
                           "aircraft."));
         return (B_FALSE);
     }
@@ -2414,13 +2421,13 @@ bp_cam_start(void)
     if (vect3_abs(VECT3(dr_getf(&drs.local_vx), dr_getf(&drs.local_vy),
                         dr_getf(&drs.local_vz))) > 0.1)
     {
-        XPLMSpeakString(_("Can't start planner: aircraft not "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Can't start planner: aircraft not "
                           "stationary."));
         return (B_FALSE);
     }
     if (bp_started && !late_plan_requested)
     {
-        XPLMSpeakString(_("Can't start planner: pushback already in "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Can't start planner: pushback already in "
                           "progress. Please stop the pushback operation first."));
         return (B_FALSE);
     }
@@ -2604,6 +2611,10 @@ bp_cam_stop(void)
         (unsigned long long)planner_cursor_solve_count,
         (unsigned long long)planner_cursor_reuse_count);*/
     if (!slave_mode && list_head(&bp.segs) != NULL) {
+        /* A saved slot taken unchanged, else the pilot's own route. */
+        bp_route_set_source(planner_gate_routes.loaded_slot >= 0 &&
+            !planner_gate_routes.dirty ? BP_ROUTE_SOURCE_SAVED :
+            BP_ROUTE_SOURCE_PLANNER);
         if (!emergency_tow_allows_persistent_routes()) {
             logMsg(BP_INFO_LOG "Emergency Tow route accepted for this "
                 "session only; hard persistence guard skipped every gate "
@@ -2846,4 +2857,125 @@ void eye_track_fini(void)
             logMsg(BP_INFO_LOG "XPLMEnablePlugin not done, was already enabled");
         }
     }
+}
+
+/*
+ * External interface: the planner's two saved-route slots, for the published
+ * stand the aircraft stands on.
+ */
+static bool_t
+stand_context(gate_route_context_t *context, char *reason, size_t reason_len)
+{
+    double match_distance, match_heading;
+
+    if (!bp_init()) {
+        (void)snprintf(reason, reason_len,
+            "BetterPushback cannot work with this aircraft");
+        return (B_FALSE);
+    }
+    find_drs();
+    if (!prepare_gate_context(context, &match_distance, &match_heading) ||
+        !context->recognized) {
+        (void)snprintf(reason, reason_len, "the aircraft is not on a "
+            "published stand (it must stand on an apt.dat start position)");
+        return (B_FALSE);
+    }
+    return (B_TRUE);
+}
+
+bool_t
+bp_cam_stand_routes(char *stand, size_t stand_len, bool_t saved[2],
+    char *reason, size_t reason_len)
+{
+    gate_route_context_t context;
+    gate_route_slot_info_t slots[GATE_ROUTE_CACHE_SLOT_COUNT];
+
+    CTASSERT(GATE_ROUTE_CACHE_SLOT_COUNT == 2);
+    saved[0] = saved[1] = B_FALSE;
+    stand[0] = '\0';
+    if (!stand_context(&context, reason, reason_len))
+        return (B_FALSE);
+    (void)snprintf(stand, stand_len, "%s %s", context.airport, context.ramp);
+    (void)gate_route_cache_list(&context, slots);
+    for (unsigned i = 0; i < GATE_ROUTE_CACHE_SLOT_COUNT; i++)
+        saved[i] = slots[i].valid;
+    return (B_TRUE);
+}
+
+bool_t
+bp_cam_route_slot_save(unsigned slot, char *reason, size_t reason_len)
+{
+    gate_route_context_t context;
+    gate_route_slot_info_t info;
+
+    if (slot >= GATE_ROUTE_CACHE_SLOT_COUNT) {
+        (void)snprintf(reason, reason_len, "the slot must be 1 or 2");
+        return (B_FALSE);
+    }
+    if (!emergency_tow_allows_persistent_routes()) {
+        (void)snprintf(reason, reason_len,
+            "routes are not saved during an Emergency Tow");
+        return (B_FALSE);
+    }
+    if (slave_mode) {
+        (void)snprintf(reason, reason_len,
+            "the route comes from the other cockpit (shared cockpit)");
+        return (B_FALSE);
+    }
+    if (!stand_context(&context, reason, reason_len))
+        return (B_FALSE);
+    if (list_head(&bp.segs) == NULL) {
+        (void)snprintf(reason, reason_len, "there is no route to save");
+        return (B_FALSE);
+    }
+    if (!gate_route_cache_save(&context, slot, &bp.segs, &info)) {
+        (void)snprintf(reason, reason_len, "the route does not start at this "
+            "stand, or the slot could not be written");
+        return (B_FALSE);
+    }
+    logMsg(BP_INFO_LOG "Gate route slot %u saved for %s %s by another "
+        "plugin", slot + 1, context.airport, context.ramp);
+    return (B_TRUE);
+}
+
+bool_t
+bp_cam_route_slot_load(unsigned slot, char *reason, size_t reason_len)
+{
+    gate_route_context_t context;
+    gate_route_slot_info_t info;
+    const char *refused;
+    list_t segs;
+
+    if (slot >= GATE_ROUTE_CACHE_SLOT_COUNT) {
+        (void)snprintf(reason, reason_len, "the slot must be 1 or 2");
+        return (B_FALSE);
+    }
+    if (!emergency_tow_allows_persistent_routes()) {
+        (void)snprintf(reason, reason_len,
+            "saved routes are not used during an Emergency Tow");
+        return (B_FALSE);
+    }
+    refused = bp_route_change_refused();
+    if (refused != NULL) {
+        (void)snprintf(reason, reason_len, "%s", refused);
+        return (B_FALSE);
+    }
+    if (!stand_context(&context, reason, reason_len))
+        return (B_FALSE);
+    list_create(&segs, sizeof (seg_t), offsetof(seg_t, node));
+    if (!gate_route_cache_load(&context, slot, &segs, &info)) {
+        seg_t *seg;
+
+        while ((seg = list_remove_head(&segs)) != NULL)
+            free(seg);
+        list_destroy(&segs);
+        (void)snprintf(reason, reason_len, "slot %u holds no route for this "
+            "stand and aircraft", slot + 1);
+        return (B_FALSE);
+    }
+    bp_route_replace(&segs);
+    bp_route_set_source(BP_ROUTE_SOURCE_SAVED);
+    logMsg(BP_INFO_LOG "Gate route slot %u loaded for %s %s by another "
+        "plugin", slot + 1, context.airport, context.ramp);
+    return (B_TRUE);
 }

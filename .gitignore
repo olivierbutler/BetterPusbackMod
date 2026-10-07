@@ -24,3 +24,6 @@ Dockerfile.linux
 docker-compose.yml
 Dockerfile.windows
 build_xpl_ob.sh
+
+# ext_api_demo build output
+tools/ext_api_demo/BPExtDemo/

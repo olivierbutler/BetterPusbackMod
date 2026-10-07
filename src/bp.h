@@ -28,6 +28,7 @@
 #include "acf_outline.h"
 #include "clear_signal_gate.h"
 #include "driving.h"
+#include "ext_api_route.h"
 #include "pushback_step.h"
 #include "tug.h"
 #include "wing_walker.h"
@@ -193,6 +194,61 @@ void bp_delete_all_segs(void);
 bool_t acf_is_compatible(void);
 
 bool_t acf_doors_closed(bool_t);
+
+/*
+ * What the running operation is waiting for from the pilot or the aircraft
+ * (published by the external interface). NONE when nothing is blocking or no
+ * operation is running.
+ */
+typedef enum {
+    BP_BLOCKER_NONE,
+    BP_BLOCKER_AIRCRAFT_NOT_READY,      /* a door open, GPU or ASU connected */
+    BP_BLOCKER_SET_PARKING_BRAKE,
+    BP_BLOCKER_RELEASE_PARKING_BRAKE,
+    BP_BLOCKER_PLAN_REQUIRED
+} bp_blocker_t;
+
+bp_blocker_t bp_current_blocker(void);
+/* For AIRCRAFT_NOT_READY: the configured dataref still open ("" if unknown). */
+const char *bp_blocker_item(void);
+/* The controller's status line (translated), "" when there is none. */
+const char *bp_status_text(void);
+
+/*
+ * External routes (README-EXTERNAL-API.md). Loading replaces the current
+ * route with legs fitted from the aircraft's position through `poses`; it is
+ * accepted only when a route may be changed (before calling the tug, while
+ * the connected tug waits for a plan, or during the connected hold). On
+ * failure the current route is unchanged and `reason` says why.
+ */
+bool_t bp_route_load_external(const bp_ext_pose_t *poses, int n,
+    char *reason, size_t reason_len);
+/* Fits the route as loading would, from where the aircraft stands now, but
+ * changes nothing; allowed at any time. */
+bool_t bp_route_check_external(const bp_ext_pose_t *poses, int n,
+    char *reason, size_t reason_len);
+/* Why the route may not change now, or NULL when it may. */
+const char *bp_route_change_refused(void);
+/* Makes `segs` (local coordinates) the current route; empties the list. */
+void bp_route_replace(list_t *segs);
+bool_t bp_route_clear_external(char *reason, size_t reason_len);
+/* The current route's target poses (each leg's end); returns the count. */
+int bp_route_export(bp_ext_pose_t *poses, int max);
+/* Changes whenever the current route does. */
+uint64_t bp_route_signature(void);
+/* bp_init() has succeeded for the loaded aircraft (never tries it). */
+bool_t bp_is_inited(void);
+
+/* Where the current route came from (published as bp/route_source). */
+typedef enum {
+    BP_ROUTE_SOURCE_NONE,           /* there is no route */
+    BP_ROUTE_SOURCE_PLANNER,        /* drawn, changed or accepted in the planner */
+    BP_ROUTE_SOURCE_SAVED,          /* a saved slot, taken unchanged */
+    BP_ROUTE_SOURCE_EXTERNAL        /* loaded by another plugin */
+} bp_route_source_t;
+
+void bp_route_set_source(bp_route_source_t source);
+bp_route_source_t bp_route_source(void);
 
 bool_t acf_is_airliner(void);
 

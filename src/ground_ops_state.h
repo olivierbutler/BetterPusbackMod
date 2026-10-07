@@ -187,6 +187,8 @@ const ground_ops_snapshot_t *ground_ops_state_get(
 const char *ground_ops_stage_name(ground_ops_stage_t stage);
 const char *ground_ops_step_name(pushback_step_t step);
 const char *ground_ops_prep_name(ground_ops_prep_state_t prep);
+/* The caption shown for a crew line, translated; "" for none. */
+const char *ground_ops_caption_text(ground_ops_caption_t caption);
 ground_ops_stage_visual_t ground_ops_stage_visual(
     const ground_ops_snapshot_t *snapshot, ground_ops_stage_t stage);
 ground_ops_button_style_t ground_ops_button_style(

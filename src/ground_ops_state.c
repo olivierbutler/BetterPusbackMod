@@ -99,6 +99,15 @@ ground_ops_prep_name(ground_ops_prep_state_t prep)
     return (prep_names[prep]);
 }
 
+const char *
+ground_ops_caption_text(ground_ops_caption_t caption)
+{
+    if (caption <= GROUND_OPS_CAPTION_NONE ||
+        caption >= GROUND_OPS_CAPTION_COUNT)
+        return ("");
+    return _(caption_text[caption]);
+}
+
 static bool
 raw_equal(const ground_ops_raw_state_t *left,
     const ground_ops_raw_state_t *right)

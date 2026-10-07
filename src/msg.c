@@ -32,6 +32,7 @@
 #include <acfutils/wav.h>
 
 #include "cfg.h"
+#include "ext_api_voice.h"
 #include "msg.h"
 #include "xplane.h"
 
@@ -65,6 +66,20 @@ static uint64_t message_sequence = 0;
 static uint64_t caption_started_us = 0;
 static bool_t caption_issued = B_FALSE;
 static alc_t *alc = NULL;
+static char voice_pack[64] = "";
+static bool_t last_spoken = B_FALSE;        /* the last line was msg_speak's */
+static msg_spoken_t spoken_kind = MSG_SPOKEN_SYSTEM;
+static char spoken_text[256] = "";
+
+int msg_ext_voice_mode = 0;
+int msg_ext_voice_done_seq = 0;
+int msg_ext_voice_heartbeat = 0;
+static int heartbeat_seen = 0;
+static uint64_t heartbeat_us = 0;      /* when the heartbeat last moved */
+static bool_t ext_was_active = B_FALSE;
+static bool_t line_external = B_FALSE; /* last line handed to the external voice */
+static uint64_t line_done_us = 0;      /* when the external voice finished it */
+static uint64_t line_seq = 0;          /* its number (message_sequence) */
 
 /*
  * This examines an optional "cc_aliases.cfg" file in our messages directory.
@@ -268,6 +283,7 @@ msg_init(const char *my_lang, const char *icao, lang_pref_t lang_pref) {
         free(path);
     }
 
+    strlcpy(voice_pack, msg_dir_name, sizeof (voice_pack));
     free(msg_dir_name);
     fdr_find(&sound_on, "sim/operation/sound/sound_on");
 
@@ -305,6 +321,15 @@ msg_fini(void) {
     }
     inited = B_FALSE;
     caption_issued = B_FALSE;
+    voice_pack[0] = '\0';
+    line_external = B_FALSE;
+    line_done_us = 0;
+}
+
+const char *
+msg_voice_pack(void)
+{
+    return (inited ? voice_pack : "");
 }
 
 void
@@ -312,9 +337,15 @@ msg_play(message_t msg) {
     VERIFY3U(msg, <, MSG_NUM_MSGS);
     ASSERT(inited);
     last_msg = msg;
+    last_spoken = B_FALSE;
     message_sequence++;
     caption_started_us = microclock();
     caption_issued = B_TRUE;
+    line_external = msg_ext_voice_active();
+    line_seq = message_sequence;
+    line_done_us = 0;
+    if (line_external)
+        return;         /* the external voice speaks it (bp/msg_seq moved) */
     if (dr_geti(&sound_on) == 0)
         return;
     // log convertion, we are controling here audio volume
@@ -346,12 +377,80 @@ msg_get_caption_state(msg_caption_state_t *state)
     state->active = B_FALSE;
     state->message = last_msg;
     state->sequence = message_sequence;
+    state->spoken = last_spoken;
+    state->spoken_kind = spoken_kind;
+    state->spoken_text = spoken_text;
     if (!inited || !caption_issued)
         return;
 
-    duration_us = (uint64_t)(msgs[last_msg].wav->duration * 1000000.0);
+    duration_us = (uint64_t)(msg_dur_effective(last_msg) * 1000000.0);
     if (microclock() - caption_started_us <= duration_us)
         state->active = B_TRUE;
     else
         caption_issued = B_FALSE;
+}
+
+void
+msg_speak(msg_spoken_t kind, const char *text)
+{
+    if (text == NULL)
+        return;
+    strlcpy(spoken_text, text, sizeof (spoken_text));
+    spoken_kind = kind;
+    last_spoken = B_TRUE;
+    message_sequence++;
+    /* The panel's caption shows recordings only; it must not repeat the last. */
+    caption_issued = B_FALSE;
+    if (!msg_ext_voice_active())
+        XPLMSpeakString(text);   /* else the external voice says it */
+}
+
+void
+msg_ext_voice_poll(void)
+{
+    bool_t active;
+
+    if (msg_ext_voice_heartbeat != heartbeat_seen) {
+        heartbeat_seen = msg_ext_voice_heartbeat;
+        heartbeat_us = microclock();
+    }
+    /* Done once the external voice has finished the recorded line handed to
+     * it (spoken lines that came after it do not hold the operation). */
+    if (line_external && line_done_us == 0 && msg_ext_voice_done_seq > 0 &&
+        (uint64_t)msg_ext_voice_done_seq >= line_seq)
+        line_done_us = microclock();
+    active = msg_ext_voice_active();
+    if (active != ext_was_active) {
+        logMsg(BP_INFO_LOG "External voice %s", active ?
+            "active: ground crew lines are spoken by another plugin" :
+            "inactive: BetterPushback speaks the ground crew lines");
+        ext_was_active = active;
+    }
+}
+
+bool_t
+msg_ext_voice_active(void)
+{
+    return (msg_ext_voice_mode == 1 && heartbeat_us != 0 &&
+        microclock() - heartbeat_us <
+        (uint64_t)(BP_EXT_VOICE_ALIVE_S * 1000000.0));
+}
+
+/*
+ * Every caller waits on the line it has just played (or on one of two
+ * variants of it), so a line handed to the external voice is timed as the
+ * last line played, whichever variant `msg` names.
+ */
+double
+msg_dur_effective(message_t msg)
+{
+    double so_far, done_after;
+
+    if (!line_external)
+        return (msg_dur(msg));
+    so_far = (microclock() - caption_started_us) / 1000000.0;
+    done_after = line_done_us != 0 ?
+        (line_done_us - caption_started_us) / 1000000.0 : 0;
+    return (bp_ext_voice_effective_dur(msg_dur(last_msg), B_TRUE,
+        msg_ext_voice_active(), line_done_us != 0, done_after, so_far));
 }
