@@ -178,7 +178,10 @@ static struct {
 	int		    nb_doors;
 	char	    dr[MAX_DOOR][64];
 	bool_t	    dr_neg[MAX_DOOR];
+	int		    first_open;	/* index of the first item still open, -1 */
 } doors_info = {0};
+
+static bp_blocker_t bp_blocker = BP_BLOCKER_NONE;
 
 bp_state_t bp = {0};
 bp_long_state_t bp_ls = {0};
@@ -1131,6 +1134,7 @@ acf_doors_closed(bool_t with_cfg_flag) {
     if  (!doors_info.info_initialised) {
         doors_refs_init();
     }
+    doors_info.first_open = -1;
 
     if (with_cfg_flag) {
         int doors_check = DOOR_CHECK_ActiveWithMessage;
@@ -1140,7 +1144,7 @@ acf_doors_closed(bool_t with_cfg_flag) {
         }
     }
 
-    
+
     for (int i = 0 ; i< doors_info.nb_doors ; i++) {
         if (doors_info.dr[i][0] == '@') {
             result = dr_door_check_vf32(doors_info.dr[i]+1);
@@ -1148,11 +1152,38 @@ acf_doors_closed(bool_t with_cfg_flag) {
             result = dr_door_check(doors_info.dr[i]);
         }
         result = doors_info.dr_neg[i] ? !result : result;
-        if (!result) 
+        if (!result) {
+            doors_info.first_open = i;
             break;
+        }
     }
 
     return result;
+}
+
+bp_blocker_t
+bp_current_blocker(void)
+{
+    return (bp_started ? bp_blocker : BP_BLOCKER_NONE);
+}
+
+const char *
+bp_blocker_item(void)
+{
+    int i = doors_info.first_open;
+
+    if (bp_current_blocker() != BP_BLOCKER_AIRCRAFT_NOT_READY ||
+        i < 0 || i >= doors_info.nb_doors)
+        return ("");
+    return (doors_info.dr[i][0] == '@' ? doors_info.dr[i] + 1 :
+        doors_info.dr[i]);
+}
+
+const char *
+bp_status_text(void)
+{
+    return ((bp_started && bp_hint_status_str != NULL) ?
+        bp_hint_status_str : "");
 }
 
 bool_t
@@ -1645,14 +1676,14 @@ bp_state_init(void) {
         snprintf(msg, sizeof(msg), _("Pushback failure: X-Plane "
                                      "version too old. This plugin requires at least X-Plane "
                                      "%s to operate."), MIN_XPLANE_VERSION_STR);
-        XPLMSpeakString(msg);
+        msg_speak(MSG_SPOKEN_SYSTEM, msg);
         logMsg(BP_FATAL_LOG "x-plane version %d to old. Minimal version supported is X-Plane %s", bp_xp_ver,
                MIN_XPLANE_VERSION_STR);
         return (B_FALSE);
     }
 
     if (!read_acf_file_info()) {
-        XPLMSpeakString(_("Pushback failure: error reading aircraft "
+        msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: error reading aircraft "
                           "files from disk."));
         logMsg(BP_ERROR_LOG "Error reading aircraft files from disk.");
         return (B_FALSE);
@@ -1719,7 +1750,7 @@ audio_sys_init(void) {
         (void) conf_get_i(bp_conf, "lang_pref", (int *) &lang_pref);
         msg_fini();
         if (!msg_init(bp_get_lang(), icao, lang_pref)) {
-            XPLMSpeakString(_("Pushback failure: error initialising audio "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: error initialising audio "
                             "messages. Please reinstall BetterPushback."));
             logMsg(BP_FATAL_LOG "Error initialising audio");
             return (B_FALSE);
@@ -2125,7 +2156,7 @@ bp_start(void) {
     if (bp_started)
         return (B_TRUE);
     if (!bp_can_start(&reason)) {
-        XPLMSpeakString(reason);
+        msg_speak(MSG_SPOKEN_SYSTEM, reason);
         return (B_FALSE);
     }
 
@@ -2698,7 +2729,7 @@ pb_step_tug_load(void) {
                                          "in our in our library. Please sync your tug "
                                          "libraries before trying again."), tug_name);
             logMsg(BP_ERROR_LOG "%s", msg);
-            XPLMSpeakString(msg);
+            msg_speak(MSG_SPOKEN_SYSTEM, msg);
             bp_complete();
             return (B_FALSE);
         }
@@ -2825,7 +2856,7 @@ pb_step_waiting_for_pbrake(void) {
             brakes_set(B_TRUE);
     } else if ((!pbrake_is_set() && !cfg_ignore_park_break) ||
         /* wait until the rdy2conn message has stopped playing */
-        bp.cur_t - bp.last_voice_t < msg_dur(MSG_RDY2CONN)) {
+        bp.cur_t - bp.last_voice_t < msg_dur_effective(MSG_RDY2CONN)) {
         /* keep resetting the start time to enforce a delay */
         bp.step_start_t = bp.cur_t;
         return;
@@ -2843,7 +2874,7 @@ pb_step_waiting_for_pbrake(void) {
         if (zibo_chocks.writable) {
             dr_seti(&zibo_chocks, 0);
         } else {
-            XPLMSpeakString(_("Pushback warning: unable to remove "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback warning: unable to remove "
                               "your chocks. Remove them yourself, or else I "
                               "won't be able to push your aircraft."));
             logMsg(BP_WARN_LOG "unable to remove your chocks.");
@@ -3012,6 +3043,7 @@ pb_step_lift(void) {
             bp_hint_status_str = emergency_tow_is_active() ?
                 _("Tug connected, waiting for emergency tow plan") :
                 _("Tug connected, waiting for pushback plan");
+            bp_blocker = BP_BLOCKER_PLAN_REQUIRED;
             enable_replanning();
             return;
         }
@@ -3078,6 +3110,7 @@ pb_step_connected(void) {
         seg = list_head(&bp.segs);
         if  ( seg == NULL ) {
             bp_hint_status_str = _("Waiting for planning the pushback");
+            bp_blocker = BP_BLOCKER_PLAN_REQUIRED;
             return;
         }
     }
@@ -3087,13 +3120,15 @@ pb_step_connected(void) {
         disable_replanning();
 
     if (parking_brake_set ||
-        bp.cur_t - bp.last_voice_t < msg_dur(MSG_CONNECTED)) {
+        bp.cur_t - bp.last_voice_t < msg_dur_effective(MSG_CONNECTED)) {
         /*
          * Keep resetting the start time to enforce the state delay
          * after the message is done and the parking brake is released.
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes release");
+        if (parking_brake_set)
+            bp_blocker = BP_BLOCKER_RELEASE_PARKING_BRAKE;
     } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY) {
         if (!slave_mode) {
             bool_t backward = true; 
@@ -3131,7 +3166,7 @@ pb_step_waiting_for_doors(void) {
         int doors_check = DOOR_CHECK_ActiveWithMessage;
         conf_get_i_per_acf((char *)"doors_check", &doors_check);
         if (doors_check == DOOR_CHECK_ActiveWithMessage) {
-            XPLMSpeakString(_(MSG_DOORS_GPU));
+            msg_speak(MSG_SPOKEN_DOORS_GPU, _(MSG_DOORS_GPU));
         }
     } 
     bp.step++;
@@ -3175,10 +3210,10 @@ pb_step_pushing(void) {
             push_at_speed(0, bp.veh.max_accel, B_TRUE, B_TRUE);
         if (!bp.light_warn) {
             if (dr_geti(&drs.landing_lights_on) != 0) {
-                XPLMSpeakString(_("Hey! Quit blinding me with "
+                msg_speak(MSG_SPOKEN_LIGHTS, _("Hey! Quit blinding me with "
                                   "your landing lights! Turn them off!"));
             } else {
-                XPLMSpeakString(_("Hey! Quit blinding me with "
+                msg_speak(MSG_SPOKEN_LIGHTS, _("Hey! Quit blinding me with "
                                   "your taxi light! Turn it off!"));
             }
         }
@@ -3289,8 +3324,9 @@ pb_step_stopped(void) {
          */
         bp.step_start_t = bp.cur_t;
         bp_hint_status_str = _("Waiting for the parking brakes set");
+        bp_blocker = BP_BLOCKER_SET_PARKING_BRAKE;
     } else if (bp.cur_t - bp.step_start_t >= STATE_TRANS_DELAY &&
-               bp.cur_t - bp.last_voice_t >= msg_dur(MSG_OP_COMPLETE) +
+               bp.cur_t - bp.last_voice_t >= msg_dur_effective(MSG_OP_COMPLETE) +
                                              STATE_TRANS_DELAY) {
         msg_play(MSG_DISCO);
         bp.step++;
@@ -3312,7 +3348,7 @@ pb_step_lowering(void) {
             brakes_set(B_TRUE);
     }
 
-    if (bp.cur_t - bp.last_voice_t < msg_dur(MSG_OP_COMPLETE)) {
+    if (bp.cur_t - bp.last_voice_t < msg_dur_effective(MSG_OP_COMPLETE)) {
         /*
          * Keep resetting step_start_t to properly calculate
          * lift_fract relative to our step_start_t.
@@ -3981,8 +4017,8 @@ pb_step_starting2clear(void) {
     double turn_hdg, back_hdg, square_side;
 
     /* Let the message play out before starting to move */
-    if (bp.cur_t - bp.step_start_t < MAX(msg_dur(MSG_DONE_RIGHT),
-                                         msg_dur(MSG_DONE_LEFT)) + STATE_TRANS_DELAY)
+    if (bp.cur_t - bp.step_start_t < MAX(msg_dur_effective(MSG_DONE_RIGHT),
+                                         msg_dur_effective(MSG_DONE_LEFT)) + STATE_TRANS_DELAY)
         return;
 
     right = tug_clear_is_right();
@@ -4226,7 +4262,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
          * Stop the operation, somebody is trying to mess with us.
          */
         if (bp.step > PB_STEP_START && dr_geti(&drs.nw_steer_on) != 1) {
-            XPLMSpeakString(_("Pushback failure: your flight "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: your flight "
                               "controls are preventing me from steering the "
                               "aircraft. Unbind any buttons you have set to "
                               "\"toggle nosewheel steering\"."));
@@ -4314,6 +4350,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
     }
 
     bp_hint_status_str = NULL ;
+    bp_blocker = BP_BLOCKER_NONE;
 
     switch (bp.step) {
         case PB_STEP_OFF:
@@ -4369,6 +4406,7 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
                 }
             }
             else {
+                bp_blocker = BP_BLOCKER_AIRCRAFT_NOT_READY;
                 enable_replanning();
             }
             break;
@@ -4377,6 +4415,8 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             bp_hint_status_str = late_plan_requested ?
                 _("Ground crew securing the aircraft") :
                 _("Waiting for the parking brakes set");
+            if (!late_plan_requested && !pbrake_is_set())
+                bp_blocker = BP_BLOCKER_SET_PARKING_BRAKE;
             pb_step_waiting_for_pbrake();
             break;
         case PB_STEP_DRIVING_UP_CONNECT:
@@ -4391,6 +4431,8 @@ bp_run(float elapsed, float elapsed2, int counter, void *refcon) {
             bp_hint_status_str = bp.awaiting_plan ?
                 _("Tug connected, waiting for pushback plan") :
                 _("Lifting the aircraft");
+            if (bp.awaiting_plan)
+                bp_blocker = BP_BLOCKER_PLAN_REQUIRED;
             pb_step_lift();
             break;
         case PB_STEP_CONNECTED:
@@ -4544,6 +4586,233 @@ bp_num_segs(void) {
     if (!bp_init())
         return (0);
     return (list_count(&bp.segs));
+}
+
+/*
+ * May another plugin replace the route now? NULL when it may, else why not.
+ * A route can change before the tug is called, while the connected tug waits
+ * for a plan, and during the connected hold - never once the push moves.
+ */
+const char *
+bp_route_change_refused(void)
+{
+    bp_ext_route_gate_t gate;
+
+    gate.ready = (bp_init() != B_FALSE);
+    gate.slave_mode = gate.ready && slave_mode;
+    gate.planner_open = gate.ready && bp_cam_is_running();
+    gate.manual_push = gate.ready && push_manual.active;
+    gate.started = gate.ready && bp_started;
+    gate.awaiting_plan = gate.started && bp.awaiting_plan;
+    gate.can_replan = gate.started && bp_can_replan();
+    return (bp_ext_route_change_refused(&gate));
+}
+
+static void
+free_seg_list(list_t *segs)
+{
+    seg_t *seg;
+
+    while ((seg = list_remove_head(segs)) != NULL)
+        free(seg);
+    list_destroy(segs);
+}
+
+void
+bp_route_replace(list_t *segs)
+{
+    seg_t *seg;
+
+    bp_delete_all_segs();
+    while ((seg = list_remove_head(segs)) != NULL) {
+        seg->have_local_coords = B_TRUE;
+        seg_local2world(seg);
+        list_insert_tail(&bp.segs, seg);
+    }
+    list_destroy(segs);
+}
+
+/*
+ * Fits legs from the aircraft's position through `poses` into `segs` (a list
+ * created here). On failure the list is freed and `reason` says why.
+ */
+static bool_t
+fit_route(const bp_ext_pose_t *poses, int n, list_t *segs, char *reason,
+    size_t reason_len)
+{
+    vect2_t pos;
+    double hdg;
+    seg_t *seg;
+
+    if (n < 1) {
+        (void)snprintf(reason, reason_len, "the route has no positions");
+        return (B_FALSE);
+    }
+    list_create(segs, sizeof (seg_t), offsetof(seg_t, node));
+    pos = VECT2(dr_getf(&drs.local_x), -dr_getf(&drs.local_z));
+    hdg = normalize_hdg(dr_getf(&drs.hdg));
+    for (int i = 0; i < n; i++) {
+        double x, y, z;
+        int added;
+
+        XPLMWorldToLocal(poses[i].lat, poses[i].lon, 0, &x, &y, &z);
+        /* X-Plane's Z axis is flipped to ours */
+        added = compute_segs(&bp.veh, pos, hdg, VECT2(x, -z),
+            normalize_hdg(poses[i].hdg), segs);
+        if (added < 0) {
+            (void)snprintf(reason, reason_len, "position %d cannot be "
+                "reached from the one before it within this aircraft's "
+                "turning limits", i + 1);
+            free_seg_list(segs);
+            return (B_FALSE);
+        }
+        if (added > 0) {
+            /* Each position ends a leg, as a click in the planner does. */
+            seg = list_tail(segs);
+            seg->user_placed = B_TRUE;
+            pos = seg->end_pos;
+            hdg = seg->end_hdg;
+        }
+    }
+    if (list_head(segs) == NULL) {
+        (void)snprintf(reason, reason_len,
+            "the route does not move the aircraft");
+        list_destroy(segs);
+        return (B_FALSE);
+    }
+    return (B_TRUE);
+}
+
+bool_t
+bp_route_check_external(const bp_ext_pose_t *poses, int n, char *reason,
+    size_t reason_len)
+{
+    list_t segs;
+
+    if (!bp_init()) {
+        (void)snprintf(reason, reason_len,
+            "BetterPushback cannot work with this aircraft");
+        return (B_FALSE);
+    }
+    if (!fit_route(poses, n, &segs, reason, reason_len))
+        return (B_FALSE);
+    free_seg_list(&segs);
+    return (B_TRUE);
+}
+
+bool_t
+bp_route_load_external(const bp_ext_pose_t *poses, int n, char *reason,
+    size_t reason_len)
+{
+    const char *refused = bp_route_change_refused();
+    list_t segs;
+
+    if (refused != NULL) {
+        (void)snprintf(reason, reason_len, "%s", refused);
+        return (B_FALSE);
+    }
+    if (!fit_route(poses, n, &segs, reason, reason_len))
+        return (B_FALSE);
+
+    bp_route_replace(&segs);
+    bp_route_set_source(BP_ROUTE_SOURCE_EXTERNAL);
+    logMsg(BP_INFO_LOG "External route loaded: %d position(s), %u "
+        "segment(s)", n, (unsigned)list_count(&bp.segs));
+    return (B_TRUE);
+}
+
+static bp_route_source_t route_source = BP_ROUTE_SOURCE_NONE;
+
+void
+bp_route_set_source(bp_route_source_t source)
+{
+    route_source = source;
+}
+
+bp_route_source_t
+bp_route_source(void)
+{
+    if (!inited || list_head(&bp.segs) == NULL)
+        return (BP_ROUTE_SOURCE_NONE);
+    return (route_source);
+}
+
+bool_t
+bp_route_clear_external(char *reason, size_t reason_len)
+{
+    const char *refused = bp_route_change_refused();
+
+    if (refused != NULL) {
+        (void)snprintf(reason, reason_len, "%s", refused);
+        return (B_FALSE);
+    }
+    bp_delete_all_segs();
+    logMsg(BP_INFO_LOG "Route cleared by another plugin");
+    return (B_TRUE);
+}
+
+/* A segment's end in geographic coordinates. */
+static geo_pos2_t
+seg_end_geo(const seg_t *seg)
+{
+    double lat, lon, alt;
+
+    if (seg->have_world_coords)
+        return (seg->end_pos_geo);
+    /* X-Plane's Z axis is flipped to ours */
+    XPLMLocalToWorld(seg->end_pos.x, 0, -seg->end_pos.y, &lat, &lon, &alt);
+    return (GEO_POS2(lat, lon));
+}
+
+int
+bp_route_export(bp_ext_pose_t *poses, int max)
+{
+    int n = 0;
+
+    if (!inited)
+        return (0);
+    for (const seg_t *seg = list_head(&bp.segs); seg != NULL && n < max;
+        seg = list_next(&bp.segs, seg)) {
+        geo_pos2_t end;
+
+        /* Leg ends: the user-placed segments and the last segment. */
+        if (!seg->user_placed && list_next(&bp.segs, seg) != NULL)
+            continue;
+        end = seg_end_geo(seg);
+        poses[n].lat = end.lat;
+        poses[n].lon = end.lon;
+        poses[n].hdg = normalize_hdg(seg->end_hdg);
+        poses[n].backward = (seg->backward != B_FALSE);
+        n++;
+    }
+    return (n);
+}
+
+bool_t
+bp_is_inited(void)
+{
+    return (inited);
+}
+
+uint64_t
+bp_route_signature(void)
+{
+    uint64_t h = 1469598103934665603ULL;     /* FNV-1a */
+
+    if (!inited)
+        return (0);
+    for (const seg_t *seg = list_head(&bp.segs); seg != NULL;
+        seg = list_next(&bp.segs, seg)) {
+        double v[4] = { seg->end_pos.x, seg->end_pos.y, seg->end_hdg,
+            (double)seg->backward + 2.0 * (double)seg->user_placed };
+        const unsigned char *b = (const unsigned char *)v;
+
+        for (size_t i = 0; i < sizeof (v); i++) {
+            h ^= b[i];
+            h *= 1099511628211ULL;
+        }
+    }
+    return (h);
 }
 
 

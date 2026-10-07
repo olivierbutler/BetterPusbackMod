@@ -8,12 +8,19 @@
 #include <acfutils/types.h>
 
 #include "ground_ops_window_state.h"
+#include "ground_ops_state.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 bool_t ground_ops_ui_init(void);
+/*
+ * The controller state the panel is drawn from, collected whether or not the
+ * panel is visible (the external interface publishes it). B_FALSE before
+ * ground_ops_ui_init().
+ */
+bool_t ground_ops_ui_collect_state(ground_ops_raw_state_t *raw);
 void ground_ops_ui_fini(void);
 void ground_ops_ui_reset_context(void);
 bool_t ground_ops_ui_is_enabled(void);

@@ -45,6 +45,7 @@
 #include "cab_view.h"
 #include "cfg.h"
 #include "emergency_tow.h"
+#include "ext_api.h"
 #include "ff_a320_intf.h"
 #include "ground_ops_ui.h"
 #include "msg.h"
@@ -839,7 +840,7 @@ cab_cam_handler(XPLMCommandRef cmd, XPLMCommandPhase phase, void *refcon)
 
     if (!cab_view_start())
     {
-        XPLMSpeakString(_("ERROR: Unable to select pushback tug view at this time."));
+        msg_speak(MSG_SPOKEN_SYSTEM, _("ERROR: Unable to select pushback tug view at this time."));
         return (0);
     }
 
@@ -1082,7 +1083,7 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     {
         if (bp_started)
         {
-            XPLMSpeakString(_("Pushback failure: smartcopilot "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: smartcopilot "
                               "attempted to switch master/slave or network "
                               "connection lost. Stopping operation."));
         }
@@ -1100,7 +1101,7 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     {
         if (bp_started)
         {
-            XPLMSpeakString(_("Pushback failure: Shared Flight "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: Shared Flight "
                               "attempted to switch pilot flying or network "
                               "connection lost. Stopping operation."));
         }
@@ -1114,7 +1115,7 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     {
         if (bp_started)
         {
-            XPLMSpeakString(_("Pushback failure: smartcopilot "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: smartcopilot "
                               "attempted to switch master/slave or network "
                               "connection lost. Stopping operation."));
         }
@@ -1128,7 +1129,7 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     {
         if (bp_started)
         {
-            XPLMSpeakString(_("Pushback failure: Shared Flight "
+            msg_speak(MSG_SPOKEN_SYSTEM, _("Pushback failure: Shared Flight "
                               "attempted to switch pilot flying or network "
                               "connection lost. Stopping operation."));
         }
@@ -1319,12 +1320,15 @@ XPluginStart(char *name, char *sig, char *desc)
 
     reload_floop_ID = XPLMCreateFlightLoop(&reload_floop);
 
+    ext_api_init();
+
     return (1);
 }
 
 PLUGIN_API void
 XPluginStop(void)
 {
+    ext_api_fini();
     ground_ops_ui_fini();
     cfg_cleanup();
     bp_conf_fini();
