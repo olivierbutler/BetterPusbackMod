@@ -200,8 +200,10 @@ part of the operation state: `bp/state_seq` moves when they change.
 | 3 | `release_parking_brake` | The parking brake is released (connected, ready to push) |
 | 4 | `plan_required` | A push route is planned |
 
-The item kind is a best guess from the dataref's name; aircraft without a
-`BetterPushback_doors.cfg` entry report no item.
+The item kind is a best guess from the dataref's name. Aircraft without a
+`BetterPushback_doors.cfg` entry are checked with X-Plane's own doors and
+GPU, so their item is `sim/flightmodel2/misc/door_open_ratio` (kind `door`)
+or `sim/cockpit2/electrical/GPU_generator_volts` (kind `gpu`).
 
 ## Version 4: external voice
 

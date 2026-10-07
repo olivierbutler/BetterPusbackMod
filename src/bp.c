@@ -959,7 +959,7 @@ brakes_set(bool_t flag) {
  *      with door! tag, if the value of the door/GPU/ASU dataref is below 0.1, the door/GPU/ASU is considered as open or active
 */
 static void
-doors_refs_init(void)
+doors_cfg_read(void)
 {
 	char		buf[128] = { 0 };
 	FILE		*fp;
@@ -1094,6 +1094,28 @@ errout:
     doors_info.info_valid = B_FALSE;
     logMsg(BP_ERROR_LOG "Fail reading doors info :%d", doors_info.nb_doors);
 	fclose(fp);
+}
+
+/*
+ * Aircraft without a BetterPushback_doors.cfg entry are checked with what
+ * X-Plane itself knows: the doors drawn by the aircraft (Plane Maker's
+ * doors, door_open_ratio) and X-Plane's GPU, which only gives power while
+ * connected. An entry with no door lines still turns the check off.
+ */
+static void
+doors_refs_init(void)
+{
+    doors_cfg_read();
+    if (doors_info.info_valid)
+        return;
+    doors_info.nb_doors = 0;
+    strlcpy(doors_info.dr[doors_info.nb_doors++],
+        "@sim/flightmodel2/misc/door_open_ratio", sizeof (doors_info.dr[0]));
+    strlcpy(doors_info.dr[doors_info.nb_doors++],
+        "sim/cockpit2/electrical/GPU_generator_volts",
+        sizeof (doors_info.dr[0]));
+    logMsg(BP_INFO_LOG "no BetterPushback_doors.cfg entry for this aircraft: "
+        "checking X-Plane's doors and GPU");
 }
 
 /* check the  door status 
