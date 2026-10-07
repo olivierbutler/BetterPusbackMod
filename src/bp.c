@@ -993,6 +993,7 @@ doors_refs_init(void)
 		}
 	}
 	fclose(fp);
+	free(line);
 
 
 	filename = mkpathname(bp_xpdir, "Output", "preferences",  "BetterPushback_doors.cfg", NULL);
@@ -1066,7 +1067,7 @@ doors_refs_init(void)
 		} else if ( (strcmp(buf, "door") == 0) || (strcmp(buf, "door!") == 0) ) {
 			if ((!doors_info.info_valid) || (doors_info.nb_doors >= MAX_DOOR -1) )
 				continue;
-    		if (fscanf(fp, "%64s", doors_info.dr[doors_info.nb_doors]) != 1) { 
+    		if (fscanf(fp, "%63s", doors_info.dr[doors_info.nb_doors]) != 1) { 
 	    		logMsg(BP_ERROR_LOG "Error parsing BetterPushback_doors.cfg: expected " 
 		    	    "string following \"door\"."); 
 			    goto errout; 
@@ -1849,6 +1850,7 @@ read_acf_file_info(void) {
 #undef    PARSE_FLAG_PARAM
 
     fclose(fp);
+    free(line);
 
     return (B_TRUE);
 }
