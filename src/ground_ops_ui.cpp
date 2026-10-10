@@ -585,7 +585,7 @@ public:
     {
         const char *lang= NULL;
         (void)conf_get_str(bp_conf, "lang", &lang);
-        use_chinese_font = (lang && strcmp(lang, "zh") == 0);
+        use_chinese_font = (lang && strncmp(lang, "zh", 2) == 0);
 
         SetWindowTitle(_("BetterPushback Ground Operations"));
         apply_presentation_contract();

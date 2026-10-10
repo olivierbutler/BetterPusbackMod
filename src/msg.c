@@ -185,17 +185,43 @@ msg_init(const char *my_lang, const char *icao, lang_pref_t lang_pref) {
         case LANG_PREF_MATCH_REAL:
             /*
              * For match real our preference order is:
-             * 1) try "my_lang_CC" for country-local accent of my language
-             * 2) if arpt_lang == my_lang, try "my_lang" for generic
+             * 1) if my_lang carries a dialect suffix ("zh_CN"), try it
+             *    as-is; else try "my_lang_CC" for country-local accent
+             * 2) if arpt_lang == the base language, try it for generic
              *	language fallback
              * 3) try "en_CC" for country-local English accent
              * 4) try "en-arpt_lang" for generic English accent of local
              *	language
              */
-            snprintf(match_set[0], sizeof(*match_set), "%s_%s",
-                     my_lang, cc);
-            if (strcmp(arpt_lang, my_lang) == 0)
-                strlcpy(match_set[1], my_lang, sizeof(*match_set));
+            {
+                /*
+                 * my_lang may itself carry a dialect suffix ("zh_CN",
+                 * "pt_BR"). That names an exact voice pack, so try it
+                 * as-is first, then fall back to the generic base
+                 * language ("zh", "pt") when the airport speaks it.
+                 * Without this, a dialect code such as "zh_CN" would
+                 * only ever build the nonsensical "zh_CN_CN" candidate
+                 * and drop straight through to the English packs.
+                 * TODO: Method edited by Deepseek, review required.
+                 */
+                char base_lang[8];
+                const char *sep = strchr(my_lang, '_');
+                size_t base_len = sep != NULL ? (size_t)(sep - my_lang) :
+                    strlen(my_lang);
+
+                if (base_len >= sizeof(base_lang))
+                    base_len = sizeof(base_lang) - 1;
+                memcpy(base_lang, my_lang, base_len);
+                base_lang[base_len] = '\0';
+
+                if (sep != NULL)
+                    strlcpy(match_set[0], my_lang, sizeof(*match_set));
+                else
+                    snprintf(match_set[0], sizeof(*match_set), "%s_%s",
+                        my_lang, cc);
+                if (strcmp(arpt_lang, base_lang) == 0)
+                    strlcpy(match_set[1], base_lang, sizeof(*match_set));
+            }
             snprintf(match_set[2], sizeof(*match_set), "en_%s", cc);
             snprintf(match_set[3], sizeof(*match_set), "en-%s", arpt_lang);
             CTASSERT(MAX_MATCHES > 3);
