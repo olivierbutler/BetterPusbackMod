@@ -887,6 +887,9 @@ pbrake_is_set(void) {
 static bool_t
 fast_pbrake_is_set(void)
 {
+    if (slave_mode && pb_set_override)
+        return (pb_set_remote);
+
     if (drs.pbrake_is_custom)
         return (dr_getf(&drs.pbrake) != 0);
     if (dr_getf(&drs.pbrake) != 0)

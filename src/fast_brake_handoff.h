@@ -56,7 +56,13 @@ bp_fast_brake_handoff_update(bp_fast_brake_handoff_t *handoff,
      */
     if (!pedal_release_observable) {
         handoff->phase = BP_FAST_BRAKE_VERIFIED;
-        return BP_FAST_BRAKE_COMPLETE;
+        /*
+         * The common brake circuit cannot prove a physical pedal release,
+         * but BPB must still stop writing its synthetic toe-brake hold before
+         * lowering or releasing the tug.  Report the withdrawal once, then
+         * complete on the following frame through the VERIFIED case above.
+         */
+        return BP_FAST_BRAKE_WITHDRAW;
     }
     if (handoff->phase == BP_FAST_BRAKE_HOLDING) {
         /* Observe a subsequent frame without any BPB toe-brake write. */

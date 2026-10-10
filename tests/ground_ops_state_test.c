@@ -345,6 +345,9 @@ test_fast_brake_handoff_accepts_locked_common_brake(void)
     bp_fast_brake_handoff_reset(&handoff, true);
 
     assert(bp_fast_brake_handoff_update(&handoff, true, false, false) ==
+        BP_FAST_BRAKE_WITHDRAW);
+    assert(handoff.phase == BP_FAST_BRAKE_VERIFIED);
+    assert(bp_fast_brake_handoff_update(&handoff, true, false, false) ==
         BP_FAST_BRAKE_COMPLETE);
     assert(handoff.phase == BP_FAST_BRAKE_VERIFIED);
 }
