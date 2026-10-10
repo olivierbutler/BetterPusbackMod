@@ -217,29 +217,76 @@ static void test_parking_loss_restores_hold_and_retries(void)
 
 static void test_xp122_common_brake_ignores_bpb_wheel_pressure(void)
 {
-    reset_test(true, false, false, LIFT_GRAB);
-    drs.pbrake_trap.value = 0;
-    drs.pbrake.value = 0;
-    drs.pbrake_rat.value = 0.9;
-    drs.lbrake.value = drs.rbrake.value = 0.9;
+    for (int type = LIFT_GRAB; type <= LIFT_WINCH; type++) {
+        reset_test(true, false, false, type);
+        drs.pbrake_trap.value = 0;
+        drs.pbrake.value = 0;
+        drs.pbrake_rat.value = 0.9;
+        drs.lbrake.value = drs.rbrake.value = 0.9;
+        bp.step = PB_STEP_STOPPED;
+
+        /* BPB's own master-cylinder pressure is not a parking-brake signal. */
+        pb_step_stopped();
+        assert(bp.step == PB_STEP_STOPPED && brake_writes == 2);
+        assert(!bp.fast_brakes_relinquished && geometry_writes == 0);
+
+        /*
+         * Keep both physical pedals held while selecting a mechanically
+         * locked/common parking brake.  BPB must withdraw its synthetic hold
+         * before geometry advances and must never write a synthetic zero.
+         */
+        pilot_left = pilot_right = 0.9;
+        drs.pbrake.value = 1;
+        pb_step_stopped();
+        assert(bp.step == PB_STEP_STOPPED);
+        assert(bp.fast_brakes_relinquished && brake_writes == 2);
+        assert(bp.fast_brake_handoff.phase == BP_FAST_BRAKE_VERIFIED);
+        assert(drs.pbrake.value == 1 && zero_writes == 0);
+
+        pilot_frame(0.9, 0.9);
+        pb_step_stopped();
+        assert(bp.step == PB_STEP_LOWERING);
+        assert(bp.fast_brakes_relinquished && zero_writes == 0);
+        assert(drs.pbrake.value == 1);
+
+        pilot_frame(0.9, 0.9);
+        pb_step_lowering();
+        assert(bp.step == PB_STEP_UNGRABBING && geometry_writes != 0);
+        pb_step_ungrabbing();
+        assert(bp.step == PB_STEP_WAITING4OK2DISCO);
+        assert(bp.fast_brakes_relinquished && zero_writes == 0);
+        assert(drs.pbrake.value == 1);
+
+        pilot_frame(0.9, 0.9);
+        unsigned held_writes = brake_writes;
+        bp_complete();
+        assert(brake_writes == held_writes && zero_writes == 0);
+        assert(drs.pbrake.value == 1);
+    }
+}
+
+static void test_fast_slave_uses_remote_parking_brake_override(void)
+{
+    reset_test(true, true, false, LIFT_GRAB);
     bp.step = PB_STEP_STOPPED;
-
-    /* BPB's own master-cylinder pressure is not a parking-brake signal. */
-    pb_step_stopped();
-    assert(bp.step == PB_STEP_STOPPED && brake_writes == 2);
-    assert(!bp.fast_brakes_relinquished && geometry_writes == 0);
-
-    /* A mechanically locked/common parking brake can retain pressure. */
-    drs.pbrake.value = 1;
+    pb_set_override = true;
+    pb_set_remote = true;
+    drs.pbrake.value = 0;
+    drs.pbrake_rat.value = 0;
     pb_step_stopped();
     assert(bp.step == PB_STEP_LOWERING);
-    assert(!bp.fast_brakes_relinquished);
-    assert(bp.fast_brake_handoff.phase == BP_FAST_BRAKE_VERIFIED);
-    pilot_frame(0.9, 0.9);
-    pb_step_lowering();
-    assert(bp.step == PB_STEP_UNGRABBING && geometry_writes != 0);
-    pb_step_ungrabbing();
-    assert(bp.step == PB_STEP_WAITING4OK2DISCO && zero_writes == 2);
+    assert(brake_writes == 0);
+
+    reset_test(true, true, false, LIFT_GRAB);
+    bp.step = PB_STEP_STOPPED;
+    pb_set_override = true;
+    pb_set_remote = false;
+    drs.pbrake.value = 1;
+    drs.pbrake_rat.value = 1;
+    pb_step_stopped();
+    assert(bp.step == PB_STEP_STOPPED);
+    assert(brake_writes == 0);
+    assert(strstr(bp_hint_status_str, "parking brakes") != NULL);
 }
 
 static void test_xp122_valve_brake_retains_pedal_handoff(void)
@@ -423,6 +470,7 @@ int main(void)
     test_held_pedals_then_release_successful_cleanup();
     test_parking_loss_restores_hold_and_retries();
     test_xp122_common_brake_ignores_bpb_wheel_pressure();
+    test_fast_slave_uses_remote_parking_brake_override();
     test_xp122_valve_brake_retains_pedal_handoff();
     test_stuck_single_invalid_pedal_and_abort();
     test_reconnect_and_loss_before_geometry();
