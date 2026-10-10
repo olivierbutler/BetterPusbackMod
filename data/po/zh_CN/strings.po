@@ -213,44 +213,44 @@ msgid   "Doors/GPU/ASU check"
 msgstr  "检查舱门/GPU/ASU状态"
 
 msgid   "Hide the magic squares"
-msgstr  "隐藏快捷按钮。"
+msgstr  "隐藏快捷按钮"
 
 msgid   "Magic squares position"
-msgstr  "快捷按钮位置。"
+msgstr  "快捷按钮位置"
 
 msgid   "Hide default X-Plane 11 tug"
-msgstr  "隐藏预设的X-Plane 11后推车。"
+msgstr  "隐藏预设的X-Plane 11后推车"
 
 msgid   "Always connect the tug first"
-msgstr  "始终先连接后推车。"
+msgstr  "始终先连接后推车"
 
 msgid   "Connect tug first"
-msgstr  "先连接后推车。"
+msgstr  "先连接后推车"
 
 msgid   "Tug cab view"
-msgstr  "后推车驾驶室视角。"
+msgstr  "后推车驾驶室视角"
 
 msgid "Radio output device"
-msgstr "无线电输出设备。"
+msgstr "无线电输出设备"
 
 #: cfg.c:658
 msgid "Sound output device"
-msgstr "声音输出设备。"
+msgstr "声音输出设备"
 
 msgid "Audio settings"
-msgstr "音频设置。"
+msgstr "音频设置"
 
 msgid "Auto disconnect when done"
-msgstr "完成时自动断开连接。"
+msgstr "完成时自动断开连接"
 
 msgid "Miscellaneous"
-msgstr "其他。"
+msgstr "其他"
 
 msgid "Ignore check parking brake is set"
-msgstr "忽略检查停机刹车是否已设置。"
+msgstr "忽略检查停机刹车是否已设置"
 
 msgid "Settings related to the current aircraft"
-msgstr "当前飞机相关的设置。"
+msgstr "当前飞机相关的设置"
 
 msgid "BetterPushback is open-source software. See COPYING for more information."
 msgstr "BetterPushback是开源软件。请参阅COPYING以获取更多信息。"
