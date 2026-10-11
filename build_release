@@ -112,7 +112,7 @@ function install_icon_files() {
 		'disconnect.png'
 		'reconnect.png'
 	)
-	for DIR in data/icons/[a-z][a-z]; do
+	for DIR in data/icons/[a-z]*; do
 		for FILE in ${FILES[@]}; do
 			install_xtra_file "$DIR/$FILE" ""
 		done

@@ -227,7 +227,8 @@ comboList_t_ language_list_[] = {{_("X-Plane's language"), B_FALSE, "xp_l"},
                                  {"Português", B_FALSE, "pt"},
                                  {"Português do Brasil", B_FALSE, "pt_BR"},
                                  {"Русский", B_FALSE, "ru"},
-                                 {"中文", B_TRUE, "zh"}};
+                                 {"繁體中文", B_TRUE, "zh"},
+                                 {"简体中文", B_TRUE, "zh_CN"}};
 
 comboList_t language_list = {language_list_, IM_ARRAYSIZE(language_list_),
                              "##lang_list", 0};
@@ -386,7 +387,7 @@ void SettingsWindow::LoadConfig(void) {
         break;
       }
     }
-    is_chinese = (strcmp(lang, "zh") == 0);
+    is_chinese = (strncmp(lang, "zh", 2) == 0);
   }
 
   lang_pref = LANG_PREF_MATCH_REAL;

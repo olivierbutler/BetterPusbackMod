@@ -58,7 +58,11 @@ static const translation_expectation_t expectations[] = {
     {"zh", "进行中", "设置停机刹车", "特大",
         "完成時自動斷開連接。",
         "需要飛行員操作時自動展開", "推出界面", "傳統魔方按鈕",
-        "顯示引導員"}
+        "顯示引導員"},
+    {"zh_CN", "进行中", "设置停机刹车", "特大",
+        "完成时自动断开连接。",
+        "需要飞行员操作时自动展开", "推出界面", "传统快捷按钮",
+        "展示引导员"}
 };
 
 static const char *const eyebrow_msgids[] = {
