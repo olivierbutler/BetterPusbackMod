@@ -247,7 +247,7 @@ msgid "Miscellaneous"
 msgstr "其他"
 
 msgid "Ignore check parking brake is set"
-msgstr "忽略检查停机刹车是否已设置"
+msgstr "忽略检查停留刹车是否已设置"
 
 msgid "Settings related to the current aircraft"
 msgstr "当前飞机相关的设置"
@@ -450,7 +450,7 @@ msgid "Ground crew: Tug approaching."
 msgstr "地勤：后推车正在接近。"
 
 msgid "Ground crew: Set parking brake."
-msgstr "地勤：请设置停机刹车。"
+msgstr "地勤：请设置停留刹车。"
 
 msgid "Ground crew: Ready to connect."
 msgstr "地勤：准备连接。"
@@ -633,7 +633,7 @@ msgid "Wait for automatic connection"
 msgstr "等待自动连接"
 
 msgid "Parking brake required"
-msgstr "需要设置停机刹车"
+msgstr "需要设置停留刹车"
 
 msgid "The tug is ready to connect"
 msgstr "后推车准备连接"
@@ -705,7 +705,7 @@ msgid "Tug connected and crew ready"
 msgstr "后推车已连接，地勤已就绪"
 
 msgid "Release the parking brake"
-msgstr "松开停机刹车"
+msgstr "松开停留刹车"
 
 msgid "Starting emergency tow"
 msgstr "开始紧急拖行"
@@ -735,7 +735,7 @@ msgid "Accepted route and steering state are retained"
 msgstr "保留已接受的路线和转向状态"
 
 msgid "Release parking brake if set, then resume"
-msgstr "如已设置停机刹车，请松开后继续"
+msgstr "如已设置停留刹车，请松开后继续"
 
 msgid "Controlled deceleration in progress"
 msgstr "正在受控减速"
@@ -771,7 +771,7 @@ msgid "Aircraft stopped"
 msgstr "飞机已停止"
 
 msgid "Parking brake confirmation is required"
-msgstr "需要确认停机刹车"
+msgstr "需要确认停留刹车"
 
 msgid "Lowering the nose gear"
 msgstr "正在降下前起落架"
@@ -957,7 +957,7 @@ msgid "STANDBY"
 msgstr "待命"
 
 msgid "Set the parking brake"
-msgstr "设置停机刹车"
+msgstr "设置停留刹车"
 
 msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
