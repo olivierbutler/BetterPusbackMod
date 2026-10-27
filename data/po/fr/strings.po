@@ -1119,7 +1119,7 @@ msgid "METAR -- | ATIS --"
 msgstr "METAR -- | ATIS --"
 
 msgid "Ground Operations interface size"
-msgstr "Taille de l’interface des opérations au sol"
+msgstr "Taille de l'interface des opérations au sol"
 
 msgid "Standard"
 msgstr "Standard"
@@ -1131,7 +1131,7 @@ msgid "Extra large"
 msgstr "Très grande"
 
 msgid "Scales the complete Ground Operations interface, including text, controls, spacing and hit targets."
-msgstr "Ajuste toute l’interface des opérations au sol, y compris le texte, les commandes, les espacements et les zones d’interaction."
+msgstr "Ajuste toute l'interface des opérations au sol, y compris le texte, les commandes, les espacements et les zones d'interaction."
 
 msgid "Auto-expand for pilot actions"
 msgstr "Développer automatiquement pour les actions du pilote"

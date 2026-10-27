@@ -34,7 +34,7 @@
 #define WND_STANDARD_FONT "Resources/fonts/DejaVuSans.ttf"
 #define CN_WND_STANDARD_FONT "Resources/fonts/NotoSansCJK-SC-Regular.otf"
 
-constexpr int WND_FONT_SIZE = 17;
+constexpr int WND_FONT_SIZE = 15;
 constexpr ImU32 DEF_WND_BG_COL = IM_COL32(15, 15, 15, 240);
 
 namespace ImGui
